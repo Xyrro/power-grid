@@ -11,5 +11,18 @@
   "frac_alt_topology_within_0.0001_rel": 0.6484149855907781,
   "frac_alt_within_1%_of_benefit|benefit>0.1%": 0.9337175792507204,
   "mean_hamming_best_vs_2nd": 1.8328530259365994
+ },
+ "case30_raw": {
+  "n": 347,
+  "switch_cost": 0.0,
+  "mean_benefit_%": 21.35888441604643,
+  "frac_zero_benefit(<0.01%)": 0.0,
+  "mean_lines_opened": 2.887608069164265,
+  "frac_opening_full_budget": 0.8876080691642652,
+  "frac_alt_topology_within_1e-06_rel": 0.9164265129682997,
+  "frac_alt_topology_within_1e-05_rel": 0.9164265129682997,
+  "frac_alt_topology_within_0.0001_rel": 0.9164265129682997,
+  "frac_alt_within_1%_of_benefit|benefit>0.1%": 0.9337175792507204,
+  "mean_hamming_best_vs_2nd": 2.0720461095100866
  }
 }
