@@ -344,6 +344,23 @@ error on the topologies Model 1 ends up choosing is 4.9–8.1 %). The exact LP r
 critic.
 
 
+### F14. RACLearn-style confidence-aware fixing transfers to line switching; MC-dropout adds nothing here
+
+RACLearn (Park et al., IEEE TPS 2024; see [`raclearn_comparison.md`](raclearn_comparison.md)) fixes the
+most confident binaries by MC-dropout (1/σ) and solves the reduced MILP. Same recipe on IEEE 118
+(100 test scenarios, full MILP 7.0 s):
+
+| fixing strategy | lines fixed | gap closed | time (speed-up) |
+|---|---|---|---|
+| MC-dropout, fix 50 % / 90 % / 97 % / all | 50 / 90 / 97 / 99 % | 101.8 / **101.7** / 68.3 / 60.8 % | 4.07 s (1.7×) / **0.34 s (20×)** / 0.06 s / 0.03 s |
+| probability margin, fix 50 % / 90 % / 97 % | | 101.5 / 101.6 / 68.1 % | 4.55 / 0.40 / 0.07 s |
+| keep the 10 most likely-to-open lines free | 94 % | **102.2 %** | **0.33 s (21×)** |
+
+MC-dropout and the probability margin rank decisions almost identically (≈ 1 % of line decisions are
+"open"), and quality falls off a cliff between 90 % and 97 % fixed, where the lines that should be
+opened sit. For sparse switching decisions, choose the *free* set by probability of being opened
+rather than fixing by a symmetric confidence.
+
 ## 5. Recommended changes to the framework
 
 | box in the diagram | change | evidence |

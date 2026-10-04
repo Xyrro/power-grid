@@ -51,4 +51,30 @@ arXiv 2211.15755v3 (read in full).
 `scripts/run_confidence.py` adds MC-dropout to the switching head (p = 0.5, T = 30), ranks line
 decisions by 1/σ (RACLearn) or by |p − 0.5| (entropy-style baseline), fixes the top X %, repairs by
 dropping fixed-open decisions if the MILP becomes infeasible, and solves the reduced MILP. Results:
-`results/case118/confidence_results.md` (summarised in RESEARCH.md once finished).
+`results/case118/confidence_results.md`.
+
+### Results (IEEE 118, 100 test scenarios, full MILP 7.0 s on average)
+
+| fixing strategy | lines fixed | gap closed | matches / beats MILP | time | speed-up |
+|---|---|---|---|---|---|
+| MC-dropout confidence (RACLearn), fix 50 % | 50 % | 101.8 % | 95 % | 4.07 s | 1.7× |
+| MC-dropout confidence (RACLearn), fix 90 % | 90 % | **101.7 %** | 96 % | 0.34 s | **20×** |
+| MC-dropout confidence (RACLearn), fix 97 % | 97 % | 68.3 % | 59 % | 0.06 s | 112× |
+| MC-dropout confidence (RACLearn), fix all | 99 % | 60.8 % | 41 % | 0.03 s | 219× |
+| probability margin, fix 50 / 90 / 97 % | | 101.5 / 101.6 / 68.1 % | | 4.55 / 0.40 / 0.07 s | |
+| keep the 10 most likely-to-open lines free (ours) | 94 % | **102.2 %** | 94 % | 0.33 s | **21×** |
+
+(>100 % = better than the 0.01 %-gap / 20 s-limited reference MILP.) Repair was never needed: every
+fixed instance stayed feasible.
+
+* RACLearn's recipe transfers to line switching: fixing the 90 % most confident line decisions keeps
+  MILP quality at a 20× speed-up.
+* **MC-dropout gives no edge over the plain probability margin here** (their confident-subset
+  accuracies are within 0.03 pp of each other up to 95 % fixed), unlike RACLearn's unit-commitment
+  result. In OTS ~1 % of decisions are "open", so both measures rank the same obvious "keep closed"
+  lines first.
+* **There is a cliff between 90 % and 97 % fixed**: the last few percent of decisions are exactly the
+  lines that should be opened. A symmetric confidence threshold must stop before them; the
+  OTS-specific rule "fix everything closed except the K + 7 lines most likely to be opened" reaches
+  the same quality while fixing more variables, with no MC sampling.
+
