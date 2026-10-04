@@ -396,3 +396,37 @@ class UCDispatchNet(nn.Module):
         p, r, _ = P.balance(p, avail.clone(), ud, load)
         va = P.angles(p, r, load)
         return p, va, r
+
+
+def _grad(args):
+    load_, avail, u0, sr, u = args
+    return _W["m"].dispatch_gradient(UCScenario(load=load_, avail=avail, u0=u0, sr=sr), u)
+
+
+def train_uc_dualgrad(m1, tr, cfg, steps=300, bs=32, lr=3e-4, workers=2, seed=0, log_every=50):
+    """Cost-aware fine-tuning with EXACT LP sensitivities: evaluate the dispatch LP at the relaxed
+    commitment p = sigmoid(logits) and descend along d cost / d u from its bound duals (a differentiable
+    LP layer via the envelope theorem; the 'exact critic' alternative to a learned Model 2)."""
+    rng = np.random.default_rng(seed)
+    opt = torch.optim.Adam(m1.net.parameters(), lr=lr)
+    n = len(tr["load"])
+    hist, t0 = [], time.time()
+    with mp.get_context("spawn").Pool(workers, initializer=_init, initargs=(cfg,)) as pool:
+        for step in range(steps):
+            m1.net.train()
+            idx = rng.choice(n, bs, replace=False)
+            p = torch.sigmoid(m1.logits(tr, idx))                          # [B, T, G]
+            pn = p.detach().numpy()
+            res = pool.map(_grad, [(tr["load"][i], tr["avail"][i], tr["u0"][i], tr["sr"][i], pn[k])
+                                   for k, i in enumerate(idx)])
+            cost = np.array([r[0] for r in res])
+            g = torch.as_tensor(np.array([r[1] for r in res]) / tr["obj"][idx][:, None, None], dtype=torch.float32)
+            loss = (g * p).sum((1, 2)).mean()
+            opt.zero_grad(); loss.backward()
+            torch.nn.utils.clip_grad_norm_(m1.net.parameters(), 1.0)
+            opt.step()
+            hist.append(float(np.mean(cost / tr["obj"][idx] - 1)))
+            if log_every and (step % log_every == 0 or step == steps - 1):
+                print(f"  [uc-dualgrad] step {step:4d} relaxed-commitment cost gap {np.mean(hist[-log_every:]) * 100:.3f}% "
+                      f"({time.time() - t0:.0f}s)", flush=True)
+    return m1, hist

@@ -420,6 +420,29 @@ class UCModel:
         return UCSolution(st, float(res.fun), np.round(u).astype(np.int8), p, r, th, f, shed=shed, short=self._short, time=dt,
                           gap=float(getattr(res, "mip_gap", 0) or 0))
 
+    def dispatch_gradient(self, sc: UCScenario, u):
+        """Cost of the dispatch LP with a (possibly fractional) commitment u [T, G] and its exact gradient
+        d cost / d u from the LP's bound duals (envelope theorem), including the start-up/shut-down
+        variables derived from u (v = max(u - u_prev, 0), w = max(u_prev - u, 0))."""
+        T, G = self.T, self.dims["G"]
+        u = np.asarray(u, float).reshape(T, G)
+        lo, hi, lb, ub = self._rhs_bounds(sc, u)
+        eq = lo == hi
+        res = linprog(self.c, A_ub=sp.vstack([self.A[~eq & np.isfinite(hi)], -self.A[~eq & np.isfinite(lo)]]),
+                      b_ub=np.r_[hi[~eq & np.isfinite(hi)], -lo[~eq & np.isfinite(lo)]],
+                      A_eq=self.A[eq], b_eq=lo[eq], bounds=np.c_[lb, ub], method="highs")
+        if res.status != 0:
+            return np.inf, np.zeros((T, G))
+        marg = res.lower.marginals + res.upper.marginals
+        get = lambda name: marg[self.off[name][0]:self.off[name][0] + self.off[name][1] * T].reshape(T, G)
+        mu, mv, mw = get("u"), get("v"), get("w")
+        prev = np.vstack([sc.u0[None, :], u[:-1]])
+        up = (u > prev).astype(float)
+        dn = (u < prev).astype(float)
+        grad = mu + up * mv - dn * mw
+        grad[:-1] += -up[1:] * mv[1:] + dn[1:] * mw[1:]       # u_t is also u_prev of period t+1
+        return float(res.fun), grad
+
     def solve_dispatch(self, sc: UCScenario, u, relax=False) -> UCSolution:
         """LP with a fixed commitment (the framework's 'LP solver'), or the LP relaxation (relax=True,
         u ignored). Always feasible thanks to load shedding / reserve shortfall slacks."""

@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from otsl.uc import UCModel, UCScenario, load_rts_gmlc, repair_min_updown  # noqa: E402
 from otsl.ucdata import load  # noqa: E402
 from otsl.ucml import (DispatchOracle, UCDispatchNet, UCFeaturizer, build_uc_model1, canonical_labels,  # noqa: E402
-                       train_uc_bce, uc_metrics)
+                       train_uc_bce, train_uc_dualgrad, uc_metrics)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from run_model1 import fmt_table  # noqa: E402
@@ -141,6 +141,8 @@ if __name__ == "__main__":
     ap.add_argument("--n_test", type=int, default=400)
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--workers", type=int, default=3)
+    ap.add_argument("--dg_steps", type=int, default=300)
+    ap.add_argument("--critic_epochs", type=int, default=15)
     a = ap.parse_args()
     cfg = UC_CONFIGS[a.cfg]
     T = cfg["T"]
@@ -236,7 +238,7 @@ if __name__ == "__main__":
             m2.eval()
             opt = torch.optim.Adam(mc.net.parameters(), lr=3e-4)
             P = m2.phys
-            for ep in range(15):
+            for ep in range(a.critic_epochs):
                 perm = rng.permutation(len(tr["load"]))
                 for i in range(0, len(perm), 64):
                     j = perm[i:i + 64]
@@ -253,6 +255,9 @@ if __name__ == "__main__":
                     loss = (cost / tt(tr["obj"][j])).mean() + 10 * (F.relu(P.flows(va).abs() - P.fmax) ** 2).sum((-1, -2)).mean()
                     opt.zero_grad(); loss.backward(); opt.step()
             score1(mc, f"M1 trained through frozen Model 2 [{crit}] st={st}")
+    mdg = copy.deepcopy(m1)
+    train_uc_dualgrad(mdg, tr, cfg, steps=a.dg_steps, bs=32, workers=a.workers)
+    score1(mdg, "M1 fine-tuned with exact LP sensitivities (dual gradient)")
     md_c = fmt_table(crows, ["method", "no_shed_no_shortfall_%", "gap_median_%", "gap_mean_served_%", "gap_mean_%",
                              "unit_hour_accuracy_%", "units_on"])
     print(md_c)
