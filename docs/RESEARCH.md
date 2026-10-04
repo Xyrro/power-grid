@@ -184,3 +184,22 @@ against cost differences of 0.01–1 % between good commitments.
 
 <!-- UC-U7 -->
 
+
+### U8. Model 1 without MILP labels
+
+The framework needs a MILP solve per training example. Train instead on labels that need **one LP**:
+the rounded LP relaxation after adequacy repair (agrees with the MILP on 98.0 % of unit-hours; 0.027 s
+instead of 0.49 s per label on B1), then fine-tune with the dispatch LP as critic (U4; the RLOO baseline
+cancels the per-instance reference cost, so no MILP cost is needed either). Same GNN and features, same
+1,000 test hours:
+
+| Model 1 (B1) | MILP solves in training | one-shot: no shed / median gap | + adequacy repair | screening: no shed (LPs) |
+|---|---|---|---|---|
+| BCE on MILP labels | 4,000 | 74.0 % / 0.012 % | 87.7 % | 94.6 % (5.2) |
+| BCE on repaired LP-relaxation labels | **0** | 79.5 % / 0.021 % | 88.0 % | 88.2 % (1.8) |
+| MILP labels + REINFORCE | 4,000 | 93.9 % / 0.051 % | 96.6 % | 97.4 % (1.7) |
+| **LP-relaxation labels + REINFORCE** | **0** | **94.1 % / 0.070 %** | **97.4 %** | 95.5 % (1.1) |
+| REINFORCE from scratch (400 steps) | 0 | 94.4 % / 0.66 % | 97.0 % | 98.6 % (3.5), median 0.29 % |
+
+On B1 the MILP labels buy almost nothing once the critic fine-tuning is applied. The single-period
+relaxation is tight, though; B2 (below) tests whether this survives a weaker relaxation.
