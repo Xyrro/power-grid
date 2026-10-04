@@ -3,7 +3,42 @@
 *Working research log. Code: this repository. Literature details: [`literature.md`](literature.md).
 Raw numbers: `results/<case>/*.json`.*
 
-<!-- RESULTS-TLDR -->
+
+## TL;DR
+
+* **The core idea is published.** DA-DNN (Kim & Kim 2025) already trains switching predictions
+  through an exact DC-OPF layer on generation cost, i.e. Model 1 + the dashed arrow. OptiGridML
+  (Meng et al. 2025) is a two-GNN topology + flow design. A new paper must therefore position
+  itself on what those works do not cover — see §2 and the findings below.
+* **The labels are ambiguous.** 55–92 % of DC-OTS test instances have an *exactly* tied alternative
+  topology (series lines, interchangeable switches). Plain DC-OTS also switches the full budget 89–98 %
+  of the time, even when it saves nothing. A tiny per-switch cost ("parsimonious labels") removes
+  much of this at 0.05 pp of benefit; equivalence-aware soft labels lift one-shot quality on IEEE 118
+  from 61 % to 85 % of the gap closed.
+* **One-shot "Model 1 → LP" is fragile**: 50–66 % gap closed; on IEEE 30 30–48 % of the predicted
+  topologies are infeasible. Factorised per-line outputs open both of two mutually exclusive lines.
+* **Fixes that work** (all keep the LP as the final step, so the answer is feasible and never worse
+  than DC-OPF):
+  1. *LP-verified candidate screening* (~26 LPs): 99.6–101 % on both grids.
+  2. *REINFORCE with the exact LP as critic*, warm-started from imitation: **MILP quality with one
+     LP** on IEEE 118 (mean gap −0.0014 %), 96 % on IEEE 30. 300 steps, < 15 min of CPU.
+  3. *GNN-guided partial fixing + MILP*: optimal-or-better on IEEE 118 in 0.23 s vs 7.0 s (30×).
+* **The dashed arrow should not go through a learned Model 2**: doing so cut the captured benefit
+  from 69 % to 0–43 % (Model 1 learns to stop switching). Use the exact LP as the critic.
+* **Model 2 should predict PG only.** VA follows from DC power flow on the switched network. The
+  framework's direct (PG, VA) regression had 0 % fully feasible outputs (19 MW worst KCL mismatch);
+  the physics decoder satisfies balance, Ohm's law and generator limits by construction and halves
+  the cost error. As a screener of topologies it is beaten by simply running the cheap LPs.
+* **Strong simple baselines.** kNN over stored MILP topologies + LP check (Johnson et al. 2020) is
+  near-optimal with ≤ 6 LPs whenever the base topology is fixed; the learned pipeline only pulls ahead
+  under topology change (99.4 % vs 93.3 % with unseen outages).
+* **Switching benefits are complementary** on IEEE 118 (a line that saves only with two others
+  costs on its own), so greedy / beam / one-step value learning plateau at ~50 %, and label-free RL
+  never discovers the good sets (0 %). MILP labels are still needed as a warm start there.
+* **MSE to the MILP solution is the wrong test metric** (rank correlation with the optimality gap
+  0.18–0.51; equally optimal answers have VA MSE up to 0.011 rad²). Report the gap closed,
+  feasibility rate and solver calls.
+
 
 ## 1. The framework as studied
 
@@ -263,7 +298,52 @@ message gating) and dual features from one DC-OPF on the *actual* outaged topolo
   case for a GNN ("GNN team") therefore has to be made on larger grids, multi-outage shifts, or
   transfer *across grids*, which an MLP cannot do at all; this is untested here.
 
-<!-- RESULTS-118-MORE -->
+<!-- MODEL2-118 -->
+
+## 5. Recommended changes to the framework
+
+| box in the diagram | change | evidence |
+|---|---|---|
+| MILP solver (labels) | add a small per-switch cost; store equivalent / near-optimal topologies (no-good cuts or single-swap LP checks) | F1, F8, F9 |
+| Model 1 loss | BCE (on equivalence-aware targets) as warm start, then **REINFORCE with the exact LP** as the cost-aware critic | F2, F3, F9 |
+| Model 1 features | add one all-closed DC-OPF solve (flows, LMPs, flow-limit duals) and the in-service flags | F2, F12 |
+| Model 1 output → LP | decode a *set* of candidates (top subsets + samples + all-closed) and keep the cheapest LP; or partial-fix + small MILP | F2, F9 |
+| dashed arrow | point it at the LP (policy gradient or a differentiable LP layer), not at Model 2 | F3 |
+| Model 2 | predict PG only → balance repair → VA = B(z)⁻¹P; penalise line overloads; use it only where the per-topology problem is expensive | F4, F5 |
+| validation / testing | gap closed, feasibility before fallback, solver calls, wall time; never MSE to one MILP solution | F7, F11 |
+| baselines | always report all-closed DC-OPF, kNN-LP, partial-fix MILP, and the MILP time | F9 |
+| benchmarks | report the share of instances with non-trivial benefit; include topology-shifted test sets | F9, F12 |
+
+## 6. Research backlog (ranked)
+
+1. **Cost-to-go learning for complementary switching** (F10): Q-learning / MCTS over switching sets
+   with the LP as the environment, warm-started from MILP imitation; compare with the one-shot
+   REINFORCE policy on grids where good switching sets are complementary.
+2. **Autoregressive / set-valued Model 1**: a decoder that picks lines sequentially, conditioned on
+   earlier picks, can represent "open 4 *or* 5" (F2) — a cheaper alternative to screening.
+3. **Scale and transfer**: PGLib 300 / 1354 / 2869-bus cases and *cross-grid* training (one GNN for
+   several grids) — the setting where a GNN can beat an MLP or kNN (F12). The case still needs a
+   faster MILP (Gurobi, tighter big-M, or partial fixing for the labels themselves).
+4. **Differentiable LP layer vs REINFORCE** (DA-DNN-style cvxpylayers vs policy gradient): gradient
+   bias and variance, wall time, local optima.
+5. **Guarantees**: conformal calibration of the number of candidates so that P(gap ≤ ε) ≥ 1 − α;
+   the all-closed fallback already guarantees "never worse than DC-OPF".
+6. **Harder per-topology problems** where Model 2 is worth it: security-constrained (N-1) OTS,
+   multi-period OTS with switching transitions, AC feasibility of DC-OTS topologies.
+7. **Benchmark contribution**: an OTS learning dataset with solution pools / equivalence classes
+   (no public OPF dataset — PGLearn, OPFData — has switching labels).
+
+## 7. Reproducibility and caveats
+
+* Everything runs on CPU with open-source HiGHS (`scripts/gen_all.sh`, `scripts/run_all_118.sh`,
+  `scripts/topology_chain.sh`); ~6 h on 4 cores in total. Seeds are fixed; single training seed per
+  model (no confidence intervals yet — differences of a few points on top-1 decoding are within noise).
+* Reference MILPs use a 0.01 % (IEEE 118) / 0.001 % (IEEE 30) relative gap and a 20 s / 30 s limit;
+  5.5 % of IEEE 118 instances hit the limit, which is why some methods "beat" the MILP (gap closed > 100 %).
+* Wall times were measured with several jobs sharing 4 cores; LP / MILP call counts are the more
+  reliable cost measure. One fixed-topology DC-OPF takes ~5 ms (IEEE 30) / ~10 ms (IEEE 118) on one core.
+* DC model only; the switching decisions have not been checked for AC feasibility.
+
 
 
 
