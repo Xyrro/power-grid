@@ -47,11 +47,11 @@ if __name__ == "__main__":
     def evaluate(m1, label):
         p = m1.predict(te)
         z1 = decode_threshold(p, K, sw)
-        rows.append(metrics(oracle.costs(te["pd"], z1, keys), te, z1, f"{label} | top-1 decode -> LP",
+        rows.append(metrics(oracle.costs(te["pd"], z1, keys), te, z1, f"{label}: top-1 decode -> LP",
                             LPs_per_scenario=1.0))
         cl = candidates_from_probs(p, K, sw, n_samples=16)
         zb, cb, nl = pick_best(oracle, te["pd"], cl, keys, sc)
-        rows.append(metrics(cb, te, zb, f"{label} | candidate screening -> LP", LPs_per_scenario=float(nl.mean())))
+        rows.append(metrics(cb, te, zb, f"{label}: candidate screening -> LP", LPs_per_scenario=float(nl.mean())))
         print(rows[-2]["method"], round(rows[-2]["benefit_captured_%"], 2), "|", rows[-1]["method"],
               round(rows[-1]["benefit_captured_%"], 2), flush=True)
 

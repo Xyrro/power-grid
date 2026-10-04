@@ -53,7 +53,7 @@ if __name__ == "__main__":
     extra["label_LPs_per_scenario"] = float(nlp_tr.mean())
     extra["n_states_train"] = len(st_tr)
     print(f"value labels: {len(st_tr)} states, {nlp_tr.mean():.0f} LPs/scenario, "
-          f"{extra['label_time_s_per_scenario']:.2f}s/scenario (4 workers)")
+          f"{extra['label_time_s_per_scenario']:.2f}s/scenario wall ({a.workers} workers)")
 
     feat = Featurizer(case, stack_states(st_tr), duals=True, fixed_closed=m.fixed_closed)
     torch.manual_seed(a.seed)

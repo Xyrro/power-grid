@@ -143,11 +143,11 @@ if __name__ == "__main__":
         t_pred = time.time() - t
         z1 = decode_threshold(p, K, sw)
         c1 = oracle.costs(te["pd"], z1, keys)
-        add(f"{name} | top-1 decode -> LP", z1, c1, np.ones(len(c1)), t_pred + 0)
+        add(f"{name}: top-1 decode -> LP", z1, c1, np.ones(len(c1)), t_pred + 0)
         t = time.time()
         cl = candidates_from_probs(p, K, sw, n_samples=16)
         zb, cb, nl = pick_best(oracle, te["pd"], cl, keys, sc)
-        add(f"{name} | candidate screening -> LP", zb, cb, nl, t_pred + time.time() - t)
+        add(f"{name}: candidate screening -> LP", zb, cb, nl, t_pred + time.time() - t)
         torch.save(m1.net.state_dict(), os.path.join(out_dir, f"model1_{name.replace(' ', '_')}.pt"))
 
     # ---------------------------------------------------------------- cost-aware fine-tuning
@@ -161,10 +161,10 @@ if __name__ == "__main__":
     extra["rl_reward_curve"] = [float(np.mean(hist[i:i + 10])) for i in range(0, len(hist), 10)]
     p = m1rl.predict(te)
     z1 = decode_threshold(p, K, sw)
-    add("GNN +duals +REINFORCE | top-1 decode -> LP", z1, oracle.costs(te["pd"], z1, keys), np.ones(len(z1)), 0)
+    add("GNN +duals +REINFORCE: top-1 decode -> LP", z1, oracle.costs(te["pd"], z1, keys), np.ones(len(z1)), 0)
     cl = candidates_from_probs(p, K, sw, n_samples=16)
     zb, cb, nl = pick_best(oracle, te["pd"], cl, keys, sc)
-    add("GNN +duals +REINFORCE | candidate screening -> LP", zb, cb, nl, 0)
+    add("GNN +duals +REINFORCE: candidate screening -> LP", zb, cb, nl, 0)
     models["GNN +duals +REINFORCE"] = m1rl
     torch.save(m1rl.net.state_dict(), os.path.join(out_dir, "model1_GNN_duals_REINFORCE.pt"))
 
@@ -183,7 +183,7 @@ if __name__ == "__main__":
             times.append(s.time)
         sub = {k: v[:n_pf] for k, v in te.items() if isinstance(v, np.ndarray) and v.ndim >= 1}
         sub["switch_cost"] = te["switch_cost"]
-        r = metrics(np.array(costs), sub, np.array(zs), f"GNN +duals | partial-fix MILP (free={keep})",
+        r = metrics(np.array(costs), sub, np.array(zs), f"GNN +duals: partial-fix MILP (free={keep})",
                     LPs_per_scenario=float("nan"), time_ms=1000 * float(np.mean(times)),
                     milp_time_ms_same_subset=1000 * float(te["ots_time"][:n_pf].mean()))
         rows.append(r)
