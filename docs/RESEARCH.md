@@ -5,23 +5,30 @@
 A side study that (wrongly) read "switching status" as transmission-line switching is kept in
 [`ots/RESEARCH_OTS.md`](ots/RESEARCH_OTS.md).*
 
-**TL;DR (B1, single-hour network-constrained UC on RTS-GMLC; B2 in §4).**
+**TL;DR** (RTS-GMLC, 73 thermal units; B1 = one hour, B2 = twelve hours with min up/down, ramping, start-ups).
 
 1. *Model 1 → LP* is published (Tang et al. 2023; RACLearn adds confidence fixing). What can be new is below.
-2. **A third of the MILP labels are arbitrary** (exactly tied optima, identical units), so BCE and the MSE
-   test metric penalise correct answers (U1, U7).
-3. **The framework's one-shot pipeline under-commits**: 59–74 % of hours served without shedding or reserve
-   shortfall (MILP: 98.7 %). Rounding the LP relaxation and a kNN-over-schedules baseline are stronger (U2, U3).
-4. **Fine-tuning Model 1 with the exact dispatch LP as critic** (REINFORCE, 1 min) fixes this: 93.9 % with one
-   LP, 97.4 % with 1.7 LPs (U4) — and **without any MILP labels** (imitate the repaired LP relaxation, then
-   fine-tune): 94.1 % (U8).
-5. **The dashed arrow hurts**: every Model 1 trained through a frozen learned Model 2 is worse than plain
-   imitation; the framework's direct (PG, VA) Model 2 drives it to commit 18–27 units instead of 15 (U6).
-6. **Model 2 should be a physics decoder** (unit positions → closed-form balance → VA from DC power flow):
-   70–74 % fully feasible vs 0 % for direct (PG, VA) regression (U6).
-7. **Partial fixing + MILP**: RACLearn's confidence rule is right up to 90 % fixed (4×); beyond that the
-   cost-aware model's probabilities are the better ranking (95 % fixed: 1.3 % vs 18 % mean gap) (U5).
-
+2. **Most MILP labels are arbitrary** — 34 % of B1 hours have an exactly tied optimum; 21 % (B1) and 62.5 % (B2)
+   of labels change when identical units are reordered — so BCE and the MSE test metric penalise correct
+   answers (U1, U7, V1).
+3. **The framework's one-shot pipeline under-commits**: 59–74 % of B1 hours and 10–17 % of B2 instances are
+   served without shedding or reserve shortfall (MILP: 98.7 % / 92.5 %) (U3, V2).
+4. **Fine-tuning Model 1 with the exact dispatch LP as critic** (REINFORCE, 1–13 min) fixes this: 93.9 % (B1)
+   and 80.8 % (B2) with one LP; 97.4 % / 87.5 % with candidate screening (U4, V2).
+5. **MILP labels are not needed**: imitating the repaired LP relaxation (18× / 87× cheaper per label) and then
+   fine-tuning matches or beats the MILP-labelled model on both benchmarks (94.1 % / 84.2 % one-shot). The
+   imitation stage is needed: REINFORCE from scratch over-commits (U8, V4).
+6. **The dashed arrow hurts**: every Model 1 trained through a frozen learned Model 2 is worse than plain
+   imitation; the framework's direct (PG, VA) Model 2 drives it to commit 18–27 units instead of 15. The exact
+   LP is the critic to use (U6).
+7. **Model 2 should be a physics decoder** (unit positions → closed-form balance → VA from DC power flow):
+   70–74 % fully feasible vs 0 % for direct (PG, VA) regression; it judges commitments only if the implied
+   shedding / reserve shortfall is priced, and even then the exact LP is the better screener (U6).
+8. **Partial fixing + MILP**: RACLearn's confidence rule is right up to 90 % fixed on B1 (4×) and 80 % on B2
+   (1.9×, slightly *cheaper* than the time-limited full MILP); beyond that on B1 the cost-aware model's
+   probabilities are the better ranking (95 % fixed: 1.3 % vs 18 % mean gap) (U5, V3).
+9. **Open problem**: on B2 the fine-tuned model buys coverage with extra units (+4.7–9.1 % cost on served
+   instances); learning alone does not reach MILP quality there, the hybrid with a reduced MILP does.
 
 ## 1. The framework and the benchmarks
 
