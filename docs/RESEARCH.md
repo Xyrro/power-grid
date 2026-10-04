@@ -5,7 +5,23 @@
 A side study that (wrongly) read "switching status" as transmission-line switching is kept in
 [`ots/RESEARCH_OTS.md`](ots/RESEARCH_OTS.md).*
 
-<!-- UC-TLDR -->
+**TL;DR (B1, single-hour network-constrained UC on RTS-GMLC; B2 in §4).**
+
+1. *Model 1 → LP* is published (Tang et al. 2023; RACLearn adds confidence fixing). What can be new is below.
+2. **A third of the MILP labels are arbitrary** (exactly tied optima, identical units), so BCE and the MSE
+   test metric penalise correct answers (U1, U7).
+3. **The framework's one-shot pipeline under-commits**: 59–74 % of hours served without shedding or reserve
+   shortfall (MILP: 98.7 %). Rounding the LP relaxation and a kNN-over-schedules baseline are stronger (U2, U3).
+4. **Fine-tuning Model 1 with the exact dispatch LP as critic** (REINFORCE, 1 min) fixes this: 93.9 % with one
+   LP, 97.4 % with 1.7 LPs (U4) — and **without any MILP labels** (imitate the repaired LP relaxation, then
+   fine-tune): 94.1 % (U8).
+5. **The dashed arrow hurts**: every Model 1 trained through a frozen learned Model 2 is worse than plain
+   imitation; the framework's direct (PG, VA) Model 2 drives it to commit 18–27 units instead of 15 (U6).
+6. **Model 2 should be a physics decoder** (unit positions → closed-form balance → VA from DC power flow):
+   70–74 % fully feasible vs 0 % for direct (PG, VA) regression (U6).
+7. **Partial fixing + MILP**: RACLearn's confidence rule is right up to 90 % fixed (4×); beyond that the
+   cost-aware model's probabilities are the better ranking (95 % fixed: 1.3 % vs 18 % mean gap) (U5).
+
 
 ## 1. The framework and the benchmarks
 
