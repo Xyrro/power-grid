@@ -194,7 +194,24 @@ load by up to 1 GW.
 Neither variant estimates cost well enough for the decision it is meant to inform: a 7.5–13 % cost error
 against cost differences of 0.01–1 % between good commitments.
 
-<!-- UC-U6-SCREEN -->
+**Model 2 as a screener** (pick 3 of the 20 kNN candidates by Model 2's cost, check those with the LP; 400
+test hours). The first run priced only the predicted PG, which ranks under-committed candidates as cheapest
+(Spearman −0.27 to −0.30 with the true cost; worse than random). Pricing what the dispatch LP would pay for
+the imbalance (VOLL) and for the reserve headroom shortfall fixes the sign:
+
+| screener (B1) | no shed / shortfall | median gap | Spearman with true cost |
+|---|---|---|---|
+| LP-check all 20 candidates (20 LPs) | **97.5 %** | **0.000 %** | – |
+| Model 2 cost of PG only, top-3 → LP (any variant) | 22–25 % | 1,600–1,800 % | −0.27 to −0.30 |
+| direct (PG, VA) Model 2 + implied slack, top-3 → LP | 80.3 % | 0.23 % | 0.56 |
+| physics Model 2 + implied slack, top-3 → LP | 81.8 % | 0.36 % | **0.73** |
+| physics + overload penalty + implied slack, top-3 → LP | 89.3 % | 5.0 % | 0.54 |
+| random 3 → LP | 83.0 % | 2.06 % | – |
+
+* The framework's Model 2 output (PG, VA) does not contain what makes a commitment good or bad here — whether
+  load and reserve can be covered — unless the shortfall is priced explicitly.
+* Even then, ranking by Model 2 barely beats random on shedding: with the LP at ~30 ms, checking all
+  candidates with the exact LP is the better screener.
 
 **The dashed arrow** (Model 1 fine-tuned through a frozen Model 2, loss = Model 2's predicted cost incl. VOLL
 on imbalance + overload penalty; relaxed u or straight-through rounding; 400 test hours, same initial Model 1):
