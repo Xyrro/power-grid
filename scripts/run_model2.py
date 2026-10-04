@@ -251,7 +251,7 @@ if __name__ == "__main__":
         brows.append(metrics(np.array(csel), te, np.array(zsel), f"random top-{mtop} -> LP",
                              LPs_per_scenario=float(mtop + 1)))
     res["spearman_per_scenario"] = spear
-    cols_b = ["method", "gap_mean_%", "benefit_captured_%", "beats_or_ties_milp_%", "LPs_per_scenario", "spearman"]
+    cols_b = ["method", "gap_mean_%", "gap_closed_%", "benefit_captured_%", "beats_or_ties_milp_%", "LPs_per_scenario", "spearman"]
     md_b = fmt_table(brows, cols_b)
     print(md_b)
 
@@ -277,7 +277,7 @@ if __name__ == "__main__":
                         critic_cost_err_on_own_choice_pct=float(np.mean(np.abs(sc_pred[fin] - cc[fin]) / cc[fin]) * 100))
             crows.append(r)
             print("  ", {k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items()})
-    cols_c = ["method", "gap_mean_%", "benefit_captured_%", "feasible_%", "n_open", "critic_cost_err_on_own_choice_pct"]
+    cols_c = ["method", "gap_mean_%", "gap_closed_%", "benefit_captured_%", "feasible_%", "n_open", "critic_cost_err_on_own_choice_pct"]
     md_c = fmt_table(crows, cols_c)
     print(md_c)
     with open(os.path.join(out_dir, "model2_results.md"), "w") as f:

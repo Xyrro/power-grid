@@ -110,7 +110,7 @@ if __name__ == "__main__":
         rows.append(metrics(cl, te, zl, f"learned-value beam search (B={Bw}, R={R})",
                             LPs_per_scenario=float(nl.mean()), time_ms=1000 * (time.time() - t) / len(cl)))
         print(rows[-1])
-    cols = ["method", "gap_mean_%", "gap_p95_%", "benefit_captured_%", "beats_or_ties_milp_%", "feasible_%",
+    cols = ["method", "gap_mean_%", "gap_p95_%", "gap_closed_%", "benefit_captured_%", "beats_or_ties_milp_%", "feasible_%",
             "n_open", "LPs_per_scenario", "time_ms"]
     md = fmt_table(rows, cols)
     print(md)

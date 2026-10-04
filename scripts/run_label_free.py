@@ -75,7 +75,7 @@ if __name__ == "__main__":
     evaluate(m_rl, f"REINFORCE from scratch, no MILP labels ({a.steps} steps)")
     torch.save(m_rl.net.state_dict(), os.path.join(out_dir, "model1_GNN_duals_RLscratch.pt"))
 
-    cols = ["method", "gap_mean_%", "gap_p95_%", "benefit_captured_%", "beats_or_ties_milp_%", "feasible_%", "n_open",
+    cols = ["method", "gap_mean_%", "gap_p95_%", "gap_closed_%", "benefit_captured_%", "beats_or_ties_milp_%", "feasible_%", "n_open",
             "LPs_per_scenario"]
     md = fmt_table(rows, cols)
     print(md)

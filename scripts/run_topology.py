@@ -72,7 +72,7 @@ if __name__ == "__main__":
                 zb, cb, nl = pick_best(oracle, te["pd"], cl, keys, float(te["switch_cost"]), base=bt)
                 add(f"{kind.upper()}+duals, trained {trn}: screening", tn, te, zb, cb, nl)
 
-    cols = ["method", "gap_mean_%", "benefit_captured_%", "beats_or_ties_milp_%", "feasible_%", "LPs_per_scenario"]
+    cols = ["method", "gap_mean_%", "gap_closed_%", "benefit_captured_%", "beats_or_ties_milp_%", "feasible_%", "LPs_per_scenario"]
     md = fmt_table(rows, cols)
     print(md)
     os.makedirs("results/case30", exist_ok=True)

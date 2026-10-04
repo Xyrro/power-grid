@@ -179,10 +179,13 @@ def metrics(cost, test, z=None, label="", **extra):
     cost_f = np.where(feas, cost + sc * n_open, c0)          # infeasible -> fall back to all-closed
     gap = (cost_f - cs) / cs * 100
     ben = c0 - cs
-    m = ben > 1e-6 * c0
+    gap0 = ben / cs * 100                       # all-closed DC-OPF gap
+    m = ben > 1e-4 * c0                         # per-scenario ratios only where switching is worth >0.01%
     cap = (c0[m] - cost_f[m]) / ben[m] * 100
     out = {"method": label, "feasible_%": feas.mean() * 100, "gap_mean_%": gap.mean(),
            "gap_p95_%": np.percentile(gap, 95), "gap_max_%": gap.max(),
+           # robust headline: share of the all-closed optimality gap that the method closes
+           "gap_closed_%": 100 * (1 - gap.mean() / gap0.mean()) if gap0.mean() > 0 else np.nan,
            "benefit_captured_%": cap.mean() if m.any() else np.nan,
            "beats_or_ties_milp_%": (gap <= 1e-4).mean() * 100}
     if z is not None:

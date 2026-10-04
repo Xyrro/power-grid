@@ -207,7 +207,7 @@ if __name__ == "__main__":
     }
     print("MSE analysis:", extra["mse_analysis"])
 
-    cols = ["method", "gap_mean_%", "gap_p95_%", "benefit_captured_%", "beats_or_ties_milp_%", "feasible_%",
+    cols = ["method", "gap_mean_%", "gap_p95_%", "gap_closed_%", "benefit_captured_%", "beats_or_ties_milp_%", "feasible_%",
             "z_exact_match_%", "n_open", "LPs_per_scenario", "time_ms"]
     md = fmt_table(rows, cols)
     print(md)
