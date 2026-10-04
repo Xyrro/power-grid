@@ -27,19 +27,13 @@ optimisation-aware confidence thresholds for fixing commitments).
 
 **Park, Chen, Han, Tanneau & Van Hentenryck, "Confidence-Aware Graph Neural Networks for Learning
 Reliability Assessment Commitments", IEEE Trans. Power Systems 39 (2024), [arXiv 2211.15755](https://arxiv.org/abs/2211.15755)
-(RACLearn)** — structurally the closest match to the framework's Model 1 (added after the user pointed
-it out; abstract-level only, full text not retrievable here):
-1. a GNN predicts the generator commitments (binary on/off) *and* the active transmission constraints;
-2. an epistemic-uncertainty measure gives each commitment prediction a confidence value, and only a
-   high-confidence subset is fixed;
-3. a polynomial-time feasibility restoration turns an instance with those fixed commitments into a
-   feasible one;
-4. the MILP (MISO's exact RAC formulation) is then solved with the fixed commitments and the predicted
-   active constraints seeded; 2–4× faster with negligible loss on a 6,708-bus / 1,890-generator MISO network.
-Relation to this study: the same "GNN predicts the binaries from demand, trained on MILP solutions"
-core; RACLearn's confidence-based fixing + MILP is the counterpart of our partial-fixing pipeline
-(F9), its feasibility restoration plays the role of our all-closed fallback / LP screening. It has no
-learned Model 2 and no cost-aware (dashed-arrow) loss; those are where the framework differs.
+(RACLearn)** — structurally the closest match to the framework's Model 1 (read in full; see
+[`raclearn_comparison.md`](raclearn_comparison.md)). GNN over the bus graph predicts generator
+commitments and active line constraints from MILP solutions (BCE); MC-dropout confidence (1/σ) picks
+the commitments to fix; a polynomial-time Hamming-distance repair restores feasibility (system
+constraints are soft); the reduced MILP is solved with the predicted constraints seeded. RTE France
+network (6,708 buses, 1,890 generators): 2.7–4.1× faster for DA-FRAC (gap 0.01–0.77 %), 1.7–2.1× for
+LAC. Fixed topology; topology changes / transmission planning named as future work.
 
 ## Learning the dispatch (Model 2)
 
