@@ -1,0 +1,99 @@
+{
+ "rows": [
+  {
+   "method": "exhaustive greedy (exact LP for all lines)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.20294064529671424,
+   "gap_p95_%": 0.8503666605033305,
+   "gap_max_%": 1.022163190917748,
+   "benefit_captured_%": 71.14486500536724,
+   "beats_or_ties_milp_%": 48.0,
+   "z_exact_match_%": 28.999999999999996,
+   "z_hamming": 3.3,
+   "n_open": 1.92,
+   "LPs_per_scenario": 422.925,
+   "time_ms": 2215.6034195423126
+  },
+  {
+   "method": "learned-value greedy (R=1 LP checks/step)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.22573696465112572,
+   "gap_p95_%": 0.8074926040598602,
+   "gap_max_%": 0.9574286055528975,
+   "benefit_captured_%": 61.77111932436428,
+   "beats_or_ties_milp_%": 40.5,
+   "z_exact_match_%": 32.5,
+   "z_hamming": 3.205,
+   "n_open": 1.755,
+   "LPs_per_scenario": 3.285,
+   "time_ms": 25.905481576919556
+  },
+  {
+   "method": "learned-value greedy (R=2 LP checks/step)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.22085765541039387,
+   "gap_p95_%": 0.8035008956549555,
+   "gap_max_%": 0.9437237235994613,
+   "benefit_captured_%": 64.84597110077765,
+   "beats_or_ties_milp_%": 42.0,
+   "z_exact_match_%": 33.5,
+   "z_hamming": 3.225,
+   "n_open": 1.825,
+   "LPs_per_scenario": 5.64,
+   "time_ms": 34.1185200214386
+  },
+  {
+   "method": "learned-value greedy (R=4 LP checks/step)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.21645113615622624,
+   "gap_p95_%": 0.8035008956549555,
+   "gap_max_%": 0.9437237235994613,
+   "benefit_captured_%": 66.41341923106135,
+   "beats_or_ties_milp_%": 42.0,
+   "z_exact_match_%": 31.5,
+   "z_hamming": 3.295,
+   "n_open": 1.885,
+   "LPs_per_scenario": 10.42,
+   "time_ms": 60.2614963054657
+  },
+  {
+   "method": "learned-value beam search (B=3, R=3)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.21668236280059613,
+   "gap_p95_%": 0.8035008956549555,
+   "gap_max_%": 0.9437237235994613,
+   "benefit_captured_%": 66.91755311490171,
+   "beats_or_ties_milp_%": 42.0,
+   "z_exact_match_%": 32.0,
+   "z_hamming": 3.315,
+   "n_open": 1.885,
+   "LPs_per_scenario": 19.91,
+   "time_ms": 131.05318307876587
+  },
+  {
+   "method": "learned-value beam search (B=5, R=5)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.21315751079988715,
+   "gap_p95_%": 0.8035008956549555,
+   "gap_max_%": 0.9437237235994613,
+   "benefit_captured_%": 68.0686040375035,
+   "beats_or_ties_milp_%": 42.0,
+   "z_exact_match_%": 31.0,
+   "z_hamming": 3.32,
+   "n_open": 1.89,
+   "LPs_per_scenario": 45.365,
+   "time_ms": 282.42019057273865
+  }
+ ],
+ "extra": {
+  "label_time_s_per_scenario": 2.505044364929199,
+  "label_LPs_per_scenario": 411.975,
+  "n_states_train": 933,
+  "train_time_s": 332.35687589645386,
+  "val_best_line_top1_%": 37.06293706293706,
+  "val_best_line_in_top3_%": 52.09790209790209,
+  "val_spearman": 0.7929680409881518,
+  "dual_estimate_best_line_top1_%": 0.0,
+  "dual_estimate_best_line_in_top3_%": 16.433566433566433
+ }
+}
