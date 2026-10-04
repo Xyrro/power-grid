@@ -1,57 +1,55 @@
-# Learning DC Optimal Transmission Switching (OTS)
+# Learning unit commitment with a GNN → LP → NN framework
 
 Research code for the two-stage framework
 
 ```
-demand (PD) ──► Model 1 (GNN) ──► switching status z ──► LP (DC-OPF | z) ──► Model 2 ──► (PG, VA)
-                     ▲  MILP labels (DC-OTS)                                   ▲ LP labels
+demand (PD, QD) + units running before ──► Model 1 (GNN) ──► on/off u ──► LP (dispatch | u) ──► Model 2 ──► (PG, VA)
+                                               ▲ MILP labels (UC)                               ▲ LP labels
 ```
 
-and for the extensions proposed in [`docs/RESEARCH.md`](docs/RESEARCH.md) (findings, literature
-positioning, critique of the original framework, new methods and results; full tables in
-`docs/tables_case30.md` and `docs/tables_case118.md`, prior work in `docs/literature.md`).
+on the RTS-GMLC system (73 buses, 73 thermal units, 2020 load / renewable profiles), and for the
+extensions proposed in [`docs/RESEARCH.md`](docs/RESEARCH.md) (findings, literature positioning,
+critique of the framework, new methods and results). Prior work: [`docs/literature_uc.md`](docs/literature_uc.md),
+[`docs/raclearn_comparison.md`](docs/raclearn_comparison.md).
 
-## Layout
+An earlier side study read "switching status" as transmission-line switching (DC-OTS); its code and
+report are kept ([`docs/ots/RESEARCH_OTS.md`](docs/ots/RESEARCH_OTS.md)).
+
+## Layout: unit commitment
 
 | path | content |
 |---|---|
-| `otsl/case.py` | PGLib-OPF / MATPOWER parser, DC network data |
-| `otsl/opt.py` | DC-OPF LP and DC-OTS MILP (big-M, switching budget, disjoint-path big-M tightening, switching cost, no-good cuts) on HiGHS |
-| `otsl/data.py` | load sampling, parallel dataset generation (MILP labels, all-closed OPF duals, alternative optima) |
-| `otsl/features.py` | graph features; optional *dual features* from one all-closed DC-OPF |
-| `otsl/models.py` | edge-aware GNN, switching heads, physics-consistent Model 2 (balance repair + differentiable DC power flow) |
-| `otsl/train.py` | BCE imitation, REINFORCE with an LP critic, Model 2 training |
-| `otsl/pipeline.py` | decoding, candidate screening with LP verification, dual-greedy and kNN baselines, equivalence-aware labels, metrics |
-| `otsl/value.py` | exhaustive / learned-value greedy and beam search over switching sets |
-| `scripts/gen_data.py` | dataset generation (`--cfg case118 / case118_raw / case30 / case30_raw`) |
-| `scripts/run_model1.py` | Model 1 study (baselines, GNN variants, cost-aware training, partial fixing, MSE-metric analysis) |
-| `scripts/run_model2.py` | Model 2 study (direct vs physics decoder, screening, training Model 1 through Model 2) |
-| `scripts/run_value.py` | learned switching values (MILP-free labels), greedy / beam decoding |
-| `scripts/run_label_free.py` | REINFORCE with an LP critic from scratch (no MILP labels) |
-| `scripts/run_topology.py` | generalisation to unseen base-case line outages (GNN vs MLP vs kNN) |
-| `scripts/ambiguity.py` | label-ambiguity statistics from enumerated alternative optima |
-| `scripts/run_seeds.py` | seed robustness of the key Model 1 claims |
-| `scripts/tables.py` | consolidated tables (`docs/tables_<case>.md`) with the gap-closed metric |
-| `scripts/gen_all.sh`, `scripts/run_all_118.sh` | the exact data / experiment runs behind the report |
-| `results/<cfg>/` | result tables (`*.md`) and raw numbers (`*.json`) |
-| `tests/test_core.py` | solver / physics-layer sanity checks |
+| `otsl/uc.py` | RTS-GMLC loader; UC MILP (3-binary, min up/down, ramping, start-up and piecewise-linear costs, spinning reserve, DC network, soft shedding / reserve shortfall) and fixed-commitment dispatch LP with exact cost sensitivities; min up/down and adequacy repairs |
+| `otsl/ucdata.py` | scenario sampling, parallel dataset generation (MILP labels, LP relaxation, alternative optima) |
+| `otsl/ucml.py` | features, commitment GNN / MLP, BCE / REINFORCE / exact-LP-sensitivity training, LP oracle, metrics, Model 2 (direct regression or physics decoder) |
+| `scripts/uc_gen.py`, `scripts/uc_gen_all.sh` | datasets: `uc1` (single hour, B1) and `uc12` (12-hour look-ahead, B2) |
+| `scripts/uc_model1.py` | Model 1 study: ambiguity, baselines (persistence, merit order, relax-and-round, kNN), GNN variants, repair, screening, REINFORCE, confidence fixing |
+| `scripts/uc_model2.py` | Model 2 study: direct vs physics decoder, Model 2 as screener, the dashed arrow vs exact LP sensitivities, MSE of tied optima |
+| `scripts/uc_fixing.py` | which decisions to fix before the MILP: symmetric (RACLearn), asymmetric, adequacy-guarded |
+| `scripts/uc_followups.sh`, `scripts/uc_model2_rerun.sh`, `scripts/uc_fixing_b2.sh` | the exact experiment runs behind the report |
+| `results/uc1/`, `results/uc12/` | result tables (`*.md`), raw numbers (`*.json`), logs |
+| `data/rts_gmlc/` | RTS-GMLC tables and day-ahead time series ([GridMod/RTS-GMLC](https://github.com/GridMod/RTS-GMLC)) |
 
-## Reproduce
+## Reproduce (unit commitment)
 
 ```bash
 pip install -r requirements.txt
-python tests/test_core.py
-scripts/gen_all.sh                       # all datasets (~3 h on 4 cores; IEEE 118 MILPs take ~10 s each)
-python scripts/run_model1.py --cfg case30 --raw case30_raw
-python scripts/run_model2.py --cfg case30
-python scripts/run_value.py  --cfg case30
-python scripts/run_label_free.py --cfg case30
-scripts/run_all_118.sh                   # IEEE 118: Model 1, value, label-free, Model 2 studies
-python scripts/ambiguity.py case30 case30_raw case118 case118_raw
-scripts/topology_chain.sh                # case30 topology-shift data + run_topology.py
-python scripts/run_seeds.py --cfg case118 --seeds 1 2
-python scripts/tables.py case30 case118
+python tests/test_core.py && python tests/test_uc.py
+setsid nohup scripts/uc_gen_all.sh > results_uc_gen.log 2>&1 &   # B1 ~1 h, B2 ~4 h on 4 cores
+scripts/uc_followups.sh                  # Model 1 (B1, B2) and Model 2 (B1) studies
+python scripts/uc_model2.py --cfg uc1 --parts AB
+python scripts/uc_fixing.py --cfg uc1 --n_fix 200
+python scripts/uc_fixing.py --cfg uc12 --n_fix 60 --ratios 0.8,0.9,0.95
 ```
 
-Test cases are from [PGLib-OPF](https://github.com/power-grid-lib/pglib-opf) v23.07 (`data/cases`).
-Generated datasets are not committed (`data/generated` is git-ignored).
+HiGHS (through SciPy) solves all MILPs and LPs. Worker pools use the `spawn` start method (HiGHS
+stalls in forked children) and PyTorch runs single-threaded. Generated datasets are not committed
+(`data/generated` is git-ignored).
+
+## Layout: OTS side study
+
+`otsl/case.py`, `opt.py`, `data.py`, `features.py`, `models.py`, `train.py`, `pipeline.py`, `value.py`;
+`scripts/gen_data.py`, `run_model1.py`, `run_model2.py`, `run_value.py`, `run_label_free.py`,
+`run_topology.py`, `run_seeds.py`, `ambiguity.py`, `tables.py`, `gen_all.sh`, `run_all_118.sh`;
+results in `results/case30/`, `results/case118/`, tables in `docs/ots/`. Test cases are from
+[PGLib-OPF](https://github.com/power-grid-lib/pglib-opf) v23.07 (`data/cases`).
