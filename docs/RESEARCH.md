@@ -165,5 +165,79 @@ would mark equally optimal answers as wrong; MSE and the optimality gap have ran
 only 0.51. Report the optimality gap, benefit captured, feasibility rate and LP/MILP calls instead,
 and compare PG only if a distance is wanted.
 
-<!-- RESULTS-118 -->
+
+## 4. IEEE 118 — a "does switching pay at all?" regime
+
+PGLib `case118_ieee`, nominal ratings, K = 3, 800 train / 120 val / 200 test scenarios. MILP: 6.5 s
+mean (HiGHS, 20 s limit, 5.5 % of instances stop at the limit, 0.01 % gap). Switching saves only
+**0.40 %** on average, the median scenario saves 0.05 %, and 25 % of scenarios save < 0.01 %.
+Because of this the per-scenario "benefit captured" ratio explodes, so the headline metric below is
+**gap closed** = 1 − mean gap(method) / mean gap(all-closed) (all-closed gap = 0.405 %). Values above
+100 % mean the method beats the time/gap-limited reference MILP.
+
+### F8. Ambiguity persists at scale; raw labels always use the whole budget
+
+| | raw DC-OTS labels | + switching cost |
+|---|---|---|
+| exactly tied alternative topology (≤ 1e-6) | 55 % | 37.5 % |
+| alternative within MILP tolerance (≤ 1e-4) | 66 % | 54.5 % |
+| scenarios opening the full budget | **98 %** | 54 % |
+| training scenarios with an equally optimal single-line swap | – | 23 % |
+
+(Raw: 100 test scenarios; 17 % of their MILPs hit the time limit under CPU contention, so these
+ambiguity numbers are lower bounds.)
+
+### F9. Model 1 on IEEE 118
+
+| method (IEEE 118) | gap closed | LPs / scenario |
+|---|---|---|
+| dual-sensitivity greedy (no learning) | 28.5 % | 11 |
+| kNN-LP, k = 5 / k = 20 (Johnson et al.) | 100.8 % / **101.1 %** | 3 / 5 |
+| MLP-BCE (framework), top-1 → LP | 65.7 % | 1 |
+| GNN-BCE (framework), top-1 → LP | 61.0 % | 1 |
+| GNN-BCE + duals, top-1 → LP | 60.8 % | 1 |
+| GNN-BCE + duals + **equivalence-aware labels**, top-1 → LP | **84.9 %** | 1 |
+| **GNN + duals + REINFORCE (LP critic)**, top-1 → LP | **100.3 %** | **1** |
+| any of the above + candidate screening | 100.4 – 101.2 % | ~26 |
+| GNN-guided partial fixing (10 free lines) + MILP | 102.3 %, **0.23 s vs 7.0 s** full MILP (30×) | – |
+| GNN-guided partial fixing (25 free lines) + MILP | 102.4 %, 0.84 s (8×) | – |
+
+* The framework's one-shot pipeline closes only ~61–66 % of the gap; its models **over-switch**
+  (2.8–3.0 lines opened vs 1.9 for the MILP) because class-weighted BCE inflates positives and
+  extra switches are never penalised by the loss.
+* **Equivalence-aware soft labels** help here (61 % → 85 %), unlike on IEEE 30 where ties were
+  between mutually exclusive lines.
+* **REINFORCE with the exact LP as critic** (300 steps, BCE warm start) makes one-shot decoding
+  MILP-quality: −0.0014 % mean gap with **one** LP per scenario, 78.5 % of scenarios matching or
+  beating the reference MILP, and it learns to open 1.96 lines (MILP: 1.9).
+* **GNN-guided partial fixing** (fix all but the 10 most likely lines closed, solve the small MILP)
+  is the best accuracy/time trade-off when a MILP solver is available: optimal-or-better in 0.23 s.
+* **kNN-LP is again near-optimal with ≤ 5 LPs.** With a fixed base topology and only load variation,
+  the optimal topologies come from a small set (43 distinct in training), so a lookup + LP check is
+  a very strong, training-free baseline that any learned Model 1 must be compared against.
+
+### F10. Switching benefits are complementary — one-line-at-a-time methods cannot find them
+
+| (IEEE 118) | gap closed | LPs / scenario |
+|---|---|---|
+| exhaustive greedy (exact LP for every line and step) | 49.9 % | 423 |
+| learned-value greedy, R = 1 / 4 | 44.3 % / 46.5 % | 3 / 10 |
+| learned-value beam search B = 5, R = 5 | 47.4 % | 45 |
+
+The most frequent optimal set {61, 64, 105} illustrates why. In every test scenario where it is
+optimal, opening any *single* one of these lines **raises** cost (+0.01 %, +0.12 %, +0.62 %), most
+pairs raise it as well, but the triple **saves 0.8–1.4 %**. Greedy, beam search and one-step value
+learning are structurally unable to reach such sets; set-level methods (MILP imitation + LP
+screening, kNN over stored sets) are. Learned one-step values work on IEEE 30 (99.4 % with beam
+search) but not here — a learned *cost-to-go* (multi-step RL / tree search) would be needed.
+
+### F11. MSE to the MILP solution is nearly uninformative on IEEE 118
+
+With screening, 89.5 % of test scenarios are within 0.001 % of the MILP cost, 30.5 % of them with
+a different topology. Equally optimal solutions differ by up to 0.011 rad² in VA and even 0.076 p.u.²
+in PG (generators with identical cost are interchangeable). Rank correlation between the MSE and the
+optimality gap: **0.18**.
+
+<!-- RESULTS-118-MORE -->
+
 
