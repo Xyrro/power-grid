@@ -338,7 +338,25 @@ On B2 the hybrid is where learning pays: fixing half to 80 % of the decisions gi
 the time-limited full MILP (the smaller MILP gets closer to optimality within the limit) at 1.4–1.9× speed.
 Errors bite earlier than on B1 (90 % fixed already costs 1.4 %).
 
-<!-- UC-B2-FIX -->
+**Which decisions to fix on B2** (same 60 instances; full MILP 28.3 s, serves 88.3 %):
+
+| fixed | ranking | mean gap | median gap | no shed / shortfall | time | speed-up |
+|---|---|---|---|---|---|---|
+| 90 % | BCE confidence (RACLearn) | 1.38 % | 0.000 % | 86.7 % | 9.9 s | 2.9× |
+| 90 % | **BCE, OFF errors × 10 + adequacy guard** | **0.41 %** | 0.055 % | **96.7 %** | 6.0 s | 4.7× |
+| 90 % | REINFORCE probabilities | 3.15 % | 0.47 % | 91.7 % | 2.6 s | 11× |
+| 95 % | BCE confidence (RACLearn) | 38.5 % | 0.087 % | 80.0 % | 4.1 s | 6.9× |
+| 95 % | BCE, OFF errors × 10 + adequacy guard | 14.0 % | 0.27 % | 90.0 % | 2.7 s | 10.6× |
+| 95 % | **REINFORCE probabilities** | **5.5 %** | 1.48 % | **91.7 %** | **1.0 s** | **27×** |
+
+* Up to 80 % fixed, RACLearn's rule is free on B2 (1.9×).
+* **At 90 %, the asymmetric ranking with the adequacy guard is the best trade-off** — 0.41 % mean gap at 4.7×,
+  and it serves more instances than the MILP itself (96.7 % vs 88.3 %: the MILP accepts priced reserve
+  shortfall; keeping extra units fixed on avoids it). On B1 the same rule hurt at 90 % (single-hour wrong ON
+  fixes of peakers are costly; over 12 hours under-commitment dominates).
+* At 95 %, ranking by the cost-aware (REINFORCE) model is again the most robust (5.5 % vs 38.5 %, 27×), but
+  no ranking is near-optimal there.
+* (Times exclude the min up/down infeasibility fallback, which never triggered.)
 
 ### V4. Model 1 without MILP labels on B2
 
