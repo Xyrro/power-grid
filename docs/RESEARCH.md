@@ -275,3 +275,62 @@ cancels the per-instance reference cost, so no MILP cost is needed either). Same
 
 On B1 the MILP labels buy almost nothing once the critic fine-tuning is applied. The single-period
 relaxation is tight, though; B2 (below) tests whether this survives a weaker relaxation.
+
+## 4. Findings on B2 (12-hour look-ahead UC)
+
+12 hourly periods with min up/down times, ramping and start-up costs across hours; 500 training, 60
+validation, 120 test instances. The MILP (60 s limit, 0.1 % gap) proves optimality on 82.5 % of test
+instances (mean 28.6 s); the reference is therefore a strong incumbent, not always the optimum, and
+methods can beat it. The MILP's own schedules leave a reserve shortfall in some hour of 7.5 % of instances,
+so **92.5 % is the ceiling** for "no shed / shortfall". Min up/down repair (RACLearn's DP) is applied to every
+predicted schedule.
+
+### V1. Labels: identical units make most multi-hour labels arbitrary
+
+**62.5 %** of B2 labels change when identical units' schedules are put in canonical order (B1: 21.4 %).
+
+### V2. Model 1 on B2 (120 test instances)
+
+| Model 1 (B2) | LPs | no shed / shortfall | median gap | mean gap, served | mean gap |
+|---|---|---|---|---|---|
+| MILP (reference) | MILP 29 s | 92.5 % | 0 | 0 | 0 |
+| keep last hour's units | 1 | 15.8 % | 5,029 % | 24 % | 8,343 % |
+| merit-order list + repairs | 1 | 19.2 % | 307 % | 2.0 % | 2,177 % |
+| rounded LP relaxation + repairs | 1 + relaxation | 36.7 % | 6.0 % | 0.54 % | 126 % |
+| kNN over training schedules, k = 20 | 20 | 79.2 % | 7.2 % | 9.5 % | 22 % |
+| MLP, BCE on MILP labels, top-1 | 1 | 15.8 % | 230 % | 1.9 % | 1,106 % |
+| GNN, BCE on MILP labels, top-1 (framework) | 1 | 10.0 % | 248 % | 2.6 % | 1,073 % |
+| GNN + symmetry + canonical labels, top-1 | 1 | 8.3 % | 332 % | 0.90 % | 1,168 % |
+| GNN + symmetry + LP-relaxation features, top-1 | 1 | 16.7 % | 57 % | 0.62 % | 447 % |
+| … + adequacy repair | 1 | 43.3 % | 5.3 % | 0.79 % | 220 % |
+| … + candidate screening | 14.6 | 62.5 % | **1.65 %** | 1.9 % | 58 % |
+| **… + REINFORCE (exact LP critic), top-1** | **1** | **80.8 %** | 5.3 % | 9.1 % | 15 % |
+| … + REINFORCE + adequacy repair | 1 | **86.7 %** | 4.5 % | 8.7 % | 13 % |
+| … + REINFORCE + candidate screening | 14.8 | **87.5 %** | 2.1 % | 4.7 % | **5.8 %** |
+
+* **Heuristics collapse on the multi-hour problem** (relax-and-round + repair: 86.5 % → 36.7 % of instances
+  served), and the framework's one-shot GNN serves only 10 %: on B2 imitation-trained Model 1 is unusable
+  without a correction step. The GNN is again no better than an MLP, and symmetry handling again does not help.
+* **REINFORCE with the exact LP critic transfers**: 16.7 % → 80.8 % served with one LP (120 steps, 12.5 min),
+  better than kNN-20 with 20 LPs; with screening 87.5 % (ceiling 92.5 %) at a 5.8 % mean gap.
+* **But it buys feasibility by over-committing**: on instances it serves, it costs 4.7–9.1 % more than the MILP
+  (BCE-based variants: 0.6–1.9 %). The single-hour picture (cost-aware fine-tuning nearly free) does not carry
+  over; a learned Model 1 alone does not reach MILP quality on B2.
+
+### V3. Model 1 + MILP on B2 (confidence fixing, 60 test instances)
+
+| fixed (BCE confidence) | mean gap | no shed / shortfall | matches or beats MILP | time | speed-up |
+|---|---|---|---|---|---|
+| full MILP (60 s limit) | 0 | 92.5 % | 100 % | 28.3 s | 1× |
+| 50 % | **−0.05 %** | 88.3 % | 85 % | 20.7 s | 1.4× |
+| 80 % | **−0.01 %** | 88.3 % | 72 % | 14.8 s | 1.9× |
+| 90 % | 1.4 % | 86.7 % | 55 % | 9.9 s | 2.8× |
+| 95 % | 38.5 % | 80.0 % | 35 % | 4.3 s | 6.5× |
+
+On B2 the hybrid is where learning pays: fixing half to 80 % of the decisions gives schedules *cheaper* than
+the time-limited full MILP (the smaller MILP gets closer to optimality within the limit) at 1.4–1.9× speed.
+Errors bite earlier than on B1 (90 % fixed already costs 1.4 %).
+
+<!-- UC-B2-FIX -->
+
+<!-- UC-B2-LF -->
