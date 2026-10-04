@@ -238,6 +238,32 @@ a different topology. Equally optimal solutions differ by up to 0.011 rad² in V
 in PG (generators with identical cost are interchangeable). Rank correlation between the MSE and the
 optimality gap: **0.18**.
 
+
+### F12. Topology shift: learned + LP screening transfers better than kNN; no GNN-over-MLP advantage yet
+
+IEEE 30, every test scenario has one random non-bridge line out of service (546 scenarios, unseen
+combinations of load and outage). Models get the in-service flag as an edge feature (GNN: also as
+message gating) and dual features from one DC-OPF on the *actual* outaged topology.
+
+| trained on → | intact grid only | mix with outages (68 % of scenarios) |
+|---|---|---|
+| kNN-LP, k = 20 | 95.3 % (87.8 % captured) | 97.6 % (93.3 %), 16 LPs |
+| MLP + duals, screening | 97.4 % (94.6 %) | **99.8 % (99.4 %)** |
+| GNN + duals, screening | 95.1 % (91.8 %) | 99.6 % (98.9 %) |
+| MLP + duals, top-1 | 51.3 % (47 % feasible) | 67.0 % (65 % feasible) |
+| GNN + duals, top-1 | 52.8 % (55 % feasible) | 59.0 % (57 % feasible) |
+| dual-sensitivity greedy (no learning) | 82.3 % | |
+
+*gap closed (benefit captured)*; on the intact test set all screening variants reach 99.9 %.
+
+* kNN degrades under topology change (its stored topologies may not fit the outaged grid); a learned
+  proposal + LP check degrades less, and training on topology-varied data closes most of the gap.
+* At this scale the GNN shows **no transfer advantage over an MLP that sees the same features** —
+  the dual features (flows/prices of an OPF on the actual topology) already encode the outage. The
+  case for a GNN ("GNN team") therefore has to be made on larger grids, multi-outage shifts, or
+  transfer *across grids*, which an MLP cannot do at all; this is untested here.
+
 <!-- RESULTS-118-MORE -->
+
 
 
