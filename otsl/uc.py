@@ -500,3 +500,30 @@ def violates_min_updown(u, u0, min_up, min_dn):
             prev = s
         bad += not ok
     return bad
+
+
+def adequacy_repair(u, load, avail, sr, sysm):
+    """Cheap system-level repair of a predicted commitment u [T, G]: per period, switch on the cheapest
+    off units until committed capacity covers net load + reserve, then switch off the most expensive
+    on units while the committed minimum output exceeds demand (renewables can be curtailed to zero)."""
+    u = u.copy()
+    avg = (sysm.c_nl + (sysm.seg_c * sysm.seg_w).sum(1)) / sysm.pmax
+    order = np.argsort(avg)
+    for t in range(u.shape[0]):
+        need = load[t].sum() - avail[t].sum() + sr[t]
+        cap = (u[t] * sysm.pmax).sum()
+        for g in order:
+            if cap >= need:
+                break
+            if not u[t, g]:
+                u[t, g] = 1
+                cap += sysm.pmax[g]
+        floor = (u[t] * sysm.pmin).sum()
+        for g in order[::-1]:
+            if floor <= load[t].sum():
+                break
+            if u[t, g] and cap - sysm.pmax[g] >= need:
+                u[t, g] = 0
+                cap -= sysm.pmax[g]
+                floor -= sysm.pmin[g]
+    return u

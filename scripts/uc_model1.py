@@ -16,7 +16,7 @@ import numpy as np
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from otsl.uc import UCModel, load_rts_gmlc, repair_min_updown  # noqa: E402
+from otsl.uc import UCModel, adequacy_repair, load_rts_gmlc, repair_min_updown  # noqa: E402
 from otsl.ucdata import load, scenario_from  # noqa: E402
 from otsl.ucml import (DispatchOracle, UCFeaturizer, build_uc_model1, canonical_labels, train_uc_bce,  # noqa: E402
                        train_uc_reinforce, uc_metrics)
@@ -64,6 +64,11 @@ if __name__ == "__main__":
     os.makedirs(out_dir, exist_ok=True)
     rep = (lambda u, u0: repair_min_updown(u, u0, sysm.min_up, sysm.min_dn)) if T > 1 else None
     fixrep = (lambda U, U0: np.array([rep(U[i], U0[i]) for i in range(len(U))])) if rep else (lambda U, U0: U)
+
+    def adequate(U, d):
+        """adequacy repair (capacity / minimum-output check per period), then min up/down repair"""
+        V = np.array([adequacy_repair(U[i], d["load"][i], d["avail"][i], d["sr"][i], sysm) for i in range(len(U))])
+        return fixrep(V, d["u0"])
     oracle = DispatchOracle(cfg, a.workers)
     n_te = len(te["load"])
     keys_te = np.arange(n_te) + 10 ** 7
@@ -105,6 +110,9 @@ if __name__ == "__main__":
     # ------------------------------------------------------------- baselines
     score("persistence (keep units that were running)", np.repeat(te["u0"][:, None], T, 1))
     score("rounded LP relaxation", fixrep((te["u_rel"] > 0.5).astype(np.int8), te["u0"]))
+    score("rounded LP relaxation + adequacy repair", adequate((te["u_rel"] > 0.5).astype(np.int8), te))
+    score("persistence + adequacy repair", adequate(np.repeat(te["u0"][:, None], T, 1), te))
+    score("merit-order priority list (no learning)", adequate(np.zeros_like(te["u"]), te))
     rows.append(uc_metrics(te["c_rel"], np.zeros(n_te), np.zeros(n_te), te, None, "LP relaxation (lower bound)"))
     for k in (5, 20):
         screen(f"kNN-LP k={k} (Xavier et al. 2021 style)", knn_candidates(tr, te, k))
@@ -128,6 +136,7 @@ if __name__ == "__main__":
         p = m1.predict(te)
         U = fixrep((p > 0.5).astype(np.int8), te["u0"])
         score(f"{name}: top-1 -> LP", U)
+        score(f"{name}: top-1 + adequacy repair -> LP", adequate((p > 0.5).astype(np.int8), te))
         screen(f"{name}: candidate screening -> LP", candidates_from_probs(p, 8, rng))
         models[name] = m1
         torch.save(m1.net.state_dict(), os.path.join(out_dir, f"uc_model1_{len(models)}.pt"))
@@ -142,6 +151,7 @@ if __name__ == "__main__":
     extra["rl_curve_gap_%"] = [float(np.mean(hist[i:i + 10]) * 100) for i in range(0, len(hist), 10)]
     p_rl = m_rl.predict(te)
     score(f"{best_name} + REINFORCE (LP critic): top-1 -> LP", fixrep((p_rl > 0.5).astype(np.int8), te["u0"]))
+    score(f"{best_name} + REINFORCE: top-1 + adequacy repair -> LP", adequate((p_rl > 0.5).astype(np.int8), te))
     screen(f"{best_name} + REINFORCE: candidate screening -> LP", candidates_from_probs(p_rl, 8, rng))
     torch.save(m_rl.net.state_dict(), os.path.join(out_dir, "uc_model1_rl.pt"))
 
