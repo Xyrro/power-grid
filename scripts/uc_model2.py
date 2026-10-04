@@ -21,7 +21,7 @@ import torch
 import torch.nn.functional as F
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from otsl.uc import UCModel, UCScenario, load_rts_gmlc, repair_min_updown  # noqa: E402
+from otsl.uc import RES_SHORT, UCModel, UCScenario, load_rts_gmlc, repair_min_updown  # noqa: E402
 from otsl.ucdata import load  # noqa: E402
 from otsl.ucml import (DispatchOracle, UCDispatchNet, UCFeaturizer, build_uc_model1, canonical_labels,  # noqa: E402
                        train_uc_bce, train_uc_dualgrad, uc_metrics)
@@ -111,19 +111,24 @@ def train_m2(m2, feat, d, us, lp, epochs, w_line, seed=0, bs=64):
 def eval_m2(m2, feat, d, us, lp, label):
     m2.eval()
     P = m2.phys
-    res = {"kcl": [], "gen": [], "line": [], "ramp": [], "cost": [], "mis": []}
+    res = {"kcl": [], "gen": [], "line": [], "ramp": [], "cost": [], "cost_full": [], "mis": []}
     for i in range(0, len(us), 256):
         j = np.arange(i, min(i + 256, len(us)))
         u = torch.as_tensor(us[j], dtype=torch.float64)
         pg, va, r = m2_forward(m2, feat, d, j, u)
         ld = torch.as_tensor(d["load"][j])
         v = P.violations(pg, va, u, ld, r)
-        mis = (pg.sum(-1) + r.sum(-1) - ld.sum(-1)).abs().sum(-1)
+        mis_t = (pg.sum(-1) + r.sum(-1) - ld.sum(-1)).abs()                     # [B, T]
+        u0 = torch.as_tensor(d["u0"][j], dtype=torch.float64)
         res["kcl"].append(v["kcl_max"].numpy()); res["gen"].append(v["gen_max"].numpy())
         res["line"].append(v["line_max"].numpy()); res["ramp"].append(v["ramp_max"].numpy())
-        res["cost"].append(P.cost(pg, u, torch.as_tensor(d["u0"][j], dtype=torch.float64),
-                                  torch.zeros(len(j), us.shape[1], dtype=torch.float64)).numpy())
-        res["mis"].append(mis.numpy())
+        # cost of the predicted PG alone (what the framework's Model 2 output prices) ...
+        res["cost"].append(P.cost(pg, u, u0, torch.zeros_like(mis_t)).numpy())
+        # ... and with the slacks the dispatch LP would pay: imbalance at VOLL, spinning-reserve
+        # shortfall (headroom sum(pmax u - p) below the requirement) at the reserve penalty
+        short = F.relu(torch.as_tensor(d["sr"][j]) - (u * P.pmax - pg).clamp_min(0).sum(-1))
+        res["cost_full"].append((P.cost(pg, u, u0, mis_t) + RES_SHORT * short.sum(-1)).numpy())
+        res["mis"].append(mis_t.sum(-1).numpy())
     R = {k: np.concatenate(v) for k, v in res.items()}
     ok = np.isfinite(lp[0]) & (lp[4] < 1e-6)
     tol = 1e-3
@@ -143,6 +148,8 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--dg_steps", type=int, default=300)
     ap.add_argument("--critic_epochs", type=int, default=15)
+    ap.add_argument("--parts", default="ABCD", help="subset of the study to run (A is needed by B and C)")
+    ap.add_argument("--reuse", action="store_true", help="load Model 2 weights saved by an earlier run")
     a = ap.parse_args()
     cfg = UC_CONFIGS[a.cfg]
     T = cfg["T"]
@@ -168,7 +175,12 @@ if __name__ == "__main__":
         torch.manual_seed(0)
         m2 = UCDispatchNet(sysm, feat, T, mode)
         t0 = time.time()
-        train_m2(m2, feat, dtr, u_tr, lp_tr, a.epochs, wl)
+        wpath = os.path.join(out_dir, f"m2_{mode}_w{wl:g}.pt")
+        if a.reuse and os.path.exists(wpath):
+            m2.load_state_dict(torch.load(wpath))
+        else:
+            train_m2(m2, feat, dtr, u_tr, lp_tr, a.epochs, wl)
+            torch.save(m2.state_dict(), wpath)
         r, _ = eval_m2(m2, feat, dte, u_te, lp_te, name)
         r["train_s"] = time.time() - t0
         rows.append(r); m2s[name] = m2
@@ -191,80 +203,82 @@ if __name__ == "__main__":
     c_true, sh, so = oracle.evaluate(tes, flat_i, flat_u, keys[flat_i])
     brows = []
 
-    def pick(scores, m, label, **kw):
+    def pick(scores, m, label, lps=None, **kw):
         sel = []
         for i in range(len(cl)):
             mk = np.where(flat_i == i)[0]
             top = mk[np.argsort(scores[mk])[:m]]
             sel.append(top[np.argmin(c_true[top])])
         sel = np.array(sel)
-        brows.append(uc_metrics(c_true[sel], sh[sel], so[sel], tes, flat_u[sel], label, LPs=float(m), **kw))
-    pick(c_true, 10 ** 6, "LP-check all 20 kNN candidates")
+        brows.append(uc_metrics(c_true[sel], sh[sel], so[sel], tes, flat_u[sel], label, LPs=float(lps or m), **kw))
+    pick(c_true, 10 ** 6, "LP-check all 20 kNN candidates", lps=20)
     dsub = sub(tes, flat_i)
     for name, m2 in m2s.items():
         _, R = eval_m2(m2, feat, dsub, flat_u, (c_true, None, None, None, sh, so), name)
-        rho = np.nanmean([np.corrcoef(np.argsort(np.argsort(c_true[flat_i == i])),
-                                      np.argsort(np.argsort(R["cost"][flat_i == i])))[0, 1] for i in range(len(cl))])
-        pick(R["cost"], 3, f"Model 2 [{name}] picks top-3 -> LP", spearman=float(rho))
+        for ck, what in [("cost", "PG cost"), ("cost_full", "PG cost + implied shed/reserve slack")]:
+            rho = np.nanmean([np.corrcoef(np.argsort(np.argsort(c_true[flat_i == i])),
+                                          np.argsort(np.argsort(R[ck][flat_i == i])))[0, 1] for i in range(len(cl))])
+            pick(R[ck], 3, f"Model 2 [{name}], {what}: top-3 -> LP", spearman=float(rho))
     pick(rng.random(len(flat_u)), 3, "random 3 -> LP")
     md_b = fmt_table(brows, ["method", "no_shed_no_shortfall_%", "gap_median_%", "gap_mean_served_%", "gap_mean_%",
                              "LPs", "spearman"])
     print(md_b)
 
     # ---------------------------------------------------------------- C: the dashed arrow
-    canon_tr = canonical_labels(sysm, tr["u"], tr["u0"])
-    feat1 = UCFeaturizer(sysm, tr, relax=True, sym=True)
-    m1 = build_uc_model1(sysm, feat1, T, "gnn", seed=0)
-    train_uc_bce(m1, tr, dict(va_, u_target=canonical_labels(sysm, va_["u"], va_["u0"])), canon_tr, epochs=a.epochs)
-    crows = []
-    keys_all = np.arange(len(tes["load"])) + 4 * 10 ** 7
+    md_c, crows = "", []
+    if "C" in a.parts:
+        canon_tr = canonical_labels(sysm, tr["u"], tr["u0"])
+        feat1 = UCFeaturizer(sysm, tr, relax=True, sym=True)
+        m1 = build_uc_model1(sysm, feat1, T, "gnn", seed=0)
+        train_uc_bce(m1, tr, dict(va_, u_target=canonical_labels(sysm, va_["u"], va_["u0"])), canon_tr, epochs=a.epochs)
+        keys_all = np.arange(len(tes["load"])) + 4 * 10 ** 7
 
-    def score1(model, label):
-        p = model.predict(tes)
-        U = (p > 0.5).astype(np.int8)
-        if T > 1:
-            U = np.array([repair_min_updown(U[i], tes["u0"][i], sysm.min_up, sysm.min_dn) for i in range(len(U))])
-        c, s_, o_ = oracle.evaluate(tes, np.arange(len(U)), U, keys_all)
-        crows.append(uc_metrics(c, s_, o_, tes, U, label))
-        print("  ", crows[-1]["method"], round(crows[-1]["gap_median_%"], 4), round(crows[-1]["no_shed_no_shortfall_%"], 1), flush=True)
-    score1(m1, "imitation (BCE, canonical labels) reference")
-    import copy
-    for crit in ["physics decoder + overload penalty", "direct (PG, VA) regression [framework]"]:
-        for st in (False, True):
-            mc = copy.deepcopy(m1)
-            m2 = m2s[crit]
-            for p_ in m2.parameters():
-                p_.requires_grad_(False)
-            m2.eval()
-            opt = torch.optim.Adam(mc.net.parameters(), lr=3e-4)
-            P = m2.phys
-            for ep in range(a.critic_epochs):
-                perm = rng.permutation(len(tr["load"]))
-                for i in range(0, len(perm), 64):
-                    j = perm[i:i + 64]
-                    lg = mc.logits(tr, j)
-                    pu = torch.sigmoid(lg)
-                    if st:
-                        pu = (pu > 0.5).float() + pu - pu.detach()
-                    xb, xg, xe = feat(sub(tr, j))
-                    tt = lambda a_: torch.as_tensor(a_, dtype=torch.float64)
-                    pg, va, r = m2(xb, xg, xe, pu.double(), tt(tr["load"][j]), tt(tr["avail"][j]), tt(tr["u0"][j]))
-                    ld = tt(tr["load"][j])
-                    mis = (pg.sum(-1) + r.sum(-1) - ld.sum(-1)).abs()
-                    cost = P.cost(pg, pu.double(), tt(tr["u0"][j]), mis)
-                    loss = (cost / tt(tr["obj"][j])).mean() + 10 * (F.relu(P.flows(va).abs() - P.fmax) ** 2).sum((-1, -2)).mean()
-                    opt.zero_grad(); loss.backward(); opt.step()
-            score1(mc, f"M1 trained through frozen Model 2 [{crit}] st={st}")
-    mdg = copy.deepcopy(m1)
-    train_uc_dualgrad(mdg, tr, cfg, steps=a.dg_steps, bs=32, workers=a.workers)
-    score1(mdg, "M1 fine-tuned with exact LP sensitivities (dual gradient)")
-    md_c = fmt_table(crows, ["method", "no_shed_no_shortfall_%", "gap_median_%", "gap_mean_served_%", "gap_mean_%",
-                             "unit_hour_accuracy_%", "units_on"])
-    print(md_c)
+        def score1(model, label):
+            p = model.predict(tes)
+            U = (p > 0.5).astype(np.int8)
+            if T > 1:
+                U = np.array([repair_min_updown(U[i], tes["u0"][i], sysm.min_up, sysm.min_dn) for i in range(len(U))])
+            c, s_, o_ = oracle.evaluate(tes, np.arange(len(U)), U, keys_all)
+            crows.append(uc_metrics(c, s_, o_, tes, U, label))
+            print("  ", crows[-1]["method"], round(crows[-1]["gap_median_%"], 4), round(crows[-1]["no_shed_no_shortfall_%"], 1), flush=True)
+        score1(m1, "imitation (BCE, canonical labels) reference")
+        import copy
+        for crit in ["physics decoder + overload penalty", "direct (PG, VA) regression [framework]"]:
+            for st in (False, True):
+                mc = copy.deepcopy(m1)
+                m2 = m2s[crit]
+                for p_ in m2.parameters():
+                    p_.requires_grad_(False)
+                m2.eval()
+                opt = torch.optim.Adam(mc.net.parameters(), lr=3e-4)
+                P = m2.phys
+                for ep in range(a.critic_epochs):
+                    perm = rng.permutation(len(tr["load"]))
+                    for i in range(0, len(perm), 64):
+                        j = perm[i:i + 64]
+                        lg = mc.logits(tr, j)
+                        pu = torch.sigmoid(lg)
+                        if st:
+                            pu = (pu > 0.5).float() + pu - pu.detach()
+                        xb, xg, xe = feat(sub(tr, j))
+                        tt = lambda a_: torch.as_tensor(a_, dtype=torch.float64)
+                        pg, va, r = m2(xb, xg, xe, pu.double(), tt(tr["load"][j]), tt(tr["avail"][j]), tt(tr["u0"][j]))
+                        ld = tt(tr["load"][j])
+                        mis = (pg.sum(-1) + r.sum(-1) - ld.sum(-1)).abs()
+                        cost = P.cost(pg, pu.double(), tt(tr["u0"][j]), mis)
+                        loss = (cost / tt(tr["obj"][j])).mean() + 10 * (F.relu(P.flows(va).abs() - P.fmax) ** 2).sum((-1, -2)).mean()
+                        opt.zero_grad(); loss.backward(); opt.step()
+                score1(mc, f"M1 trained through frozen Model 2 [{crit}] st={st}")
+        mdg = copy.deepcopy(m1)
+        train_uc_dualgrad(mdg, tr, cfg, steps=a.dg_steps, bs=32, workers=a.workers)
+        score1(mdg, "M1 fine-tuned with exact LP sensitivities (dual gradient)")
+        md_c = fmt_table(crows, ["method", "no_shed_no_shortfall_%", "gap_median_%", "gap_mean_served_%", "gap_mean_%",
+                                 "unit_hour_accuracy_%", "units_on"])
+        print(md_c)
 
     # ---------------------------------------------------------------- D: MSE of alternative optima
     dd = {}
-    if "alt_u" in te:
+    if "D" in a.parts and "alt_u" in te:
         rel = (te["alt_c"][:, 0] - te["obj"]) / te["obj"]
         tie = np.where(rel <= 1e-6)[0][:300]
         if len(tie):
@@ -276,10 +290,11 @@ if __name__ == "__main__":
                   "commitment_hamming_tied_mean": float((te["alt_u"][tie, 0] != te["u"][tie]).sum((1, 2)).mean())}
             print("MSE of tied optima:", dd)
     res["mse_of_tied_optima"] = dd
-    with open(os.path.join(out_dir, "uc_model2_results.md"), "w") as f:
+    tag = "" if a.parts == "ABCD" else "_" + a.parts
+    with open(os.path.join(out_dir, f"uc_model2{tag}_results.md"), "w") as f:
         f.write("## A. Model 2 accuracy (test (demand, commitment) pairs)\n\n" + md_a +
                 f"\nDispatch LP: {res['lp_ms_per_dispatch_1core']:.0f} ms on one core\n\n## B. Model 2 as screener\n\n" + md_b +
                 "\n## C. Dashed arrow\n\n" + md_c + "\n## D. MSE between tied optimal solutions\n\n" + json.dumps(dd, indent=1))
-    with open(os.path.join(out_dir, "uc_model2_results.json"), "w") as f:
+    with open(os.path.join(out_dir, f"uc_model2{tag}_results.json"), "w") as f:
         json.dump({"A": rows, "B": brows, "C": crows, "extra": res}, f, indent=1, default=float)
     oracle.close()
