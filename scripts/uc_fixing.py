@@ -95,7 +95,10 @@ if __name__ == "__main__":
     ap.add_argument("--n_fix", type=int, default=200)
     ap.add_argument("--ratios", default="0.8,0.9,0.95,0.98")
     ap.add_argument("--kappa", type=float, default=10.0)
-    ap.add_argument("--set", default="all", choices=["all", "calib"], help="calib: only the calibrated rows")
+    ap.add_argument("--set", default="all", choices=["all", "calib", "core"],
+                    help="calib: only the calibrated rows; core: RACLearn, asymmetric + guard, REINFORCE")
+    ap.add_argument("--full_from_data", action="store_true",
+                    help="take the full-MILP time from data generation instead of re-solving (long horizons)")
     a = ap.parse_args()
     cfg = UC_CONFIGS[a.cfg]
     T = cfg["T"]
@@ -135,13 +138,18 @@ if __name__ == "__main__":
               f"time {r['time_s']:.3f}s", flush=True)
         return r
 
-    rows = [solve_all("full MILP (same run, for timing)", lambda i, sc: ({}, 0))]
-    t_full = rows[0]["time_s"]
+    if a.full_from_data:
+        t_full = float(te["time"][:nf].mean())
+        rows = [{"method": "full MILP (time from data generation)", "time_s": t_full}]
+    else:
+        rows = [solve_all("full MILP (same run, for timing)", lambda i, sc: ({}, 0))]
+        t_full = rows[0]["time_s"]
     for ratio in [float(x) for x in a.ratios.split(",")]:
         specs = [("BCE", 1.0, False, False), ("BCE", a.kappa, False, False), ("BCE", 1.0, True, False),
                  ("BCE", a.kappa, True, False), ("REINFORCE", 1.0, False, False), ("REINFORCE", a.kappa, True, False)]
         cspecs = [("BCE", 1.0, False, True), ("BCE", 1.0, True, True), ("REINFORCE", 1.0, False, True)]
-        for tag, kappa, guard, calib in (specs + cspecs if a.set == "all" else cspecs):
+        core = [("BCE", 1.0, False, False), ("BCE", a.kappa, True, False), ("REINFORCE", 1.0, False, False)]
+        for tag, kappa, guard, calib in {"all": specs + cspecs, "calib": cspecs, "core": core}[a.set]:
             def make_fix(i, sc, tag=tag, kappa=kappa, guard=guard, calib=calib):
                 p = probs[tag][i]
                 tt, gg = choose_fixings(p, ratio, kappa, calibrated_error(p, probs[tag + "_cal"]) if calib else None)
