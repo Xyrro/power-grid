@@ -132,5 +132,31 @@ RACLearn's 2–4× speed-up at near-optimal quality reproduces (80 % fixed); pas
 decisions cannot repair a wrong fixing. On single-period UC the MILP takes only 0.5 s, so the absolute gain
 is small; B2 is where fixing matters.
 
-<!-- UC-B1-MODEL2 -->
+### U6. Model 2: the physics decoder, and why the framework's (PG, VA) output cannot judge a commitment
+
+**Accuracy** (1,200 test (demand, commitment) pairs: the MILP commitment plus two perturbed ones with
+1–3 units flipped; 60 epochs on 4,500 pairs):
+
+| Model 2 (B1) | fully feasible | KCL error, worst bus | line overload, worst line | gen-limit violation, worst unit | cost error |
+|---|---|---|---|---|---|
+| direct (PG, VA) regression (framework) | **0 %** | 1,013 MW | 280 MW | 26 MW | 7.5 % |
+| physics decoder | 69.7 % | 6.7 MW | 14.9 MW | 0 | 7.7 % |
+| physics decoder + overload penalty | **74.1 %** | 6.7 MW | 9.2 MW | 0 | 12.8 % |
+
+*Physics decoder*: Model 2 predicts each committed unit's position in [pmin, pmax]; a closed-form layer
+restores power balance (raise units toward pmax, or curtail renewables then lower units toward pmin) and
+VA follows from the DC power flow. Units that are off produce exactly zero, limits always hold, and KCL is
+exact up to shedding (the 6.7 MW is imbalance in pairs whose commitment cannot serve the load).
+Violation columns are the per-pair worst value, averaged over pairs.
+Direct regression produces no physically valid dispatch at all: summed over buses, its injections miss the
+load by up to 1 GW.
+
+Neither variant estimates cost well enough for the decision it is meant to inform: a 7.5–13 % cost error
+against cost differences of 0.01–1 % between good commitments.
+
+<!-- UC-U6-SCREEN -->
+
+<!-- UC-U6-ARROW -->
+
+<!-- UC-U7 -->
 
