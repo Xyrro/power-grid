@@ -57,6 +57,6 @@ if __name__ == "__main__":
             cc = ["method", "gap_mean_%", "gap_closed_%", "feasible_%", "n_open"]
             md += ["## Training Model 1 through Model 2\n", table(fix(m2["C"]), cc, ["method", "mean gap %", "gap closed %",
                                                                                     "feasible %", "lines opened"])]
-        out = os.path.join("docs", f"tables_{cfg}.md")
+        out = os.path.join("docs", "ots", f"tables_{cfg}.md")
         open(out, "w").write("\n".join(md))
         print("wrote", out)

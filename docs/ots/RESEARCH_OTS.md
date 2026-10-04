@@ -1,6 +1,11 @@
 # Learning DC Optimal Transmission Switching — critique of the two-stage framework and new methods
 
-*Working research log. Code: this repository. Literature details: [`literature.md`](literature.md).
+> **Side study.** This report assumed "switching status" meant *transmission line* switching (DC-OTS).
+> The framework is about *generator* on/off (unit commitment); the main report is
+> [`../RESEARCH.md`](../RESEARCH.md). The line-switching results are kept because they cover the
+> setting RACLearn names as future work (topology changes).
+
+*Working research log. Code: this repository. Literature details: [`literature.md`](../literature.md).
 Raw numbers: `results/<case>/*.json`.*
 
 
@@ -76,7 +81,7 @@ standard non-deep baselines. If "switching status" means **generator on/off** ra
 status, the closest work is **RACLearn** (Park, Chen, Han, Tanneau & Van Hentenryck, IEEE TPS 2024,
 arXiv 2211.15755): a GNN predicts commitments and active line constraints, epistemic uncertainty
 selects high-confidence commitments to fix, a polynomial-time restoration makes them feasible, and the
-MILP finishes the job (2–4× faster on MISO's 6,708-bus system). See [`literature.md`](literature.md)
+MILP finishes the job (2–4× faster on MISO's 6,708-bus system). See [`literature.md`](../literature.md)
 for the full table.
 
 What we did **not** find in the literature, and what this repository therefore investigates:
@@ -346,7 +351,7 @@ critic.
 
 ### F14. RACLearn-style confidence-aware fixing transfers to line switching; MC-dropout adds nothing here
 
-RACLearn (Park et al., IEEE TPS 2024; see [`raclearn_comparison.md`](raclearn_comparison.md)) fixes the
+RACLearn (Park et al., IEEE TPS 2024; see [`raclearn_comparison.md`](../raclearn_comparison.md)) fixes the
 most confident binaries by MC-dropout (1/σ) and solves the reduced MILP. Same recipe on IEEE 118
 (100 test scenarios, full MILP 7.0 s):
 
