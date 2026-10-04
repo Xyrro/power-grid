@@ -180,9 +180,48 @@ against cost differences of 0.01–1 % between good commitments.
 
 <!-- UC-U6-SCREEN -->
 
-<!-- UC-U6-ARROW -->
+**The dashed arrow** (Model 1 fine-tuned through a frozen Model 2, loss = Model 2's predicted cost incl. VOLL
+on imbalance + overload penalty; relaxed u or straight-through rounding; 400 test hours, same initial Model 1):
 
-<!-- UC-U7 -->
+| Model 1 critic (B1) | no shed / shortfall | median gap | mean gap, served hours | units on |
+|---|---|---|---|---|
+| none: imitation (BCE) reference | 77.5 % | 0.000 % | 1.27 % | 14.9 |
+| frozen physics Model 2, relaxed u | 71.0 % | 0.47 % | 6.4 % | 14.6 |
+| frozen physics Model 2, straight-through | 98.3 % | 24 % | 97 % | 16.4 |
+| frozen direct (PG, VA) regression (framework), relaxed u | 76.0 % | 25 % | 24 % | 17.9 |
+| frozen direct (PG, VA) regression (framework), straight-through | 75.5 % | 155 % | 137 % | 26.5 |
+| **exact LP sensitivities** (envelope theorem at relaxed u, 300 steps, 2 min) | 77.8 % | 0.004 % | **0.58 %** | 14.6 |
+| *REINFORCE with the exact dispatch LP (U4, 1,000 hours)* | *93.9 %* | *0.051 %* | *5.6 %* | |
+
+* **Every learned critic makes Model 1 worse than no critic.** The framework's direct (PG, VA) Model 2 is the
+  worst: it under-prices commitment, so Model 1 learns to switch on 18–27 units instead of 15 (25–155 % median
+  gap). The physics Model 2 either barely moves (relaxed) or, with straight-through rounding, buys
+  feasibility by over-committing (24 % median gap).
+* The exact LP sensitivities (duals of p ≤ pmax·u, p ≥ pmin·u and the no-load term; verified against finite
+  differences, `tests/test_uc.py`) are the right gradient: they halve the cost of served hours, but at a
+  relaxed commitment they cannot see that a fractional unit is not a unit, so shedding does not improve.
+* Only the exact LP *evaluated at sampled integer commitments* (REINFORCE, U4) fixes shedding.
+  The same ordering appeared in the OTS side study.
+
+### U7. The framework's test metric (MSE to the MILP solution) mis-ranks methods
+
+* On the 300 test hours that have an **exactly tied** alternative optimum (U1), the two optimal commitments
+  differ in 2.2 units on average, and the alternative scores PG MSE 0.0132 p.u.² (RMS 11.5 MW per unit; worst
+  hour 0.35 p.u.², 59 MW) and VA MSE 3.4·10⁻⁴ rad² against the MILP solution — with zero cost difference.
+* Across methods, on 300 ordinary test hours:
+
+| method (B1) | PG MSE (p.u.²) | median gap | no shed / shortfall |
+|---|---|---|---|
+| rounded LP relaxation + adequacy repair | 0.034 | 0.000 % | 86.3 % |
+| keep last hour's units (persistence) | **0.060** | 1.66 % | 67.0 % |
+| persistence + adequacy repair | 0.077 | 1.51 % | 84.0 % |
+| merit-order priority list | **0.093** | **0.57 %** | **74.7 %** |
+
+  MSE prefers persistence to the merit-order list although the latter is cheaper and sheds less, and an
+  exactly optimal answer scores 40 % of the MSE of a decent heuristic. Within one method, MSE and cost gap
+  are only moderately rank-correlated (Spearman 0.58–0.66; 0.05–0.34 on the tied hours).
+* **Recommendation**: test with the cost gap of the exact dispatch LP plus the share of hours without
+  shedding / reserve shortfall (and violations for Model 2), not with MSE to one MILP solution.
 
 
 ### U8. Model 1 without MILP labels
