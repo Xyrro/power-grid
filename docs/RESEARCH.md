@@ -352,3 +352,44 @@ unit-hours. Same GNN, features and training budget; 120 test instances:
 * **The imitation stage is needed**: REINFORCE from scratch learns to avoid shedding by committing almost
   everything (67 % median gap; unit-hour accuracy 66 %). Imitating the cheap relaxation supplies the structure,
   the LP critic supplies the cost asymmetry.
+
+## 5. Recommendations for the framework, box by box
+
+| box | change | evidence |
+|---|---|---|
+| inputs (PD, QD) | add the previous on/off status (start-up costs, min up/down depend on it), renewable availability, reserve requirement; add one LP-relaxation solve (fractional u, prices, loadings) as features. QD has no role in a DC model. | U3, V2 |
+| Model 1 (GNN) | pre-train by imitation, then **fine-tune on cost with the exact dispatch LP as critic** (REINFORCE with a leave-one-out baseline; 1–15 min). A GNN is not better than an MLP on a fixed network; keep it only if topology or system size changes. Symmetry features / canonical labels did not help. | U3, U4, V2 |
+| MILP labels | **optional**: imitate the repaired LP relaxation instead (18× cheaper on B1, 87× on B2) — same results after fine-tuning. Do not train from scratch. | U8, V4 |
+| decoding | min up/down repair (DP) + adequacy repair (no solver) on every prediction; check 2–15 candidates (thresholds and samples of Model 1's probabilities) with the LP when time allows. | U3, U4, V2 |
+| LP solver | keep it as the last step: always feasible with priced slacks, 30 ms (B1), and the source of the training signal. | all |
+| with a MILP | fix decisions RACLearn-style and solve the reduced MILP: ≤ 90 % fixed on B1 (4×, ≤ 0.1 %), ≤ 80 % on B2 (1.9×, no loss — it beats the time-limited full MILP). Beyond that, rank decisions by the cost-aware model. | U5, V3 |
+| Model 2 | if a fast dispatch estimate is needed, use the physics decoder (unit positions → closed-form balance → VA from DC power flow) and price the implied shedding / reserve shortfall. Do not use it as a screener when the exact LP is affordable. | U6 |
+| dashed arrow | **replace the learned critic by the exact LP** (sampled commitments scored by the LP; or the LP's sensitivities). A learned Model 2 critic made Model 1 worse in every variant. | U6 |
+| validation / test | report the share of instances without shedding / reserve shortfall (against the MILP's own share) and the median cost gap from the exact LP; the mean gap is dominated by penalty-priced instances. Drop MSE to one MILP solution. | U7 |
+
+## 6. Research backlog (not done here)
+
+1. **Cost-aware fixing thresholds** (Fritz et al. 2026): calibrate per unit on validation by the cost of a
+   wrong fix (measured with reduced MILPs), not by label frequency (which failed, U5).
+2. **Reduce over-commitment on B2**: REINFORCE buys feasibility with 4.7–9.1 % extra cost on served instances.
+   Candidates: a reward that separates shedding from cost (constrained RL / Lagrangian), more steps,
+   per-hour credit assignment with the LP's duals (the exact sensitivities as a control variate).
+3. **Seeds and scale**: three seeds for the key B1/B2 claims; a larger system (e.g. a 500-bus or the French
+   RTE system used by RACLearn) where the MILP is slow enough for the hybrid to matter.
+4. **Contingencies / topology change**: the only setting where the GNN should beat an MLP; test with line
+   outages and unit maintenance (the OTS side study found learned + LP checks beat kNN under topology shift).
+5. **Ramp-aware adequacy repair** for B2 (the current repair checks capacity per hour only).
+
+## 7. Reproducibility and caveats
+
+* Code and exact runs: `README.md`; result tables in `results/uc1/`, `results/uc12/`; sanity tests
+  `tests/test_uc.py` (dispatch LP reproduces the MILP; LP sensitivities match finite differences; the
+  physics layer reproduces the LP's flows and cost; repairs return feasible schedules).
+* **Single seeds** throughout. Timings were measured while several experiments shared four cores; compare
+  ratios within a table, not seconds across tables.
+* B2: 17.5 % of test MILPs stopped at the 60 s limit (0.23 % mean MIP gap), so the reference is not always
+  optimal; negative gaps are real improvements over the reference.
+* An early 4-instance check suggested the merit-order list was near-optimal on B1; on the full test set it
+  serves 72.5 % of hours with a 0.85 % median gap (U2).
+* The single-hour LP relaxation is tight, which flatters relax-and-round on B1; B2 is the harder test and
+  confirms the main conclusions except that a learned Model 1 alone does not reach MILP cost on B2.
