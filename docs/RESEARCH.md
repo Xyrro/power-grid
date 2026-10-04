@@ -8,7 +8,7 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
 **TL;DR** (RTS-GMLC, 73 thermal units; B1 = one hour, B2 = twelve hours with min up/down, ramping, start-ups).
 
 1. *Model 1 → LP* is published (Tang et al. 2023; RACLearn adds confidence fixing). What can be new is below.
-2. **Most MILP labels are arbitrary** — 34 % of B1 hours have an exactly tied optimum; 21 % (B1) and 62.5 % (B2)
+2. **Many MILP labels are arbitrary** — 34 % of B1 hours have an exactly tied optimum; 21 % (B1) and 62.5 % (B2)
    of labels change when identical units are reordered — so BCE and the MSE test metric penalise correct
    answers (U1, U7, V1).
 3. **The framework's one-shot pipeline under-commits**: 59–74 % of B1 hours and 10–17 % of B2 instances are
