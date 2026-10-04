@@ -21,12 +21,16 @@ class Model1:
         self.sw = torch.as_tensor(switchable)
 
     def logits(self, d, idx=None):
+        base = None
+        if "base" in d:  # base-case outages: no messages through, and no switching of, out-of-service lines
+            base = torch.as_tensor(d["base"] if idx is None else d["base"][idx]).bool()
         if self.kind == "gnn":
             x, e = self.feat(d, idx)
-            out = self.net(x, e)
+            out = self.net(x, e, gate=None if base is None else base.float())
         else:
             out = self.net(self.feat.flat(d, idx))
-        return out.masked_fill(~self.sw, -30.0)
+        mask = self.sw if base is None else (self.sw & base)
+        return out.masked_fill(~mask, -30.0)
 
     @torch.no_grad()
     def predict(self, d, bs=256):

@@ -95,15 +95,18 @@ def candidates_from_probs(p_open, K, switchable, n_samples=16, top_m=None, rng=N
     return out
 
 
-def pick_best(oracle, pds, cand_lists, keys, switch_cost=0.0):
+def pick_best(oracle, pds, cand_lists, keys, switch_cost=0.0, base=None):
     """Score all candidates with the LP (+ switching cost) and return (best z, best generation cost,
-    #candidates) per scenario."""
-    flat_pd, flat_z, flat_k, owner = [], [], [], []
+    #candidates) per scenario. base [n, L]: in-service masks (candidates are AND-ed with it and
+    out-of-service lines are not counted as switched)."""
+    flat_pd, flat_z, flat_k, owner, flat_ref = [], [], [], [], []
     for i, cl in enumerate(cand_lists):
+        ref = np.ones(len(cl[0]), np.int8) if base is None else base[i]
         for z in cl:
-            flat_pd.append(pds[i]); flat_z.append(z); flat_k.append(keys[i]); owner.append(i)
+            flat_pd.append(pds[i]); flat_z.append(z * ref); flat_k.append(keys[i]); owner.append(i)
+            flat_ref.append(ref)
     c = oracle.costs(np.array(flat_pd), np.array(flat_z), flat_k)
-    tot = c + switch_cost * (1 - np.array(flat_z)).sum(1)
+    tot = c + switch_cost * (np.array(flat_ref) - np.array(flat_z)).sum(1)
     owner = np.array(owner)
     best_z, best_c = [], []
     for i in range(len(cand_lists)):
@@ -114,12 +117,12 @@ def pick_best(oracle, pds, cand_lists, keys, switch_cost=0.0):
 
 
 # ------------------------------------------------------------------------------- heuristics
-def dual_greedy(cfg, pd, K, R=5):
+def dual_greedy(cfg, pd, K, R=5, base=None):
     """Non-learning baseline: repeatedly open the line with the best LP-verified saving among the R
     lines with the most negative first-order estimate dC_l = -gamma_l f_l (Fuller et al. 2012)."""
     m = make_model(cfg)
     sw = ~m.fixed_closed
-    z = np.ones(m.case.n_line, np.int8)
+    z = np.ones(m.case.n_line, np.int8) if base is None else np.asarray(base, np.int8).copy()
     s = m.solve_lp(pd, z)
     n_lp = 1
     for _ in range(K):
@@ -140,13 +143,13 @@ def dual_greedy(cfg, pd, K, R=5):
 
 
 def _dg(args):
-    cfg, pd, K, R = args
-    return dual_greedy(cfg, pd, K, R)
+    cfg, pd, K, R, base = args
+    return dual_greedy(cfg, pd, K, R, base)
 
 
-def run_dual_greedy(cfg, pds, K, R=5, workers=4):
+def run_dual_greedy(cfg, pds, K, R=5, workers=4, bases=None):
     with mp.get_context("spawn").Pool(workers) as pool:
-        res = pool.map(_dg, [(cfg, pd, K, R) for pd in pds])
+        res = pool.map(_dg, [(cfg, pd, K, R, None if bases is None else bases[i]) for i, pd in enumerate(pds)])
     return np.array([r[0] for r in res]), np.array([r[1] for r in res]), np.array([r[2] for r in res])
 
 
@@ -169,9 +172,10 @@ def metrics(cost, test, z=None, label="", **extra):
     MILP objective  generation cost + switch_cost * #open  (switch_cost = 0 for raw DC-OTS)."""
     sc = float(test.get("switch_cost", 0.0))
     c0 = test["c0"]
-    cs = test["c_ots"] + sc * (1 - test["z"]).sum(1)
+    ref = test["base"] if "base" in test else 1
+    cs = test["c_ots"] + sc * (ref - test["z"]).sum(1)
     feas = np.isfinite(cost)
-    n_open = np.zeros(len(cost)) if z is None else (1 - z).sum(1)
+    n_open = np.zeros(len(cost)) if z is None else (ref - z * ref).sum(1)
     cost_f = np.where(feas, cost + sc * n_open, c0)          # infeasible -> fall back to all-closed
     gap = (cost_f - cs) / cs * 100
     ben = c0 - cs
@@ -182,8 +186,9 @@ def metrics(cost, test, z=None, label="", **extra):
            "benefit_captured_%": cap.mean() if m.any() else np.nan,
            "beats_or_ties_milp_%": (gap <= 1e-4).mean() * 100}
     if z is not None:
-        out["z_exact_match_%"] = (z == test["z"]).all(1).mean() * 100
-        out["z_hamming"] = (z != test["z"]).sum(1).mean()
+        zz = z * ref
+        out["z_exact_match_%"] = (zz == test["z"]).all(1).mean() * 100
+        out["z_hamming"] = (zz != test["z"]).sum(1).mean()
         out["n_open"] = n_open.mean()
     out.update(extra)
     return out

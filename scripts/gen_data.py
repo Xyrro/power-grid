@@ -22,6 +22,9 @@ CONFIGS = {
     "case30": dict(_30, switch_cost_rel=2e-4),
     "case30_raw": dict(_30, switch_cost_rel=0.0),
     "smoke": dict(_30, switch_cost_rel=2e-4),         # tiny dataset for smoke tests
+    # topology shift: one random non-bridge line out of service in the base case
+    "case30_topo": dict(_30, switch_cost_rel=2e-4, outages=1, outage_prob=0.7),       # mixed training set
+    "case30_topo_test": dict(_30, switch_cost_rel=2e-4, outages=1, outage_prob=1.0),  # every scenario shifted
 }
 
 if __name__ == "__main__":

@@ -15,7 +15,9 @@ _W = {}
 def make_model(cfg: dict) -> DCModel:
     case = load_case(cfg["case"], line_limit_scale=cfg.get("line_scale", 1.0))
     fixed = case.bridges() if cfg.get("fix_bridges", True) else None
-    m = DCModel(case, budget=cfg.get("budget"), fixed_closed=fixed)
+    budget = cfg.get("budget")
+    bound_k = None if budget is None else budget + cfg.get("outages", 0)
+    m = DCModel(case, budget=budget, fixed_closed=fixed, bound_k=bound_k)
     if cfg.get("switch_cost_rel", 0.0) > 0:
         # per-line switching cost = rel * (nominal all-closed DC-OPF cost)
         m.switch_cost = cfg["switch_cost_rel"] * m.solve_lp(case.pd * cfg.get("load_factor", 1.0)).obj
@@ -34,15 +36,17 @@ def _init(cfg):
     _W["cfg"] = cfg
 
 
-def _solve_one(pd):
+def _solve_one(args):
     m, cfg = _W["m"], _W["cfg"]
-    L = m.case.n_line
-    lp = m.solve_lp(pd)
+    pd, base = args if isinstance(args, tuple) else (args, None)
+    lp = m.solve_lp(pd, base)
     out = {"pd": pd, "lp_ok": lp.ok}
+    if base is not None:
+        out["base"] = base
     if not lp.ok:
         return out
     out.update(c0=lp.obj, lmp0=lp.lmp, mu0=lp.mu, gamma0=lp.gamma, flow0=lp.flow, pg0=lp.pg, va0=lp.va)
-    ots = m.solve_ots(pd, time_limit=cfg.get("time_limit", 60), mip_gap=cfg.get("mip_gap", 1e-4))
+    ots = m.solve_ots(pd, time_limit=cfg.get("time_limit", 60), mip_gap=cfg.get("mip_gap", 1e-4), base=base)
     out.update(ots_status=ots.status, ots_time=ots.time, ots_gap=ots.gap)
     if ots.z is None:
         return out
@@ -51,7 +55,7 @@ def _solve_one(pd):
     alts = []
     for _ in range(cfg.get("n_alt", 0)):
         alt = m.solve_ots(pd, time_limit=cfg.get("time_limit", 60), mip_gap=cfg.get("mip_gap", 1e-4),
-                          nogood=[out["z"]] + [a[0] for a in alts])
+                          nogood=[out["z"]] + [a[0] for a in alts], base=base)
         if alt.z is None:
             break
         lp_alt = m.solve_lp(pd, alt.z)  # exact cost of that topology (+ switching cost)
@@ -67,10 +71,20 @@ def generate(cfg: dict, n: int, seed: int, workers: int = 4) -> dict:
     m = make_model(cfg)
     rng = np.random.default_rng(seed)
     pds = sample_loads(m.case, n, rng, load_factor=cfg.get("load_factor", 1.0))
+    jobs = list(pds)
+    if cfg.get("outages", 0):
+        # base-case topology changes: `outages` random non-bridge lines out of service, with probability
+        # outage_prob per scenario (tests generalisation to topologies not seen in training)
+        cand = np.where(~m.fixed_closed)[0]
+        bases = np.ones((n, m.case.n_line), np.int8)
+        for i in range(n):
+            if rng.random() < cfg.get("outage_prob", 1.0):
+                bases[i, rng.choice(cand, cfg["outages"], replace=False)] = 0
+        jobs = list(zip(pds, bases))
     import time
     t0, res = time.time(), []
     with mp.get_context("spawn").Pool(workers, initializer=_init, initargs=(cfg,)) as pool:
-        for i, r in enumerate(pool.imap(_solve_one, list(pds), chunksize=1)):
+        for i, r in enumerate(pool.imap(_solve_one, jobs, chunksize=1)):
             res.append(r)
             if (i + 1) % max(1, n // 10) == 0:
                 print(f"[generate] {i + 1}/{n} ({time.time() - t0:.0f}s)", flush=True)
@@ -83,6 +97,8 @@ def generate(cfg: dict, n: int, seed: int, workers: int = 4) -> dict:
               "ots_time", "ots_gap"]:
         data[k] = np.array([r[k] for r in keep])
     data["ots_opt"] = np.array([r["ots_status"] == "optimal" for r in keep])
+    if cfg.get("outages", 0):
+        data["base"] = np.array([r["base"] for r in keep]).astype(np.int8)
     data["switch_cost"] = np.array(m.switch_cost)
     if cfg.get("n_alt", 0):
         na = cfg["n_alt"]

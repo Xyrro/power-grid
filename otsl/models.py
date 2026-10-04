@@ -62,8 +62,8 @@ class SwitchGNN(nn.Module):
         self.gnn = EdgeGNN(f_bus, t_bus, n_bus, node_in, edge_in, hidden, layers)
         self.head = mlp(3 * hidden, hidden, 1)
 
-    def forward(self, x, e):
-        h, g = self.gnn(x, e)
+    def forward(self, x, e, gate=None):
+        h, g = self.gnn(x, e, edge_gate=gate)
         f, t = self.gnn.f, self.gnn.t
         return self.head(torch.cat([g, h[:, f] + h[:, t], (h[:, f] - h[:, t]).abs()], -1)).squeeze(-1)
 

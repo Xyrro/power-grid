@@ -13,8 +13,8 @@ import torch
 
 
 class Featurizer:
-    def __init__(self, case, train: dict, duals: bool = False, fixed_closed=None):
-        self.case, self.duals = case, duals
+    def __init__(self, case, train: dict, duals: bool = False, fixed_closed=None, topo: bool = False):
+        self.case, self.duals, self.topo = case, duals, topo
         N, L = case.n_bus, case.n_line
         Cg = case.Cg
         pmax_bus = Cg @ case.pmax
@@ -38,6 +38,9 @@ class Featurizer:
         N, L = self.case.n_bus, self.case.n_line
         node = [pd[..., None], np.broadcast_to(self.node_static, (B, N, self.node_static.shape[1]))]
         edge = [np.broadcast_to(self.edge_static, (B, L, self.edge_static.shape[1]))]
+        if self.topo:  # base-case in-service flag (1 = in service)
+            base = sel(d["base"]) if "base" in d else np.ones((B, L))
+            edge.append(base[..., None].astype(float))
         if self.duals:
             lmp, mu, gam, fl, va, pg = (sel(d[k]) for k in ["lmp0", "mu0", "gamma0", "flow0", "va0", "pg0"])
             node += [lmp[..., None], va[..., None], (pg @ self.case.Cg.T)[..., None]]
@@ -51,6 +54,9 @@ class Featurizer:
     def __call__(self, d: dict, idx=None):
         xn, xe = self._raw(d, idx)
         mn, sn, me, se = self.stats
+        if self.topo:  # keep the in-service flag binary even if it was constant in training
+            me, se = me.copy(), se.copy()
+            me[self.edge_static.shape[1]], se[self.edge_static.shape[1]] = 0.0, 1.0
         return (torch.as_tensor((xn - mn) / sn, dtype=torch.float32),
                 torch.as_tensor((xe - me) / se, dtype=torch.float32))
 

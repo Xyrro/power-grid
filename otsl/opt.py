@@ -118,7 +118,7 @@ class DCModel:
     """Pre-builds the sparse structure for a case so that each solve only changes the RHS."""
 
     def __init__(self, case: DCCase, budget: int | None = None, fixed_closed: np.ndarray | None = None,
-                 n_seg: int = 4, theta_max: float = THETA, switch_cost: float = 0.0):
+                 n_seg: int = 4, theta_max: float = THETA, switch_cost: float = 0.0, bound_k: int | None = None):
         self.case = case
         self.theta_max = theta_max
         self.switch_cost = switch_cost   # $/h charged per opened line (canonicalises degenerate optima)
@@ -137,7 +137,9 @@ class DCModel:
         self.bA = sp.diags(case.b) @ A          # [L, N]
         self.M = 2 * theta_max * case.b
         if budget is not None:
-            self.M = np.minimum(self.M, case.b * disjoint_path_bound(case, budget, self.fixed_closed))
+            # bound_k = max number of simultaneously open lines (budget + base-case outages)
+            k = budget if bound_k is None else bound_k
+            self.M = np.minimum(self.M, case.b * disjoint_path_bound(case, k, self.fixed_closed))
         self.c_seg = self.slope.reshape(-1)
 
     # ------------------------------------------------------------------ utils
@@ -156,11 +158,13 @@ class DCModel:
 
     # ---------------------------------------------------------------- DC-OTS
     def solve_ots(self, pd, time_limit: float = 60.0, mip_gap: float = 1e-4, z_fix: dict | None = None,
-                  z_start=None, nogood: list | None = None) -> Solution:
+                  z_start=None, nogood: list | None = None, base=None) -> Solution:
         """Solve the DC-OTS MILP for load vector pd [N].
 
         z_fix: {line: 0/1} partial fixing (used by ML-guided "neural diving").
         nogood: list of 0/1 vectors to exclude (to enumerate alternative optima).
+        base: optional in-service mask [L] (0 = line on outage in the base case, cannot be used and
+              does not count toward the switching budget).
         """
         case = self.case
         N, L = case.n_bus, case.n_line
@@ -179,11 +183,12 @@ class DCModel:
         rhs_eq = pd - self.pmin_bus
         lo = [rhs_eq, np.full(2 * L, -np.inf), np.full(2 * L, -np.inf)]
         hi = [rhs_eq, np.r_[self.M, self.M], np.zeros(2 * L)]
+        n_out = 0 if base is None else int((np.asarray(base) == 0).sum())
         if self.budget is not None:
             row = sp.csr_matrix(np.r_[np.zeros(nd + N + L), -np.ones(L)][None, :])
             blocks.append(row)
             lo.append([-np.inf])
-            hi.append([self.budget - L])
+            hi.append([self.budget + n_out - L])
         for ng in nogood or []:
             ng = np.asarray(ng)
             # sum_{l: ng=1} (1 - z_l) + sum_{l: ng=0} z_l >= 1
@@ -199,6 +204,9 @@ class DCModel:
         zlo[self.fixed_closed] = 1.0
         for l, v in (z_fix or {}).items():
             zlo[l] = zhi[l] = v
+        if base is not None:
+            out = np.asarray(base) == 0
+            zlo[out] = zhi[out] = 0.0
         lb = np.r_[np.zeros(nd), tlo, -case.fmax, zlo]
         ub = np.r_[self.width.reshape(-1), thi, case.fmax, zhi]
         c = np.r_[self.c_seg, np.zeros(N + L), np.full(L, -self.switch_cost)]
