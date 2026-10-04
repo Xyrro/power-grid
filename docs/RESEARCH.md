@@ -95,8 +95,9 @@ strong, and kNN with an LP check is near-optimal — both have to be in any comp
 * The GNN is **not better than an MLP** on a fixed network, and the framework's GNN is worse than simply
   rounding the LP relaxation.
 * **Symmetry handling did not help** here (rank feature + canonical labels, as suggested by the ICLR 2025
-  orbit-feature result): one-shot quality dropped slightly. With a 3 % reserve margin, which copy of an
-  identical unit is on rarely matters for cost, so the ambiguity costs little once decoding is cost-aware.
+  orbit-feature result): one-shot quality dropped slightly (single seed). A plausible reason, not yet
+  tested: identical copies sit at the same bus, so swapping them changes neither cost nor flows, and the
+  shedding errors that dominate the metric come from *how many* units are on, not *which copy*.
 * **LP-relaxation features** (fractional commitments and prices from one LP relaxation solve) are the most
   useful input: best one-shot median gap and best repaired result.
 
