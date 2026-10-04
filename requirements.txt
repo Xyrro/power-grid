@@ -1,0 +1,5 @@
+numpy
+scipy>=1.11
+highspy
+networkx
+torch
