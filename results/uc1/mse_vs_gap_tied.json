@@ -1,0 +1,42 @@
+{
+ "alternative optimal commitment (gap 0)": {
+  "pg_mse": 0.013226645202054653,
+  "va_mse": 0.0003379013328438303,
+  "gap_median": -2.1511942445489873e-10,
+  "gap_mean": -1.1775327007716292e-10,
+  "no_shed": 97.33333333333334,
+  "spearman_mse_gap": 0.0526792519916888
+ },
+ "rounded LP relaxation + adequacy repair": {
+  "pg_mse": 0.05802736277779997,
+  "va_mse": 0.0026482220512318052,
+  "gap_median": 11.593047783477576,
+  "gap_mean": 172.37630720008403,
+  "no_shed": 74.66666666666667,
+  "spearman_mse_gap": 0.08710719007988978
+ },
+ "persistence + adequacy repair": {
+  "pg_mse": 0.09546559909863067,
+  "va_mse": 0.00655395724152778,
+  "gap_median": 39.05122498577205,
+  "gap_mean": 802.1938047020866,
+  "no_shed": 65.33333333333333,
+  "spearman_mse_gap": -0.002825364726274736
+ },
+ "merit-order priority list": {
+  "pg_mse": 0.09941572947279345,
+  "va_mse": 0.006535644198597542,
+  "gap_median": 49.14445464357506,
+  "gap_mean": 1379.266067989816,
+  "no_shed": 59.0,
+  "spearman_mse_gap": 0.04915076834187046
+ },
+ "persistence (last hour's units)": {
+  "pg_mse": 0.053562544647409616,
+  "va_mse": 0.003242029312307682,
+  "gap_median": 529.2328153045578,
+  "gap_mean": 2435.80318213627,
+  "no_shed": 25.0,
+  "spearman_mse_gap": 0.3425602506694519
+ }
+}

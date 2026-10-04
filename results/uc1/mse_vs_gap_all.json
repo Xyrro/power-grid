@@ -1,0 +1,34 @@
+{
+ "rounded LP relaxation + adequacy repair": {
+  "pg_mse": 0.033954782931711426,
+  "va_mse": 0.0012598455701035485,
+  "gap_median": -6.158780009599017e-15,
+  "gap_mean": 75.10095605521056,
+  "no_shed": 86.33333333333333,
+  "spearman_mse_gap": 0.6625095834398159
+ },
+ "persistence + adequacy repair": {
+  "pg_mse": 0.07676992806155572,
+  "va_mse": 0.003586391891142765,
+  "gap_median": 1.507266970680692,
+  "gap_mean": 426.46400903957914,
+  "no_shed": 84.0,
+  "spearman_mse_gap": 0.6156352848364981
+ },
+ "merit-order priority list": {
+  "pg_mse": 0.09265176816525733,
+  "va_mse": 0.005180222858179174,
+  "gap_median": 0.573398148683904,
+  "gap_mean": 635.3859395006785,
+  "no_shed": 74.66666666666667,
+  "spearman_mse_gap": 0.5787477638640429
+ },
+ "persistence (last hour's units)": {
+  "pg_mse": 0.05957752033643258,
+  "va_mse": 0.0020919526914849463,
+  "gap_median": 1.6556182603879055,
+  "gap_mean": 1266.7587604207374,
+  "no_shed": 67.0,
+  "spearman_mse_gap": 0.5790637673751929
+ }
+}
