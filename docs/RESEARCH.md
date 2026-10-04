@@ -21,7 +21,7 @@ Raw numbers: `results/<case>/*.json`.*
   than DC-OPF):
   1. *LP-verified candidate screening* (~26 LPs): 99.6–101 % on both grids.
   2. *REINFORCE with the exact LP as critic*, warm-started from imitation: **MILP quality with one
-     LP** on IEEE 118 (mean gap −0.0014 %), 96 % on IEEE 30. 300 steps, < 15 min of CPU.
+     LP** on IEEE 118 (mean gap −0.0014 %), 97 % gap closed on IEEE 30. 300 steps: 25–70 s of training.
   3. *GNN-guided partial fixing + MILP*: optimal-or-better on IEEE 118 in 0.23 s vs 7.0 s (30×).
 * **The dashed arrow should not go through a learned Model 2**: doing so cut the captured benefit
   from 69 % to 0–43 % (Model 1 learns to stop switching). Use the exact LP as the critic.
