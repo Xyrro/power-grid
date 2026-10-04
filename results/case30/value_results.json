@@ -1,0 +1,99 @@
+{
+ "rows": [
+  {
+   "method": "exhaustive greedy (exact LP for all lines)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 5.347528242240031,
+   "gap_p95_%": 21.55860269363134,
+   "gap_max_%": 22.452627779416336,
+   "benefit_captured_%": 83.11608881739839,
+   "beats_or_ties_milp_%": 54.7550432276657,
+   "z_exact_match_%": 35.44668587896253,
+   "z_hamming": 2.4293948126801155,
+   "n_open": 2.397694524495677,
+   "LPs_per_scenario": 112.0,
+   "time_ms": 260.49916201434837
+  },
+  {
+   "method": "learned-value greedy (R=1 LP checks/step)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 4.979462796975796,
+   "gap_p95_%": 21.447923994115083,
+   "gap_max_%": 22.607513967997438,
+   "benefit_captured_%": 84.04859265353927,
+   "beats_or_ties_milp_%": 55.04322766570605,
+   "z_exact_match_%": 33.71757925072046,
+   "z_hamming": 2.4553314121037464,
+   "n_open": 2.371757925072046,
+   "LPs_per_scenario": 3.9971181556195967,
+   "time_ms": 11.712650744303502
+  },
+  {
+   "method": "learned-value greedy (R=2 LP checks/step)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 5.39976163766972,
+   "gap_p95_%": 21.56397300366626,
+   "gap_max_%": 22.452627779416336,
+   "benefit_captured_%": 82.8508261667177,
+   "beats_or_ties_milp_%": 53.31412103746398,
+   "z_exact_match_%": 34.00576368876081,
+   "z_hamming": 2.4639769452449567,
+   "n_open": 2.397694524495677,
+   "LPs_per_scenario": 7.0,
+   "time_ms": 17.285598458061987
+  },
+  {
+   "method": "learned-value greedy (R=4 LP checks/step)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 5.398780483801263,
+   "gap_p95_%": 21.55860269363134,
+   "gap_max_%": 22.452627779416336,
+   "benefit_captured_%": 82.85456372557485,
+   "beats_or_ties_milp_%": 53.31412103746398,
+   "z_exact_match_%": 34.293948126801155,
+   "z_hamming": 2.452449567723343,
+   "n_open": 2.397694524495677,
+   "LPs_per_scenario": 13.0,
+   "time_ms": 33.45195223343819
+  },
+  {
+   "method": "learned-value beam search (B=3, R=3)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.09995573993297581,
+   "gap_p95_%": 0.13795044890551744,
+   "gap_max_%": 8.425474337833899,
+   "benefit_captured_%": 99.4395652776499,
+   "beats_or_ties_milp_%": 89.62536023054754,
+   "z_exact_match_%": 61.67146974063401,
+   "z_hamming": 0.9365994236311239,
+   "n_open": 2.4207492795389047,
+   "LPs_per_scenario": 21.492795389048993,
+   "time_ms": 53.89381897896099
+  },
+  {
+   "method": "learned-value beam search (B=5, R=5)",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.09212885509934371,
+   "gap_p95_%": 3.111044198410794e-05,
+   "gap_max_%": 8.425474337833899,
+   "benefit_captured_%": 99.5138754849442,
+   "beats_or_ties_milp_%": 95.10086455331412,
+   "z_exact_match_%": 64.26512968299711,
+   "z_hamming": 0.7809798270893372,
+   "n_open": 2.438040345821326,
+   "LPs_per_scenario": 48.5878962536023,
+   "time_ms": 127.87581452031644
+  }
+ ],
+ "extra": {
+  "label_time_s_per_scenario": 0.20643211862315303,
+  "label_LPs_per_scenario": 112.0,
+  "n_states_train": 3000,
+  "train_time_s": 400.77188181877136,
+  "val_best_line_top1_%": 69.11111111111111,
+  "val_best_line_in_top3_%": 80.22222222222221,
+  "val_spearman": 0.7331139948645017,
+  "dual_estimate_best_line_top1_%": 0.6666666666666667,
+  "dual_estimate_best_line_in_top3_%": 40.44444444444444
+ }
+}
