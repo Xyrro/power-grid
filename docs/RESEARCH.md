@@ -25,8 +25,9 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
    70–74 % fully feasible vs 0 % for direct (PG, VA) regression; it judges commitments only if the implied
    shedding / reserve shortfall is priced, and even then the exact LP is the better screener (U6).
 8. **Partial fixing + MILP**: RACLearn's confidence rule is right up to 90 % fixed on B1 (4×) and 80 % on B2
-   (1.9×, slightly *cheaper* than the time-limited full MILP); beyond that on B1 the cost-aware model's
-   probabilities are the better ranking (95 % fixed: 1.3 % vs 18 % mean gap) (U5, V3).
+   (1.9×, slightly *cheaper* than the time-limited full MILP). Beyond that, new rankings help: on B2 at 90 %,
+   penalising OFF fixes + a solver-free adequacy guard (0.41 % vs 1.38 %, 4.7×); at 95 % on both benchmarks,
+   the cost-aware model's probabilities (B1 1.3 % vs 18 %; B2 5.5 % vs 38.5 %, 27×) (U5, V3).
 9. **Open problem**: on B2 the fine-tuned model buys coverage with extra units (+4.7–9.1 % cost on served
    instances); learning alone does not reach MILP quality there, the hybrid with a reduced MILP does.
 
@@ -356,7 +357,7 @@ Errors bite earlier than on B1 (90 % fixed already costs 1.4 %).
   fixes of peakers are costly; over 12 hours under-commitment dominates).
 * At 95 %, ranking by the cost-aware (REINFORCE) model is again the most robust (5.5 % vs 38.5 %, 27×), but
   no ranking is near-optimal there.
-* (Times exclude the min up/down infeasibility fallback, which never triggered.)
+* The fallback for fixings that conflict with min up/down times (re-solve without fixings) never triggered.
 
 ### V4. Model 1 without MILP labels on B2
 
@@ -387,7 +388,7 @@ unit-hours. Same GNN, features and training budget; 120 test instances:
 | MILP labels | **optional**: imitate the repaired LP relaxation instead (18× cheaper on B1, 87× on B2) — same results after fine-tuning. Do not train from scratch. | U8, V4 |
 | decoding | min up/down repair (DP) + adequacy repair (no solver) on every prediction; check 2–15 candidates (thresholds and samples of Model 1's probabilities) with the LP when time allows. | U3, U4, V2 |
 | LP solver | keep it as the last step: always feasible with priced slacks, 30 ms (B1), and the source of the training signal. | all |
-| with a MILP | fix decisions RACLearn-style and solve the reduced MILP: ≤ 90 % fixed on B1 (4×, ≤ 0.1 %), ≤ 80 % on B2 (1.9×, no loss — it beats the time-limited full MILP). Beyond that, rank decisions by the cost-aware model. | U5, V3 |
+| with a MILP | fix decisions RACLearn-style and solve the reduced MILP: ≤ 90 % fixed on B1 (4×, ≤ 0.1 %), ≤ 80 % on B2 (1.9×, no loss — it beats the time-limited full MILP). On B2 at 90 %, penalise OFF fixes and guard adequacy (0.41 %, 4.7×). For the most aggressive fixing, rank by the cost-aware model. | U5, V3 |
 | Model 2 | if a fast dispatch estimate is needed, use the physics decoder (unit positions → closed-form balance → VA from DC power flow) and price the implied shedding / reserve shortfall. Do not use it as a screener when the exact LP is affordable. | U6 |
 | dashed arrow | **replace the learned critic by the exact LP** (sampled commitments scored by the LP; or the LP's sensitivities). A learned Model 2 critic made Model 1 worse in every variant. | U6 |
 | validation / test | report the share of instances without shedding / reserve shortfall (against the MILP's own share) and the median cost gap from the exact LP; the mean gap is dominated by penalty-priced instances. Drop MSE to one MILP solution. | U7 |
