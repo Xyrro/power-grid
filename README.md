@@ -8,7 +8,8 @@ demand (PD) ──► Model 1 (GNN) ──► switching status z ──► LP (D
 ```
 
 and for the extensions proposed in [`docs/RESEARCH.md`](docs/RESEARCH.md) (findings, literature
-positioning, critique of the original framework, new methods and results).
+positioning, critique of the original framework, new methods and results; full tables in
+`docs/tables_case30.md` and `docs/tables_case118.md`, prior work in `docs/literature.md`).
 
 ## Layout
 
@@ -29,6 +30,8 @@ positioning, critique of the original framework, new methods and results).
 | `scripts/run_label_free.py` | REINFORCE with an LP critic from scratch (no MILP labels) |
 | `scripts/run_topology.py` | generalisation to unseen base-case line outages (GNN vs MLP vs kNN) |
 | `scripts/ambiguity.py` | label-ambiguity statistics from enumerated alternative optima |
+| `scripts/run_seeds.py` | seed robustness of the key Model 1 claims |
+| `scripts/tables.py` | consolidated tables (`docs/tables_<case>.md`) with the gap-closed metric |
 | `scripts/gen_all.sh`, `scripts/run_all_118.sh` | the exact data / experiment runs behind the report |
 | `results/<cfg>/` | result tables (`*.md`) and raw numbers (`*.json`) |
 | `tests/test_core.py` | solver / physics-layer sanity checks |
@@ -45,7 +48,9 @@ python scripts/run_value.py  --cfg case30
 python scripts/run_label_free.py --cfg case30
 scripts/run_all_118.sh                   # IEEE 118: Model 1, value, label-free, Model 2 studies
 python scripts/ambiguity.py case30 case30_raw case118 case118_raw
-python scripts/run_topology.py           # needs case30_topo / case30_topo_test data (see gen_data.py)
+scripts/topology_chain.sh                # case30 topology-shift data + run_topology.py
+python scripts/run_seeds.py --cfg case118 --seeds 1 2
+python scripts/tables.py case30 case118
 ```
 
 Test cases are from [PGLib-OPF](https://github.com/power-grid-lib/pglib-opf) v23.07 (`data/cases`).

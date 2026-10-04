@@ -89,7 +89,7 @@ What we did **not** find in the literature, and what this repository therefore i
 6. A critique of the **testing metric** (MSE to the MILP solution).
 
 
-## 3. Findings so far (IEEE 30; IEEE 118 in §4)
+## 3. Findings on IEEE 30 (IEEE 118 and topology shift in §4)
 
 IEEE 30 (PGLib, 2 generators, 41 lines, K = 3): switching saves **21.3 %** of generation cost on
 average — a strongly congested, "switching matters" regime. 1,269 train / 170 val / 347 test
@@ -175,7 +175,7 @@ simply LP-verifying all 64 candidates gives 100 % and costs ~0.6 s on one core. 
 not the bottleneck; Model 2 only pays off where the per-topology problem is expensive (AC-OPF,
 security-constrained, multi-period).
 
-### F6. Learned switching values: MILP-free supervision that works
+### F6. Learned switching values: MILP-free supervision that works on IEEE 30 (not on IEEE 118, see F10)
 
 Labels = exact LP cost change of opening each line at the current topology (112 LPs ≈ 0.4 CPU-s per
 scenario vs 0.6 s for one MILP on this small grid; unique and dense — no ambiguity). A topology-gated GNN predicts them
@@ -205,7 +205,7 @@ only 0.51. Report the optimality gap, benefit captured, feasibility rate and LP/
 and compare PG only if a distance is wanted.
 
 
-## 4. IEEE 118 — a "does switching pay at all?" regime
+## 4. IEEE 118 (a "does switching pay at all?" regime) and topology shift
 
 PGLib `case118_ieee`, nominal ratings, K = 3, 800 train / 120 val / 200 test scenarios. MILP: 6.5 s
 mean (HiGHS, 20 s limit, 5.5 % of instances stop at the limit, 0.01 % gap). Switching saves only
