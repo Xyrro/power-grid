@@ -1,0 +1,80 @@
+{
+ "rows": [
+  {
+   "method": "BCE imitation of MILP labels (reference): top-1 decode -> LP",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.15882873520744295,
+   "gap_p95_%": 0.9021396992398345,
+   "gap_max_%": 1.0598052213935678,
+   "gap_closed_%": 60.776262998772125,
+   "benefit_captured_%": -99.96519614588375,
+   "beats_or_ties_milp_%": 40.0,
+   "z_exact_match_%": 35.0,
+   "z_hamming": 1.725,
+   "n_open": 2.805,
+   "LPs_per_scenario": 1.0
+  },
+  {
+   "method": "BCE imitation of MILP labels (reference): candidate screening -> LP",
+   "feasible_%": 100.0,
+   "gap_mean_%": -0.002811219921718454,
+   "gap_p95_%": 0.001510694509474773,
+   "gap_max_%": 0.1474988952378791,
+   "gap_closed_%": 100.69424812026666,
+   "benefit_captured_%": 100.82687982531604,
+   "beats_or_ties_milp_%": 94.0,
+   "z_exact_match_%": 64.5,
+   "z_hamming": 1.145,
+   "n_open": 1.915,
+   "LPs_per_scenario": 26.345
+  },
+  {
+   "method": "REINFORCE from scratch, no MILP labels (600 steps): top-1 decode -> LP",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.4049301452395291,
+   "gap_p95_%": 1.296238704509232,
+   "gap_max_%": 1.4551170397173423,
+   "gap_closed_%": 0.0,
+   "benefit_captured_%": 0.0,
+   "beats_or_ties_milp_%": 21.5,
+   "z_exact_match_%": 21.5,
+   "z_hamming": 1.91,
+   "n_open": 0.0,
+   "LPs_per_scenario": 1.0
+  },
+  {
+   "method": "REINFORCE from scratch, no MILP labels (600 steps): candidate screening -> LP",
+   "feasible_%": 100.0,
+   "gap_mean_%": 0.39875808976951177,
+   "gap_p95_%": 1.2688546068803164,
+   "gap_max_%": 1.4288856404064136,
+   "gap_closed_%": 1.524227213650975,
+   "benefit_captured_%": 0.9371516683852246,
+   "beats_or_ties_milp_%": 21.5,
+   "z_exact_match_%": 21.5,
+   "z_hamming": 2.37,
+   "n_open": 0.46,
+   "LPs_per_scenario": 26.0
+  }
+ ],
+ "extra": {
+  "milp_label_cpu_s_total": 5125.197247743607,
+  "n_train": 800,
+  "rl_scratch_time_s": 114.99345278739929,
+  "rl_scratch_lp_solves": 2105,
+  "rl_scratch_reward_curve_%": [
+   -0.019403147193770565,
+   -0.0010152805889447336,
+   -0.00037465172397332935,
+   -8.090666210591735e-05,
+   -1.5055314065648417e-05,
+   -6.13217562772661e-05,
+   -8.022686256481393e-05,
+   -4.246470325597329e-06,
+   -3.721875839346467e-05,
+   -0.0004902808868791908,
+   -1.5650402929168195e-06,
+   0.0
+  ]
+ }
+}
