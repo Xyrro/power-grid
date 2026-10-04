@@ -20,15 +20,19 @@ Raw numbers: `results/<case>/*.json`.*
 * **Fixes that work** (all keep the LP as the final step, so the answer is feasible and never worse
   than DC-OPF):
   1. *LP-verified candidate screening* (~26 LPs): 99.6–101 % on both grids.
-  2. *REINFORCE with the exact LP as critic*, warm-started from imitation: **MILP quality with one
-     LP** on IEEE 118 (mean gap −0.0014 %), 97 % gap closed on IEEE 30. 300 steps: 25–70 s of training.
+  2. *REINFORCE with the exact LP as critic*, warm-started from imitation: **near-MILP quality with one
+     LP** — 95–100 % of the gap closed on IEEE 118 over three seeds (mean 97.8 %), 97 % on IEEE 30.
+     300 steps: 25–70 s of training.
   3. *GNN-guided partial fixing + MILP*: optimal-or-better on IEEE 118 in 0.23 s vs 7.0 s (30×).
-* **The dashed arrow should not go through a learned Model 2**: doing so cut the captured benefit
-  from 69 % to 0–43 % (Model 1 learns to stop switching). Use the exact LP as the critic.
+* **The dashed arrow should not go through a learned Model 2**: through the framework's direct
+  Model 2, Model 1 got worse (IEEE 30: 66 % → 31 % gap closed; IEEE 118: 61 % → −116 %, i.e. worse
+  than never switching). A physics-consistent Model 2 helps a little but is fragile (IEEE 118:
+  76 % relaxed, 0 % straight-through). The exact LP as critic gives 95–100 %.
 * **Model 2 should predict PG only.** VA follows from DC power flow on the switched network. The
-  framework's direct (PG, VA) regression had 0 % fully feasible outputs (19 MW worst KCL mismatch);
-  the physics decoder satisfies balance, Ohm's law and generator limits by construction and halves
-  the cost error. As a screener of topologies it is beaten by simply running the cheap LPs.
+  framework's direct (PG, VA) regression had 0 % fully feasible outputs on both grids (worst KCL
+  mismatch 19 MW on IEEE 30, 455 MW on IEEE 118); the physics decoder satisfies balance, Ohm's law
+  and generator limits by construction (75–80 % fully feasible with an overload penalty). As a
+  screener of topologies it is beaten by simply running the cheap LPs.
 * **Strong simple baselines.** kNN over stored MILP topologies + LP check (Johnson et al. 2020) is
   near-optimal with ≤ 6 LPs whenever the base topology is fixed; the learned pipeline only pulls ahead
   under topology change (99.4 % vs 93.3 % with unseen outages).
@@ -160,8 +164,8 @@ learns a safe two-line policy) while imitation → RL reaches 96.4 %.
 Given z and PG, VA is *determined* (θ = B(z)⁻¹(C_g PG − PD)), so predicting VA separately only
 adds violations: the direct model's KCL residual summed over buses is 42 % of total demand. The
 physics decoder satisfies power balance, Ohm's law and generator limits by construction; only line
-limits remain (mean worst overload 0.2 MW). Training *through* the decoder halves the cost error
-versus repairing afterwards.
+limits remain (mean worst overload 0.2 MW). On IEEE 30, training *through* the decoder also halves
+the cost error versus repairing afterwards (on IEEE 118 it does not, see F13).
 
 ### F5. Model 2 is not worth it as a screener for DC-OTS
 
@@ -242,6 +246,10 @@ ambiguity numbers are lower bounds.)
   extra switches are never penalised by the loss.
 * **Equivalence-aware soft labels** help here (61 % → 85 %), unlike on IEEE 30 where ties were
   between mutually exclusive lines.
+* **Seed check** (top-1, one LP; seeds 0 / 1 / 2): BCE 60.8 / 56.4 / 67.6 % (mean 61.6 %);
+  equivalence-aware labels 84.9 / 69.5 / 72.9 % (mean 75.8 %, better on every seed);
+  BCE → REINFORCE 100.3 / 94.8 / 98.3 % (mean 97.8 %). The ordering is stable; the single-seed
+  "100 %" for REINFORCE is the top of a 95–100 % range.
 * **REINFORCE with the exact LP as critic** (300 steps, BCE warm start) makes one-shot decoding
   MILP-quality: −0.0014 % mean gap with **one** LP per scenario, 78.5 % of scenarios matching or
   beating the reference MILP, and it learns to open 1.96 lines (MILP: 1.9).
@@ -298,7 +306,38 @@ message gating) and dual features from one DC-OPF on the *actual* outaged topolo
   case for a GNN ("GNN team") therefore has to be made on larger grids, multi-outage shifts, or
   transfer *across grids*, which an MLP cannot do at all; this is untested here.
 
-<!-- MODEL2-118 -->
+
+### F13. Model 2 and the dashed arrow on IEEE 118
+
+| Model 2 (IEEE 118, 787 test (demand, topology) pairs) | worst KCL mismatch | fully feasible | cost error |
+|---|---|---|---|
+| direct (PG, VA) regression (framework) | 4.55 p.u. (455 MW) | **0 %** | 4.36 % |
+| direct + post-hoc repair | 0 | 47 % | 1.07 % |
+| physics decoder | 0 | 57 % | 1.41 % |
+| physics decoder + overload penalty | 0 | **80 %** | 1.87 % |
+
+On the larger grid the direct model's angle errors turn into huge flow errors (KCL residual summed
+over buses = 177 % of demand, 7 overloaded lines per sample). Physics-consistent decoding removes
+all balance violations; the overload penalty buys feasibility at some cost accuracy, and here a
+post-hoc repair of a direct model is slightly *more* cost-accurate than end-to-end decoding (unlike
+IEEE 30) — the advantage of end-to-end training is feasibility, not cost accuracy.
+
+| use of Model 2 (IEEE 118) | gap closed |
+|---|---|
+| screener: LP-verify all ~64 candidates (no Model 2) | 101.3 % |
+| screener: physics decoder picks top 3 → LP (Spearman 0.65) | 66.1 % |
+| screener: direct regression picks top 3 → LP (Spearman 0.04) | 1.9 % |
+| critic: Model 1 trained through physics decoder, relaxed z | **76.5 %** (from 60.8 %) |
+| critic: physics decoder, straight-through | 0.0 % (stops switching) |
+| critic: direct regression, relaxed z | **−116.5 %** (worse than never switching) |
+| critic: direct regression, straight-through | −22.1 %, 9.5 % feasible |
+| critic: exact LP (REINFORCE), three seeds | **94.8–100.3 %** |
+
+A physics-consistent Model 2 can serve as a critic in its relaxed form (+16 pp) but is fragile;
+the framework's direct Model 2 is actively harmful as a critic (surrogate exploitation: its cost
+error on the topologies Model 1 ends up choosing is 4.9–8.1 %). The exact LP remains the right
+critic.
+
 
 ## 5. Recommended changes to the framework
 
