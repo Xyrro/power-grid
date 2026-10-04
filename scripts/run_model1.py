@@ -22,8 +22,8 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from otsl.data import load, make_model  # noqa: E402
 from otsl.features import Featurizer  # noqa: E402
-from otsl.pipeline import (LPOracle, candidates_from_probs, decode_threshold, knn_candidates, metrics,  # noqa: E402
-                           pick_best, run_dual_greedy)
+from otsl.pipeline import (LPOracle, candidates_from_probs, decode_threshold, equivalent_label_targets,  # noqa: E402
+                           knn_candidates, line_neighbourhood, metrics, pick_best, run_dual_greedy)
 from otsl.train import build_model1, train_bce, train_reinforce  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -115,7 +115,15 @@ if __name__ == "__main__":
     feats = {"base": Featurizer(case, tr, duals=False, fixed_closed=m.fixed_closed),
              "duals": Featurizer(case, tr, duals=True, fixed_closed=m.fixed_closed)}
     variants = [("MLP-BCE", "mlp", "base", None), ("GNN-BCE", "gnn", "base", None),
-                ("GNN-BCE +duals", "gnn", "duals", None)]
+                ("GNN-BCE +duals", "gnn", "duals", None), ("GNN-BCE +duals +equiv-labels", "gnn", "duals", "equiv")]
+    t = time.time()
+    nb = line_neighbourhood(case, 2) if case.n_line > 100 else None   # all swaps on small grids
+    soft, n_eq = equivalent_label_targets(oracle, tr, sw, sc, neighbourhood=nb)
+    extra["equiv_label_time_s"] = time.time() - t
+    extra["train_frac_with_equivalent_topology"] = float((n_eq > 1).mean())
+    extra["train_mean_equivalent_topologies"] = float(n_eq.mean())
+    print(f"equivalence-aware labels: {(n_eq > 1).mean() * 100:.1f}% of training scenarios have an equally "
+          f"optimal single-swap topology (mean {n_eq.mean():.2f} topologies) [{time.time() - t:.0f}s]")
     if a.raw:
         trr = load(os.path.join("data", "generated", a.raw, "train.npz"))
         variants.append(("GNN-BCE +duals [raw MILP labels]", "gnn", "duals", trr))
@@ -125,8 +133,9 @@ if __name__ == "__main__":
         m1 = build_model1(case, feats[fk], sw, kind, seed=a.seed)
         t = time.time()
         # raw-label set: same load scenarios (same seed), labels from DC-OTS without switching cost
-        train_d = alt_train if alt_train is not None else tr
-        train_bce(m1, train_d, va, epochs=a.epochs // (4 if a.quick else 1), seed=a.seed)
+        soft_t = soft if isinstance(alt_train, str) and alt_train == "equiv" else None
+        train_d = alt_train if isinstance(alt_train, dict) else tr
+        train_bce(m1, train_d, va, epochs=a.epochs // (4 if a.quick else 1), seed=a.seed, soft_targets=soft_t)
         extra[f"train_time_s[{name}]"] = time.time() - t
         models[name] = m1
         t = time.time()

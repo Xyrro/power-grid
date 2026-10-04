@@ -187,3 +187,59 @@ def metrics(cost, test, z=None, label="", **extra):
         out["n_open"] = n_open.mean()
     out.update(extra)
     return out
+
+
+def line_neighbourhood(case, hops):
+    """Lines within `hops` line-adjacency steps (sharing a bus = 1 hop) of each line."""
+    L = case.n_line
+    adj = [set() for _ in range(L)]
+    bus_lines = {}
+    for l, (i, j) in enumerate(zip(case.f_bus, case.t_bus)):
+        bus_lines.setdefault(i, []).append(l); bus_lines.setdefault(j, []).append(l)
+    for ls in bus_lines.values():
+        for a in ls:
+            adj[a].update(ls)
+    out = []
+    for l in range(L):
+        reach, frontier = {l}, {l}
+        for _ in range(hops):
+            frontier = set().union(*(adj[x] for x in frontier)) - reach
+            reach |= frontier
+        out.append(reach - {l})
+    return out
+
+
+def equivalent_label_targets(oracle, d, switchable, switch_cost, tol=1e-6, key_offset=5 * 10 ** 7,
+                             neighbourhood=None):
+    """Equivalence-aware soft labels for Model 1.
+
+    DC-OTS optima are often non-unique (e.g. two lines that end up in series: opening either has the
+    same effect). For each scenario we try every single swap  (open line l in z*) -> (open line l'
+    instead), LP-evaluate it, and keep all swaps whose objective ties the MILP's within `tol`.
+    Target = average of the equivalent topologies' open-indicators, so the model is not penalised for
+    choosing an equally optimal line. `neighbourhood` (from line_neighbourhood) limits the swaps to
+    nearby lines on large grids. Returns soft targets [n, L] and #equivalent topologies [n]."""
+    n, L = d["z"].shape
+    swi = np.where(switchable)[0]
+    pds, zs, owner = [], [], []
+    for i in range(n):
+        z = d["z"][i]
+        for l in np.where(z == 0)[0]:
+            for l2 in (swi if neighbourhood is None else [x for x in neighbourhood[l] if switchable[x]]):
+                if z[l2] == 0:
+                    continue
+                z2 = z.copy(); z2[l] = 1; z2[l2] = 0
+                pds.append(d["pd"][i]); zs.append(z2); owner.append(i)
+    owner = np.array(owner)
+    zs = np.array(zs)
+    c = oracle.costs(np.array(pds), zs, owner + key_offset)
+    best = d["c_ots"]
+    targets = (1.0 - d["z"]).astype(float)
+    n_eq = np.ones(n)
+    for i in range(n):
+        mk = np.where(owner == i)[0]
+        eq = mk[c[mk] <= best[i] * (1 + tol) + 1e-9]          # same #open -> same switching cost
+        if len(eq):
+            targets[i] = (targets[i] + (1.0 - zs[eq]).sum(0)) / (1 + len(eq))
+            n_eq[i] += len(eq)
+    return targets, n_eq
