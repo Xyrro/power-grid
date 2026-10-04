@@ -1,4 +1,30 @@
 {
+ "case30": {
+  "n": 347,
+  "switch_cost": 1.5008880924045938,
+  "mean_benefit_%": 21.308104015577754,
+  "frac_zero_benefit(<0.01%)": 0.0,
+  "mean_lines_opened": 2.440922190201729,
+  "frac_opening_full_budget": 0.4409221902017291,
+  "frac_alt_topology_within_1e-06_rel": 0.6455331412103746,
+  "frac_alt_topology_within_1e-05_rel": 0.6455331412103746,
+  "frac_alt_topology_within_0.0001_rel": 0.6484149855907781,
+  "frac_alt_within_1%_of_benefit|benefit>0.1%": 0.9337175792507204,
+  "mean_hamming_best_vs_2nd": 1.8328530259365994
+ },
+ "case30_raw": {
+  "n": 347,
+  "switch_cost": 0.0,
+  "mean_benefit_%": 21.35888441604643,
+  "frac_zero_benefit(<0.01%)": 0.0,
+  "mean_lines_opened": 2.887608069164265,
+  "frac_opening_full_budget": 0.8876080691642652,
+  "frac_alt_topology_within_1e-06_rel": 0.9164265129682997,
+  "frac_alt_topology_within_1e-05_rel": 0.9164265129682997,
+  "frac_alt_topology_within_0.0001_rel": 0.9164265129682997,
+  "frac_alt_within_1%_of_benefit|benefit>0.1%": 0.9337175792507204,
+  "mean_hamming_best_vs_2nd": 2.0720461095100866
+ },
  "case118": {
   "n": 200,
   "switch_cost": 18.626535857561333,
@@ -11,5 +37,18 @@
   "frac_alt_topology_within_0.0001_rel": 0.545,
   "frac_alt_within_1%_of_benefit|benefit>0.1%": 0.26,
   "mean_hamming_best_vs_2nd": 2.39
+ },
+ "case118_raw": {
+  "n": 100,
+  "switch_cost": 0.0,
+  "mean_benefit_%": 0.45445773963985364,
+  "frac_zero_benefit(<0.01%)": 0.02,
+  "mean_lines_opened": 2.96,
+  "frac_opening_full_budget": 0.98,
+  "frac_alt_topology_within_1e-06_rel": 0.55,
+  "frac_alt_topology_within_1e-05_rel": 0.57,
+  "frac_alt_topology_within_0.0001_rel": 0.66,
+  "frac_alt_within_1%_of_benefit|benefit>0.1%": 0.3392857142857143,
+  "mean_hamming_best_vs_2nd": 3.61
  }
 }
