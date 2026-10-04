@@ -2,10 +2,15 @@
 and the physics-consistent DC decoder for Model 2."""
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+# small graphs: intra-op threading only adds contention (37x slower with 4 threads next to LP workers)
+torch.set_num_threads(int(os.environ.get("OTSL_THREADS", 1)))
 
 
 def mlp(i, h, o, n=2, ln=True):

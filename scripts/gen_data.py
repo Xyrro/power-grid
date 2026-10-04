@@ -11,7 +11,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from otsl.data import generate, save  # noqa: E402
 
-_118 = {"case": "case118_ieee", "line_scale": 1.0, "budget": 3, "time_limit": 30, "mip_gap": 1e-4}
+_118 = {"case": "case118_ieee", "line_scale": 1.0, "budget": 3, "time_limit": 20, "mip_gap": 1e-4}
 _30 = {"case": "case30_ieee", "line_scale": 1.0, "budget": 3, "time_limit": 30, "mip_gap": 1e-5}
 CONFIGS = {
     # IEEE 118 (PGLib typical operations), nominal ratings, switching budget 3, per-switch cost
@@ -21,6 +21,7 @@ CONFIGS = {
     # IEEE 30, nominal ratings: large switching benefit, tiny MILPs (fast secondary benchmark)
     "case30": dict(_30, switch_cost_rel=2e-4),
     "case30_raw": dict(_30, switch_cost_rel=0.0),
+    "smoke": dict(_30, switch_cost_rel=2e-4),         # tiny dataset for smoke tests
 }
 
 if __name__ == "__main__":

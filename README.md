@@ -32,20 +32,13 @@ positioning, critique of the original framework, new methods and results).
 ```bash
 pip install -r requirements.txt
 python tests/test_core.py
-for c in case30 case30_raw; do
-  python scripts/gen_data.py --cfg $c --split train --n 2000 --seed 1
-  python scripts/gen_data.py --cfg $c --split val   --n 300  --seed 2
-  python scripts/gen_data.py --cfg $c --split test  --n 500  --seed 3 --n_alt 3
-done
+scripts/gen_all.sh                       # all datasets (~3 h on 4 cores; IEEE 118 MILPs take ~10 s each)
 python scripts/run_model1.py --cfg case30 --raw case30_raw
 python scripts/run_model2.py --cfg case30
-# IEEE 118 (about 10 s per MILP with HiGHS -> ~2 h of data generation on 4 cores)
-python scripts/gen_data.py --cfg case118     --split train --n 1000 --seed 1
-python scripts/gen_data.py --cfg case118_raw --split train --n 1000 --seed 1
-python scripts/gen_data.py --cfg case118     --split val   --n 150  --seed 2
-python scripts/gen_data.py --cfg case118     --split test  --n 250  --seed 3 --n_alt 2
-python scripts/run_model1.py --cfg case118 --raw case118_raw
+python scripts/run_value.py  --cfg case30
+python scripts/run_model1.py --cfg case118
 python scripts/run_model2.py --cfg case118
+python scripts/run_value.py  --cfg case118
 ```
 
 Test cases are from [PGLib-OPF](https://github.com/power-grid-lib/pglib-opf) v23.07 (`data/cases`).

@@ -8,7 +8,7 @@ never worse than plain DC-OPF.
 from __future__ import annotations
 
 import time
-from multiprocessing import Pool
+import multiprocessing as mp
 
 import numpy as np
 
@@ -27,7 +27,7 @@ class LPOracle:
 
     def __init__(self, cfg, workers=4):
         self.cfg = cfg
-        self.pool = Pool(workers, initializer=_init, initargs=(cfg,))
+        self.pool = mp.get_context("spawn").Pool(workers, initializer=_init, initargs=(cfg,))
         self.cache = {}
         self.n_solves = 0
 
@@ -65,8 +65,9 @@ def decode_threshold(p_open, K, switchable, thr=0.5):
 
 def candidates_from_probs(p_open, K, switchable, n_samples=16, top_m=None, rng=None):
     """Candidate topologies per scenario from Model-1 probabilities:
-    all-closed, threshold decode, greedy prefixes of the ranking (top-1..top-K),
-    all pairs among the top few, and budget-truncated Bernoulli samples."""
+    all-closed (fallback), threshold decode, every subset of <= K lines among the top_m most likely
+    lines (local enumeration), and budget-truncated Bernoulli samples."""
+    from itertools import combinations
     rng = rng or np.random.default_rng(0)
     B, L = p_open.shape
     out = []
@@ -75,15 +76,11 @@ def candidates_from_probs(p_open, K, switchable, n_samples=16, top_m=None, rng=N
         p = np.where(switchable, p_open[i], 0.0)
         order = np.argsort(-p)
         cands = [np.ones(L, np.int8), thr[i]]
+        top = order[:top_m or (K + 2)]
         for k in range(1, K + 1):
-            z = np.ones(L, np.int8)
-            z[order[:k]] = 0
-            cands.append(z)
-        top = order[:top_m or (K + 3)]
-        for a in range(len(top)):
-            for b in range(a + 1, len(top)):
+            for sub in combinations(top, k):
                 z = np.ones(L, np.int8)
-                z[[top[a], top[b]]] = 0
+                z[list(sub)] = 0
                 cands.append(z)
         for _ in range(n_samples):
             u = rng.random(L) < p
@@ -148,7 +145,7 @@ def _dg(args):
 
 
 def run_dual_greedy(cfg, pds, K, R=5, workers=4):
-    with Pool(workers) as pool:
+    with mp.get_context("spawn").Pool(workers) as pool:
         res = pool.map(_dg, [(cfg, pd, K, R) for pd in pds])
     return np.array([r[0] for r in res]), np.array([r[1] for r in res]), np.array([r[2] for r in res])
 

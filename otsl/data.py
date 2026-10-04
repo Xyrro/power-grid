@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from multiprocessing import Pool
+import multiprocessing as mp  # always "spawn": HiGHS thread pools do not survive fork()
 
 import numpy as np
 
@@ -69,7 +69,7 @@ def generate(cfg: dict, n: int, seed: int, workers: int = 4) -> dict:
     pds = sample_loads(m.case, n, rng, load_factor=cfg.get("load_factor", 1.0))
     import time
     t0, res = time.time(), []
-    with Pool(workers, initializer=_init, initargs=(cfg,)) as pool:
+    with mp.get_context("spawn").Pool(workers, initializer=_init, initargs=(cfg,)) as pool:
         for i, r in enumerate(pool.imap(_solve_one, list(pds), chunksize=1)):
             res.append(r)
             if (i + 1) % max(1, n // 10) == 0:
@@ -107,7 +107,7 @@ def _lp_pair(args):
 
 def solve_lps(cfg: dict, pds: np.ndarray, zs: np.ndarray, workers: int = 4):
     """Batch fixed-topology DC-OPF (the 'LP Solver' box): returns cost, pg, va, flow (NaN if infeasible)."""
-    with Pool(workers, initializer=_init, initargs=(cfg,)) as pool:
+    with mp.get_context("spawn").Pool(workers, initializer=_init, initargs=(cfg,)) as pool:
         res = pool.map(_lp_pair, list(zip(pds, zs)), chunksize=8)
     m = make_model(cfg)
     G, N, L = m.case.n_gen, m.case.n_bus, m.case.n_line

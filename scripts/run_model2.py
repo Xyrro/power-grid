@@ -58,11 +58,17 @@ def build_m2_set(cfg, d, sw, K, n_rand, rng, workers):
     return out, (~ok).mean()
 
 
-def evaluate_m2(m2, feat, d):
+def evaluate_m2(m2, feat, d, posthoc=False):
     t = time.time()
     pg, va = predict_model2(m2, feat, d)
-    dt = (time.time() - t) / len(pg)
     P = m2.phys
+    if posthoc:  # keep only PG from the network: clip, balance, and recompute VA by DC power flow
+        with torch.no_grad():
+            pgt = torch.minimum(torch.maximum(torch.as_tensor(pg), P.pmin), P.pmax)
+            pgt = P.balance(pgt, torch.as_tensor(d["pd"]))
+            vat = P.angles(pgt, torch.as_tensor(d["pd"]), torch.as_tensor(d["zz"], dtype=torch.float64))
+        pg, va = pgt.numpy(), vat.numpy()
+    dt = (time.time() - t) / len(pg)
     with torch.no_grad():
         v = P.violations(torch.as_tensor(pg), torch.as_tensor(va), torch.as_tensor(d["pd"]),
                          torch.as_tensor(d["zz"], dtype=torch.float64))
@@ -179,6 +185,10 @@ if __name__ == "__main__":
         m2s[name] = m2
         torch.save(m2.state_dict(), os.path.join(out_dir, f"model2_{mode}_{int(wf)}.pt"))
         print("  ", {k: round(v, 5) if isinstance(v, float) else v for k, v in r.items()})
+        if mode == "direct":
+            r2, *_ = evaluate_m2(m2, feat, d_te, posthoc=True)
+            r2["method"] = "direct + post-hoc repair (clip, balance, VA from DC power flow)"
+            rows.append(r2)
     # LP timing for reference
     t = time.time()
     _ = solve_lps(cfg, d_te["pd"][:400], d_te["zz"][:400], 1)
@@ -199,7 +209,7 @@ if __name__ == "__main__":
     else:
         train_bce(m1, tr, va, epochs=100)
     p = m1.predict(te)
-    cl = candidates_from_probs(p, K, sw, n_samples=32, top_m=K + 5)
+    cl = candidates_from_probs(p, K, sw, n_samples=32, top_m=K + 4)
     rows_idx = np.concatenate([np.full(len(c), i) for i, c in enumerate(cl)])
     zs = np.concatenate(cl)
     true_c = oracle.costs(te["pd"][rows_idx], zs, keys[rows_idx]) + sc * (1 - zs).sum(1)

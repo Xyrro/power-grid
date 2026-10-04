@@ -10,7 +10,6 @@ import torch.nn.functional as F
 
 from .models import DispatchNet, SwitchGNN, SwitchMLP
 
-torch.set_num_threads(4)
 
 
 # ----------------------------------------------------------------------------------- Model 1
@@ -132,6 +131,7 @@ def train_reinforce(m1: Model1, train, oracle, K, switch_cost, steps=300, bs=32,
         r = np.where(np.isfinite(r), r, -infeas_penalty)
         r = torch.as_tensor(r, dtype=torch.float32)
         adv = r - (r.sum(0, keepdim=True) - r) / (n_samples - 1)
+        adv = adv / (adv.std() + 1e-8)          # savings are O(0.1-1%): normalise the scale
         loss = -(adv * logp).mean()
         if bce_weight > 0:
             loss = loss + bce_weight * F.binary_cross_entropy_with_logits(lg[:, sw], y[idx][:, sw])
