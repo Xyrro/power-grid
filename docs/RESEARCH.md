@@ -321,7 +321,7 @@ predicted schedule.
 
 | fixed (BCE confidence) | mean gap | no shed / shortfall | matches or beats MILP | time | speed-up |
 |---|---|---|---|---|---|
-| full MILP (60 s limit) | 0 | 92.5 % | 100 % | 28.3 s | 1× |
+| full MILP (60 s limit) | 0 | 88.3 % | 100 % | 28.3 s | 1× |
 | 50 % | **−0.05 %** | 88.3 % | 85 % | 20.7 s | 1.4× |
 | 80 % | **−0.01 %** | 88.3 % | 72 % | 14.8 s | 1.9× |
 | 90 % | 1.4 % | 86.7 % | 55 % | 9.9 s | 2.8× |
@@ -333,4 +333,22 @@ Errors bite earlier than on B1 (90 % fixed already costs 1.4 %).
 
 <!-- UC-B2-FIX -->
 
-<!-- UC-B2-LF -->
+### V4. Model 1 without MILP labels on B2
+
+Labels from the rounded LP relaxation after adequacy and min up/down repair: 0.39 s per label instead of
+34 s for the MILP (**87× cheaper**; 500 labels: 3 min instead of 4.7 h), agreeing with the MILP on 98.4 % of
+unit-hours. Same GNN, features and training budget; 120 test instances:
+
+| Model 1 (B2) | MILP solves | one-shot: no shed / median gap | + adequacy repair | screening: no shed / median gap (LPs) |
+|---|---|---|---|---|
+| BCE on MILP labels | 500 | 16.7 % / 57 % | 43.3 % / 5.3 % | 62.5 % / 1.65 % (14.6) |
+| BCE on repaired LP-relaxation labels | **0** | 20.8 % / 19 % | 39.2 % / 7.4 % | 53.3 % / 1.59 % (13.8) |
+| MILP labels + REINFORCE | 500 | 80.8 % / 5.3 % | 86.7 % / 4.5 % | 87.5 % / 2.06 % (14.8) |
+| **LP-relaxation labels + REINFORCE** | **0** | **84.2 % / 4.4 %** | **86.7 % / 4.1 %** | **88.3 % / 1.87 %** (14.4) |
+| REINFORCE from scratch (200 steps) | 0 | 83.3 % / 67 % | 90.0 % / 64 % | 87.5 % / 44 % (14.6) |
+
+* **The MILP labels are not needed**: relaxation imitation + LP-critic fine-tuning matches or beats the
+  MILP-labelled pipeline on every decoder, on both benchmarks — and removes the framework's most expensive step.
+* **The imitation stage is needed**: REINFORCE from scratch learns to avoid shedding by committing almost
+  everything (67 % median gap; unit-hour accuracy 66 %). Imitating the cheap relaxation supplies the structure,
+  the LP critic supplies the cost asymmetry.
