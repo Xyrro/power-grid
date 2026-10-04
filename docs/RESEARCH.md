@@ -116,21 +116,45 @@ The cost-aware loss learns the asymmetry BCE cannot see: it commits slightly mor
 and almost stops shedding. With screening it is the best learned pipeline on B1, beating kNN (96.6 % with 20
 LPs) at a tenth of the LP solves.
 
-### U5. RACLearn-style confidence fixing + MILP
+### U5. Which decisions to fix before the MILP (RACLearn-style partial fixing)
 
-Fix the X % most confident (unit, hour) decisions of the LP-feature GNN, solve the reduced MILP
-(200 test hours; full MILP 0.51 s):
+Fix a share of the (unit, hour) decisions and solve the reduced MILP. 200 test hours; the full MILP is
+re-solved in the same run (0.58 s; all timings under heavy CPU contention, so compare ratios, not seconds).
+Mean gap is dominated by rare VOLL / reserve-penalty hours; "matches MILP" is the share at the MILP cost.
 
-| fixed | mean gap | matches MILP | time | speed-up |
-|---|---|---|---|---|
-| 50 % | 0.002 % | 99.5 % | 0.34 s | 1.5× |
-| 80 % | 0.014 % | 97.5 % | 0.17 s | 3.0× |
-| 90 % | 0.098 % | 91.5 % | 0.095 s | 5.4× |
-| 95 % | 18 % (some hours shed load) | 80.0 % | 0.058 s | 8.8× |
+| fixed | ranking | mean gap | no shed / shortfall | matches MILP | speed-up |
+|---|---|---|---|---|---|
+| 80 % | BCE confidence (RACLearn) | **0.014 %** | 98.0 % | **97.5 %** | 2.9× |
+| 80 % | REINFORCE probabilities | 0.19 % | 98.0 % | 86.0 % | 3.3× |
+| 90 % | BCE confidence (RACLearn) | **0.098 %** | 98.0 % | **91.5 %** | 4.2× |
+| 90 % | BCE, asymmetric (OFF errors × 10) | 0.44 % | 97.5 % | 85.5 % | 4.6× |
+| 90 % | REINFORCE probabilities | 0.45 % | 98.0 % | 77.0 % | 5.6× |
+| 95 % | BCE confidence (RACLearn) | 18.1 % | 91.5 % | 80.0 % | 6.9× |
+| 95 % | BCE + adequacy guard | 4.2 % | 95.5 % | 80.0 % | 6.4× |
+| 95 % | BCE, asymmetric + adequacy guard | 2.6 % | 96.5 % | 78.0 % | 7.1× |
+| 95 % | **REINFORCE probabilities** | **1.3 %** | **99.0 %** | 69.0 % | 8.8× |
+| 98 % | BCE confidence (RACLearn) | 99 % | 86.0 % | 71.5 % | 11.7× |
+| 98 % | BCE, asymmetric + adequacy guard | 33 % | 94.5 % | 70.5 % | 10.6× |
+| 98 % | **REINFORCE probabilities** | **2.4 %** | **98.0 %** | 66.0 % | 10.5× |
 
-RACLearn's 2–4× speed-up at near-optimal quality reproduces (80 % fixed); past ~90 % the remaining free
-decisions cannot repair a wrong fixing. On single-period UC the MILP takes only 0.5 s, so the absolute gain
-is small; B2 is where fixing matters.
+(MILP itself: 98.0 % without reserve shortfall on these hours. Full table with per-unit calibration:
+`results/uc1/uc_fixing_results.md`, `uc_fixing_calib_results.md`.)
+
+* **Up to 90 % fixed, RACLearn's rule is right**: 2.9–4.2× at 0.01–0.1 % mean gap; nothing tested beats it.
+* **Beyond 90 %, rank by the cost-aware model.** The REINFORCE fine-tuned Model 1 (U4) gives a far better
+  ranking for aggressive fixing: 1.3 % instead of 18 % mean gap at 95 %, 2.4 % instead of 99 % at 98 %
+  (10× speed-up, no more shortfall than the MILP). Below 90 % it is worse, because it over-commits slightly.
+* **Diagnosis of the failures** (95 %, BCE): two kinds of error. Wrong ON fixes of the same few expensive
+  combustion turbines (units 0, 54/55, 62/63) cost 1–18 % each and are frequent; wrong OFF fixes of a 355 MW
+  combined-cycle unit cause reserve shortfall (57–139 %) and are rare. A wrong ON fix is *not* cheap at the
+  one-hour scale, so penalising OFF errors (asymmetric ranking) trades one error for the other: it fixes the
+  tail at 95–98 % and hurts at 90 %.
+* **Adequacy guard** (new; unfix OFF-fixed units in merit order until the units not fixed off cover net load
+  + reserve + 5 %, no solver): cuts the 95 % mean gap from 18 % to 4.2 %, but cannot see network congestion.
+* **Per-unit calibration from label frequencies** (error rate per unit, direction and confidence bin on the
+  validation set, in the spirit of Fritz et al.'s generator-specific thresholds) is **worse** (95 %: 70 % mean
+  gap): label disagreements are dominated by harmless ties (identical units, U1) while the costly errors are
+  rare. Calibration has to be cost-aware, as in Fritz et al., not frequency-based.
 
 ### U6. Model 2: the physics decoder, and why the framework's (PG, VA) output cannot judge a commitment
 
