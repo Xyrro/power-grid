@@ -25,6 +25,22 @@ Unit-commitment analogues: Xavier, Qiu & Ahmed 2021 (INFORMS JoC, learn warm sta
 constraint screening); Fritz et al. 2026 "Learning to Fix" ([2609.39396](https://arxiv.org/abs/2609.39396),
 optimisation-aware confidence thresholds for fixing commitments).
 
+**Park, Chen, Han, Tanneau & Van Hentenryck, "Confidence-Aware Graph Neural Networks for Learning
+Reliability Assessment Commitments", IEEE Trans. Power Systems 39 (2024), [arXiv 2211.15755](https://arxiv.org/abs/2211.15755)
+(RACLearn)** — structurally the closest match to the framework's Model 1 (added after the user pointed
+it out; abstract-level only, full text not retrievable here):
+1. a GNN predicts the generator commitments (binary on/off) *and* the active transmission constraints;
+2. an epistemic-uncertainty measure gives each commitment prediction a confidence value, and only a
+   high-confidence subset is fixed;
+3. a polynomial-time feasibility restoration turns an instance with those fixed commitments into a
+   feasible one;
+4. the MILP (MISO's exact RAC formulation) is then solved with the fixed commitments and the predicted
+   active constraints seeded; 2–4× faster with negligible loss on a 6,708-bus / 1,890-generator MISO network.
+Relation to this study: the same "GNN predicts the binaries from demand, trained on MILP solutions"
+core; RACLearn's confidence-based fixing + MILP is the counterpart of our partial-fixing pipeline
+(F9), its feasibility restoration plays the role of our all-closed fallback / LP screening. It has no
+learned Model 2 and no cost-aware (dashed-arrow) loss; those are where the framework differs.
+
 ## Learning the dispatch (Model 2)
 
 DeepOPF (Pan et al.; predict PG, recover angles by a power-flow solve), Lagrangian-dual training

@@ -72,7 +72,12 @@ trained on generation cost without MILP labels — i.e. Model 1 + the dashed arr
 instead of a learned Model 2. **OptiGridML** (Meng, Haider & Van Hentenryck 2025) is a two-GNN
 topology-predictor + flow-surrogate design (export maximisation). kNN-over-past-topologies + LP
 (Johnson et al. 2020) and learning-assisted fixing + reduced MILP (Pineda et al. 2024) are the
-standard non-deep baselines. See [`literature.md`](literature.md) for the full table.
+standard non-deep baselines. If "switching status" means **generator on/off** rather than line
+status, the closest work is **RACLearn** (Park, Chen, Han, Tanneau & Van Hentenryck, IEEE TPS 2024,
+arXiv 2211.15755): a GNN predicts commitments and active line constraints, epistemic uncertainty
+selects high-confidence commitments to fix, a polynomial-time restoration makes them feasible, and the
+MILP finishes the job (2–4× faster on MISO's 6,708-bus system). See [`literature.md`](literature.md)
+for the full table.
 
 What we did **not** find in the literature, and what this repository therefore investigates:
 
