@@ -119,11 +119,64 @@ only the speed-ups moved with the load.
 
 (Learning to Fix was not run at 97 %: dominated on val, 64 % mean gap at 21.5 s.)
 
-PASS_BC_PLACEHOLDER
+**Pass B — 80 % fixed** (separate run, own back-to-back full MILP: 32.3 s, serves 88.3 %): every rule is
+near-free here. RACLearn −0.008 % mean / 1.7×, asymmetric 0.040 % / 1.9×, harm policy 0.225 % (median 0.000 %) / 2.0×,
+Learning to Fix 0.436 % / 1.8×, REINFORCE 0.555 % / 3.5×. The policy brings nothing at 80 %.
+
+**Pass C — post-hoc LP-relaxation guard** (same run as pass B; target share → actual share after the guard):
+
+| target | rule | actual fixed | mean gap | median gap | served | speed-up |
+|---|---|---|---|---|---|---|
+| 95 % | RACLearn + LP guard | 90.1 % | **0.19 %** | 0.014 % | 91.7 % | 3.2× |
+| 95 % | harm policy + guards | 92.1 % | 0.40 % | 0.052 % | **96.7 %** | **5.4×** |
+| 97 % | RACLearn + LP guard | 87.3 % | 0.39 % | 0.128 % | 91.7 % | 3.8× |
+| 97 % | harm policy + guards | 89.0 % | 0.51 % | 0.142 % | 91.7 % | 4.0× |
+| 99 % | RACLearn + LP guard | 76.2 % | 0.61 % | 0.248 % | 91.7 % | 2.8× |
+| 99 % | harm policy + guards | 81.2 % | 0.89 % | 0.307 % | 95.0 % | 4.3× |
+
+The LP guard removes every catastrophic case for both rankings (max gap ≤ 7 %, vs 679–1287 % without it), but it
+releases many fixings, so targets above 95 % are not reached and speed-ups stay at 3–5×.
+
+**Equal speed-up** (best mean gap a rule attains with a share at least that fast; all 60 instances; speed-ups of
+pass A vs its own full MILP, of passes B/C vs theirs):
+
+| rule | ≥ 2× | ≥ 3× | ≥ 4× | ≥ 5× | ≥ 7× | ≥ 10× | ≥ 15× |
+|---|---|---|---|---|---|---|---|
+| RACLearn | 1.38 | 38.5 | 38.5 | 38.5 | 54.0 | – | – |
+| Learning to Fix | 7.81 | 49.4 | – | – | – | – | – |
+| asymmetric + guard | 0.41 | 0.41 | 14.0 | 14.0 | 14.0 | 32.1 | – |
+| REINFORCE | 0.56 | 0.56 | 3.15 | 3.15 | 3.15 | **5.50** | **5.50** |
+| harm policy + capacity guard | 0.23 | 0.47 | 13.9 | 13.9 | 13.9 | – | – |
+| RACLearn + LP guard (post hoc) | **0.19** | **0.19** | – | – | – | – | – |
+| harm policy + LP guard (post hoc) | 0.40 | 0.40 | **0.40** | **0.40** | – | – | – |
+
+Best *median* gap at ≥ 3× / ≥ 5× / ≥ 7×: harm policy 0.002 / 0.052 / 0.052 %; RACLearn 0.087 / 0.087 / 0.398 %;
+asymmetric 0.055 / 0.268 / 0.268 %; REINFORCE 0.101 / 0.474 / 0.474 %; Learning to Fix 1.514 % / – / –.
+Non-dominated (mean gap, speed-up) points over all passes: REINFORCE @ 90 and 95 %, asymmetric @ 80 %,
+RACLearn @ 80 %, RACLearn + LP guard @ 95 and 97 %, harm policy + LP guard @ 95 %. Plot:
+`results/uc12/fixpolicy_pareto.png`; all rows: `results/uc12/fixpolicy_results.{md,json}`.
 
 ## Verdict
 
-VERDICT_PLACEHOLDER
+* **Against the published rules (same probability model, same instances): better.** At 90 % fixed the harm
+  policy has 0.47 % mean gap vs 1.38 % (RACLearn) and 7.81 % (Learning to Fix), at 3.7× vs 2.2× / 2.5×; at 95 %
+  13.9 % vs 38.5 % / 49.4 % mean and 0.052 % vs 0.087 % / 1.51 % median, at 7.8× vs 5.2× / 4.0×. At equal speed-up,
+  its best mean gap at ≥ 3× is 0.47 % against 38.5 % (RACLearn) and 49.4 % (Learning to Fix), and at ≥ 4–7×
+  13.9 % against 38.5 % (RACLearn; Learning to Fix never reaches 4×). Learning to Fix, re-implemented with the same
+  solver-measured impacts, is the weakest rule here: per-generator thresholds leave whole rows of risky units free
+  (slow MILPs) while still fixing context-dependent errors. At 80 % nothing beats RACLearn (−0.01 %).
+* **Against our previous best: a tie on mean gap, a clear win on median, no win at high speed.** Versus the
+  asymmetric rule + adequacy guard at the same share and speed: mean 0.47 vs 0.41 % (90 %) and 13.9 vs 14.0 % (95 %),
+  median 0.002 vs 0.055 % and 0.052 vs 0.268 %. The REINFORCE ranking remains the only rule beyond 8× (5.5 % mean,
+  1.5 % median at 17.7×). The policy does **not** dominate the frontier.
+* **The mean gap at ≥ 95 % is decided by a handful of shedding / shortfall instances**, which neither the learned
+  ranking nor the capacity guard prevents. The post-hoc LP-relaxation guard removes them for any ranking; combined
+  with it, the learned ranking gives the most robust point measured at ≥ 4×: 0.40 % mean, 0.05 % median, 96.7 %
+  served (full MILP 88.3 %) at 5.4×, whereas RACLearn + the same guard is more accurate (0.19 %) but only 3.2×. The
+  guard is post hoc (designed after pass A); it has no parameter and was checked on val before its test run.
+* What carries over: solver-labelled, context-dependent *expected cost of an error* is a better fixing score than
+  confidence or per-generator thresholds; most of the remaining risk is set-level (several fixings together forcing
+  shedding), which a per-decision score cannot see and a relaxation check can.
 
 ## Limitations
 

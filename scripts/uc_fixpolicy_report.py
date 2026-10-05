@@ -148,7 +148,7 @@ if __name__ == "__main__":
                 ax[k].plot([r["speedup"] for r in rr], [max(r[key], 1e-3) for r in rr], "o-", label=NAMES[m])
                 for r in rr:
                     ax[k].annotate(f"{int(round(r['target'] * 100))}", (r["speedup"], max(r[key], 1e-3)), fontsize=7)
-        for k, lab in enumerate(("mean gap % (log)", "median gap % (log, floored at 0.001)")):
+        for k, lab in enumerate(("mean gap % (log, floored at 0.001)", "median gap % (log, floored at 0.001)")):
             ax[k].set_xscale("log"); ax[k].set_yscale("log"); ax[k].set_xlabel("speed-up vs full MILP (log)")
             ax[k].set_ylabel(lab); ax[k].grid(alpha=0.3)
         ax[0].legend(fontsize=7)

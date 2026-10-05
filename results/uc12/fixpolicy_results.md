@@ -2,6 +2,20 @@
 
 Every reduced MILP is solved in the same worker process right after the full MILP of the same instance (60 s limit, 0.1 % MIP gap, the dataset settings), 2 workers, machine shared with other jobs. Gaps are to `test['obj']` (negative = cheaper than the dataset MILP); served = no load shedding and no reserve shortfall. Same probability model (saved BCE GNN `uc_model1_4.pt`) for RACLearn, Learning to Fix, the asymmetric rule and the proposed policy; the REINFORCE rule uses `uc_model1_rl.pt`.
 
+## Summary
+
+* Proposed rule = "harm policy (compensated) + adequacy guard" (selected on val). Versus the published rules on the
+  same probability model: 90 % fixed 0.469 % mean gap at 3.7× (RACLearn 1.384 % at 2.2×, Learning to Fix 7.814 % at
+  2.5×); 95 % fixed 13.909 % mean / 0.052 % median at 7.8× (RACLearn 38.509 % / 0.087 % at 5.2×, Learning to Fix
+  49.394 % / 1.514 % at 4.0×).
+* Versus our previous rules: ties the asymmetric rule + guard on mean gap (0.469 vs 0.413 %; 13.909 vs 14.004 %) with
+  a much lower median (0.002 vs 0.055 %; 0.052 vs 0.268 %) at the same speed; REINFORCE ranking remains the only rule
+  beyond 8× (5.501 % at 17.7×). No dominance of the whole frontier.
+* Post-hoc LP-relaxation guard (pass C): removes all catastrophic shedding / shortfall cases for both rankings;
+  harm policy + guards at a 95 % target (92.1 % actually fixed): 0.398 % mean, 0.052 % median, 96.7 % served, 5.4×.
+* Speed-ups are relative to the full MILP of the same pass (pass A: 39.6 s; passes B/C: 32.3 s; machine shared).
+  Method and caveats: `docs/methods/fixpolicy.md`.
+
 ## 90 / 95 / 97 % fixed (pass A, 60 instances)
 
 Full MILP in this pass: mean 39.6 s, serves 90.0 %, mean gap 0.025 % to the dataset MILP.
@@ -24,16 +38,16 @@ Full MILP in this pass: mean 39.6 s, serves 90.0 %, mean gap 0.025 % to the data
 | REINFORCE probabilities (ours, previous) | 97 | 97.0 | 7.383 | 2.426 | 17.266 | 67.82 | 81.7 | 3.3 | 2.68 | 14.8x |
 | harm policy (compensated) + adequacy guard | 97 | 96.9 | 20.086 | 0.245 | 12.290 | 697.58 | 78.3 | 25.0 | 4.83 | 8.2x |
 
-## 80 % fixed (pass B; first 12 instances, one back-to-back full MILP per instance shared by both tables: mean 42.2 s, serves 66.7 %, mean gap 0.031 %)
+## 80 % fixed (pass B; first 60 instances, one back-to-back full MILP per instance shared by both tables: mean 32.3 s, serves 88.3 %, mean gap 0.006 %)
 
 | rule | share | fixed % | mean gap % | median gap % | p90 gap % | max gap % | served % | matches MILP % | time s | speed-up |
 |---|---|---|---|---|---|---|---|---|---|---|
-| full MILP (same run) |  | 0.0 | 0.031 | 0.000 | 0.080 | 0.27 | 66.7 | 75.0 | 42.17 | 1.0x |
-| RACLearn (confidence margin) | 80 | 80.0 | -0.125 | -0.000 | 0.041 | 0.30 | 66.7 | 75.0 | 27.47 | 1.5x |
-| Learning to Fix (generator thresholds) | 80 | 79.3 | 0.009 | 0.000 | 0.106 | 1.59 | 83.3 | 58.3 | 26.17 | 1.6x |
-| BCE, OFF x10 + adequacy guard (ours, previous) | 80 | 80.0 | -0.108 | 0.000 | 0.099 | 0.27 | 75.0 | 58.3 | 23.40 | 1.8x |
-| REINFORCE probabilities (ours, previous) | 80 | 80.0 | 1.017 | 0.117 | 2.480 | 5.99 | 91.7 | 16.7 | 11.50 | 3.7x |
-| harm policy (compensated) + adequacy guard | 80 | 80.0 | 0.666 | 0.005 | 1.231 | 8.22 | 66.7 | 41.7 | 21.31 | 2.0x |
+| full MILP (same run) |  | 0.0 | 0.006 | 0.000 | 0.000 | 0.27 | 88.3 | 95.0 | 32.33 | 1.0x |
+| RACLearn (confidence margin) | 80 | 80.0 | -0.008 | 0.000 | 0.027 | 1.74 | 88.3 | 71.7 | 18.61 | 1.7x |
+| Learning to Fix (generator thresholds) | 80 | 80.5 | 0.436 | 0.000 | 0.507 | 17.53 | 90.0 | 58.3 | 18.26 | 1.8x |
+| BCE, OFF x10 + adequacy guard (ours, previous) | 80 | 80.0 | 0.040 | 0.000 | 0.283 | 1.73 | 91.7 | 58.3 | 16.58 | 1.9x |
+| REINFORCE probabilities (ours, previous) | 80 | 80.0 | 0.555 | 0.101 | 1.607 | 5.99 | 95.0 | 26.7 | 9.16 | 3.5x |
+| harm policy (compensated) + adequacy guard | 80 | 80.0 | 0.225 | 0.000 | 0.293 | 8.22 | 86.7 | 56.7 | 16.00 | 2.0x |
 
 ## Post-hoc extension: row feasibility check + LP-relaxation guard (pass C; same run as pass B)
 
@@ -41,40 +55,40 @@ Added after pass A showed catastrophic shedding / shortfall outliers that the ca
 
 | rule | share | fixed % | mean gap % | median gap % | p90 gap % | max gap % | served % | matches MILP % | time s | speed-up |
 |---|---|---|---|---|---|---|---|---|---|---|
-| RACLearn + LP-relaxation guard (post hoc) | 95 | 84.3 | 0.138 | 0.000 | 0.313 | 1.94 | 75.0 | 58.3 | 16.10 | 2.6x |
-| harm policy + adequacy + LP-relaxation guard (post hoc) | 95 | 92.9 | 0.535 | 0.024 | 1.618 | 3.47 | 91.7 | 41.7 | 8.16 | 5.2x |
-| RACLearn + LP-relaxation guard (post hoc) | 97 | 83.7 | 0.318 | 0.111 | 1.356 | 1.94 | 75.0 | 33.3 | 14.51 | 2.9x |
-| harm policy + adequacy + LP-relaxation guard (post hoc) | 97 | 80.5 | 0.319 | 0.009 | 1.182 | 2.03 | 75.0 | 50.0 | 19.48 | 2.2x |
-| RACLearn + LP-relaxation guard (post hoc) | 99 | 74.0 | 0.873 | 0.269 | 1.966 | 5.98 | 83.3 | 16.7 | 19.74 | 2.1x |
-| harm policy + adequacy + LP-relaxation guard (post hoc) | 99 | 72.0 | 1.204 | 0.309 | 4.197 | 5.98 | 83.3 | 16.7 | 14.13 | 3.0x |
+| RACLearn + LP-relaxation guard (post hoc) | 95 | 90.1 | 0.194 | 0.014 | 0.492 | 1.94 | 91.7 | 43.3 | 9.97 | 3.2x |
+| harm policy + adequacy + LP-relaxation guard (post hoc) | 95 | 92.1 | 0.398 | 0.052 | 1.141 | 4.93 | 96.7 | 35.0 | 6.03 | 5.4x |
+| RACLearn + LP-relaxation guard (post hoc) | 97 | 87.3 | 0.390 | 0.128 | 1.470 | 2.98 | 91.7 | 36.7 | 8.53 | 3.8x |
+| harm policy + adequacy + LP-relaxation guard (post hoc) | 97 | 89.0 | 0.514 | 0.142 | 1.256 | 5.16 | 91.7 | 28.3 | 8.14 | 4.0x |
+| RACLearn + LP-relaxation guard (post hoc) | 99 | 76.2 | 0.610 | 0.248 | 2.006 | 5.98 | 91.7 | 26.7 | 11.71 | 2.8x |
+| harm policy + adequacy + LP-relaxation guard (post hoc) | 99 | 81.2 | 0.885 | 0.307 | 2.629 | 6.97 | 95.0 | 16.7 | 7.49 | 4.3x |
 
 ## Pareto data and mean gap at equal speed-up
 
-Points marked on the frontier are not dominated (lower-or-equal mean gap and higher-or-equal speed-up) by any other rule/share on the 12 instances covered by all passes: harm policy (compensated) + adequacy guard @ 95 %, REINFORCE probabilities (ours, previous) @ 95 %, BCE, OFF x10 + adequacy guard (ours, previous) @ 80 %, harm policy + adequacy + LP-relaxation guard (post hoc) @ 95 %, RACLearn (confidence margin) @ 80 %, RACLearn + LP-relaxation guard (post hoc) @ 95 %, RACLearn + LP-relaxation guard (post hoc) @ 97 %.
+Points marked on the frontier are not dominated (lower-or-equal mean gap and higher-or-equal speed-up) by any other rule/share on the 60 instances covered by all passes: REINFORCE probabilities (ours, previous) @ 90 %, REINFORCE probabilities (ours, previous) @ 95 %, BCE, OFF x10 + adequacy guard (ours, previous) @ 80 %, harm policy + adequacy + LP-relaxation guard (post hoc) @ 95 %, RACLearn (confidence margin) @ 80 %, RACLearn + LP-relaxation guard (post hoc) @ 95 %, RACLearn + LP-relaxation guard (post hoc) @ 97 %.
 
 Best mean gap (%) a rule attains with a share whose speed-up is at least the column value (blank = no share of that rule is that fast):
 
 | rule | 2x | 3x | 4x | 5x | 7x | 10x | 15x | 20x | 30x |
 |---|---|---|---|---|---|---|---|---|---|
-| RACLearn (confidence margin) | 5.659 | 122.349 | 122.349 | 122.349 | 122.349 |  |  |  |  |
-| Learning to Fix (generator thresholds) | 0.969 | 95.474 |  |  |  |  |  |  |  |
-| BCE, OFF x10 + adequacy guard (ours, previous) | 0.537 | 0.537 | 66.241 | 66.241 | 66.241 | 66.241 | 128.499 | 128.499 |  |
-| REINFORCE probabilities (ours, previous) | 1.017 | 1.017 | 5.023 | 5.023 | 5.023 | 9.032 | 9.032 | 9.032 | 9.032 |
-| harm policy (compensated) + adequacy guard | 0.772 | 0.772 | 1.208 | 1.208 | 1.208 | 1.208 |  |  |  |
-| RACLearn + LP-relaxation guard (post hoc) | 0.138 |  |  |  |  |  |  |  |  |
-| harm policy + adequacy + LP-relaxation guard (post hoc) | 0.319 | 0.535 | 0.535 | 0.535 |  |  |  |  |  |
+| RACLearn (confidence margin) | 1.384 | 38.509 | 38.509 | 38.509 | 53.955 |  |  |  |  |
+| Learning to Fix (generator thresholds) | 7.814 | 49.394 |  |  |  |  |  |  |  |
+| BCE, OFF x10 + adequacy guard (ours, previous) | 0.413 | 0.413 | 14.004 | 14.004 | 14.004 | 32.101 |  |  |  |
+| REINFORCE probabilities (ours, previous) | 0.555 | 0.555 | 3.150 | 3.150 | 3.150 | 5.501 | 5.501 |  |  |
+| harm policy (compensated) + adequacy guard | 0.225 | 0.469 | 13.909 | 13.909 | 13.909 |  |  |  |  |
+| RACLearn + LP-relaxation guard (post hoc) | 0.194 | 0.194 |  |  |  |  |  |  |  |
+| harm policy + adequacy + LP-relaxation guard (post hoc) | 0.398 | 0.398 | 0.398 | 0.398 |  |  |  |  |  |
 
 Best median gap (%) at a speed-up of at least the column value:
 
 | rule | 2x | 3x | 4x | 5x | 7x | 10x | 15x | 20x | 30x |
 |---|---|---|---|---|---|---|---|---|---|
-| RACLearn (confidence margin) | 0.003 | 0.030 | 0.030 | 0.030 | 0.030 |  |  |  |  |
-| Learning to Fix (generator thresholds) | 0.303 | 0.921 |  |  |  |  |  |  |  |
-| BCE, OFF x10 + adequacy guard (ours, previous) | 0.032 | 0.032 | 0.524 | 0.524 | 0.524 | 0.524 | 1.281 | 1.281 |  |
-| REINFORCE probabilities (ours, previous) | 0.117 | 0.117 | 0.565 | 0.565 | 0.565 | 3.739 | 3.739 | 3.739 | 3.739 |
-| harm policy (compensated) + adequacy guard | 0.003 | 0.003 | 0.024 | 0.024 | 0.024 | 0.024 |  |  |  |
-| RACLearn + LP-relaxation guard (post hoc) | 0.000 |  |  |  |  |  |  |  |  |
-| harm policy + adequacy + LP-relaxation guard (post hoc) | 0.009 | 0.024 | 0.024 | 0.024 |  |  |  |  |  |
+| RACLearn (confidence margin) | 0.000 | 0.087 | 0.087 | 0.087 | 0.398 |  |  |  |  |
+| Learning to Fix (generator thresholds) | 0.339 | 1.514 |  |  |  |  |  |  |  |
+| BCE, OFF x10 + adequacy guard (ours, previous) | 0.055 | 0.055 | 0.268 | 0.268 | 0.268 | 0.468 |  |  |  |
+| REINFORCE probabilities (ours, previous) | 0.101 | 0.101 | 0.474 | 0.474 | 0.474 | 1.482 | 1.482 |  |  |
+| harm policy (compensated) + adequacy guard | 0.000 | 0.002 | 0.052 | 0.052 | 0.052 |  |  |  |  |
+| RACLearn + LP-relaxation guard (post hoc) | 0.014 | 0.014 |  |  |  |  |  |  |  |
+| harm policy + adequacy + LP-relaxation guard (post hoc) | 0.052 | 0.052 | 0.052 | 0.052 |  |  |  |  |  |
 
 ## Model selection on validation (first 10 val instances, no full MILP in this run; selection between label variants and the guard)
 
