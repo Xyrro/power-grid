@@ -95,14 +95,15 @@ if __name__ == "__main__":
         tr = S["test_rows"]
         for r in tr:
             r["excess_units_vs_MILP"] = r.get("units_on", np.nan) - r.get("MILP_units_on", np.nan)
-        md += ["## 4. Test, Model 1 -> LP (120 instances; gap to the test MILP; MILP serves 92.5 %)", "",
+        md += ["## 4. Test, Model 1 -> LP (120 instances; gap to the test MILP, which serves 92.5 % and commits "
+               f"{tr[0].get('MILP_units_on', float('nan')):.2f} units per hour on average)", "",
                fmt_table(tr, ["method", "no_shed_no_shortfall_%", "gap_median_%", "gap_mean_served_%", "gap_mean_%",
                               "units_on", "excess_units_vs_MILP", "unit_hour_accuracy_%", "LPs_per_instance"]), ""]
 
     # ------------------------------------------------------------------ test, fixing
     if S.get("fix_rows"):
         fr = S["fix_rows"]
-        md += [f"## 5. Test, fixing + reduced MILP (first 60 test instances, full MILP solved back to back in the same "
+        md += [f"## 5. Test, fixing + reduced MILP (first {S.get('fix_n', 60)} test instances, full MILP solved back to back in the same "
                f"process; 2 worker processes on a shared machine; wall {S.get('fix_wall_s', 0) / 60:.0f} min)", "",
                fmt_table(fr, ["method", "fixed_share_", "gap_mean_%", "gap_median_%", "no_shed_no_shortfall_%",
                               "matches_or_beats_milp_%", "time_s", "speedup_x", "speedup_median_x", "units_on",
@@ -111,6 +112,6 @@ if __name__ == "__main__":
     md += ["## Training times (s)", "", "```", json.dumps(S.get("train_s", {}), indent=1), "```", ""]
     open(P("results.md"), "w").write("\n".join(md))
     out = {k: S.get(k) for k in ("label_cost", "label_cost_summary", "labels", "pilot", "q", "rounds", "val", "test_rows",
-                                 "fix_rows", "train_s", "rl_LPs_total", "fix_wall_s")}
+                                 "fix_rows", "fix_n", "train_s", "rl_LPs_total", "fix_wall_s")}
     json.dump(out, open(P("results.json"), "w"), indent=1, default=float)
     print("\n".join(md))

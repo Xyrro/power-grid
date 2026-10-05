@@ -65,6 +65,8 @@ if __name__ == "__main__":
     ap.add_argument("--n_train", type=int, default=0, help="smoke tests: use the first n training instances")
     ap.add_argument("--n_test", type=int, default=0, help="smoke tests: use the first n test / val instances")
     ap.add_argument("--fix_max_specs", type=int, default=0, help="smoke tests: reduced MILPs per instance (0 = all)")
+    ap.add_argument("--screen_baselines", type=int, default=1,
+                    help="0: skip candidate screening for the four baselines (their screening rows exist in uc_label_free_results)")
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
@@ -355,6 +357,8 @@ if __name__ == "__main__":
                 save_state()
             if f"{name}: screening" in have or name in ("ST round 1", "ST round 2"):
                 continue
+            if not a.screen_baselines and (name.startswith("MILP-label") or name.startswith("LF")):
+                continue
             cl = candidates_from_probs(p, 8, np.random.default_rng(a.seed))
             flat_i = np.concatenate([np.full(len(x), i) for i, x in enumerate(cl)])
             flat_u = fixrep(np.concatenate(cl), te["u0"][flat_i])
@@ -415,6 +419,7 @@ if __name__ == "__main__":
             frows.append(r)
             per[nm] = {"obj": g("obj").tolist(), "time": t_.tolist(), "shed": g("shed").tolist(), "short": g("short").tolist()}
         S["fix_rows"] = frows
+        S["fix_n"] = nf
         S["fix_wall_s"] = time.time() - t0
         with open(P("fix_per_instance.json"), "w") as f:
             json.dump(per, f, default=float)

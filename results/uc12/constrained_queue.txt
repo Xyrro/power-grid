@@ -1,3 +1,3 @@
---stage he --name he_bc --init milp_bce
---stage eval --name base --models lf_bce,rl_lf,lag_B,lag_D,milp_bce,milp_rl --no_screen
---stage calib --name calib1 --models lf_bce,rl_lf,rl_R_s90,lag_R,he_bc,milp_rl
+--stage eval --name base --models lf_bce,rl_lf,lag_B,lag_D,milp_bce,milp_rl,lag_R2_s30,rl_R_s90 --no_screen
+--stage calib --name calib1 --models lf_bce,rl_lf,rl_R_s90,lag_R2_s30,he_bc,milp_rl
+--stage test --name final --models milp,knn20,lf_bce,milp_bce,rl_lf,milp_rl,he_bc,rl_R_s90,lag_B,lag_D,lag_R,lag_R2_s30 --screen_models lf_bce,rl_lf,he_bc,lag_R2_s30

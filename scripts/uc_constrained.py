@@ -288,7 +288,14 @@ if __name__ == "__main__":
         oracle = HourlyOracle(cfg, a.workers)
         rows, arrays = [], {}
         n_te = len(te["load"])
+        tag = a.name or "all"
+
+        def save_test():
+            dump(os.path.join(OUT, f"constrained_test_{tag}.json"), {"rows": rows})
+            np.savez_compressed(os.path.join(OUT, f"constrained_test_{tag}_arrays.npz"),
+                                **{k.replace("/", "_"): v for k, v in arrays.items()}, names=np.array(list(arrays.keys())))
         for name in [x for x in a.models.split(",") if x]:
+            save_test()
             t0 = time.time()
             if name == "milp":     # reference: the MILP's own commitment through the same LP
                 c, sh, so = oracle.scores(te, np.arange(n_te), te["u"], KEY["test"] + np.arange(n_te))
@@ -336,10 +343,7 @@ if __name__ == "__main__":
                 print(f"  [test] {r['method']:70s} served {r['no_shed_no_shortfall_%']:5.1f}%  median {r['gap_median_%']:7.3f}%  "
                       f"served-mean {r['gap_mean_served_%']:6.3f}%", flush=True)
             print(f"  ({time.time() - t0:.0f}s)", flush=True)
-        tag = a.name or "all"
-        dump(os.path.join(OUT, f"constrained_test_{tag}.json"), {"rows": rows})
-        np.savez_compressed(os.path.join(OUT, f"constrained_test_{tag}_arrays.npz"),
-                            **{k.replace("/", "_"): v for k, v in arrays.items()}, names=np.array(list(arrays.keys())))
+        save_test()
         oracle.close()
 
     elif a.stage == "calib":

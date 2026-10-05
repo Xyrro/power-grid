@@ -1,52 +1,52 @@
-# Fixing policy learned from solver outcomes — B2 (uc12), first 33 test instances
+# Fixing policy learned from solver outcomes — B2 (uc12), first 47 test instances
 
 Every reduced MILP is solved in the same worker process right after the full MILP of the same instance (60 s limit, 0.1 % MIP gap, the dataset settings), 2 workers, machine shared with other jobs. Gaps are to `test['obj']` (negative = cheaper than the dataset MILP); served = no load shedding and no reserve shortfall. Same probability model (saved BCE GNN `uc_model1_4.pt`) for RACLearn, Learning to Fix, the asymmetric rule and the proposed policy; the REINFORCE rule uses `uc_model1_rl.pt`.
 
-## 90 / 95 / 97 % fixed (pass A, 33 instances)
+## 90 / 95 / 97 % fixed (pass A, 47 instances)
 
-Full MILP in this pass: mean 38.6 s, serves 87.9 %, mean gap 0.014 % to the dataset MILP.
+Full MILP in this pass: mean 38.0 s, serves 89.4 %, mean gap 0.010 % to the dataset MILP.
 
 | rule | share | fixed % | mean gap % | median gap % | p90 gap % | max gap % | served % | matches MILP % | time s | speed-up |
 |---|---|---|---|---|---|---|---|---|---|---|
-| full MILP (same run) |  | 0.0 | 0.014 | 0.000 | 0.029 | 0.27 | 87.9 | 87.9 | 38.56 | 1.0x |
-| RACLearn (confidence margin) | 90 | 90.0 | 2.289 | 0.000 | 1.582 | 55.53 | 78.8 | 57.6 | 15.69 | 2.5x |
-| Learning to Fix (generator thresholds) | 90 | 89.8 | 12.543 | 0.296 | 3.050 | 391.89 | 90.9 | 30.3 | 12.95 | 3.0x |
-| BCE, OFF x10 + adequacy guard (ours, previous) | 90 | 90.0 | 0.427 | 0.046 | 1.513 | 2.94 | 93.9 | 42.4 | 10.84 | 3.6x |
-| REINFORCE probabilities (ours, previous) | 90 | 90.0 | 3.163 | 0.444 | 10.939 | 32.07 | 90.9 | 24.2 | 3.48 | 11.1x |
-| harm policy (compensated) + adequacy guard | 90 | 89.9 | 0.429 | 0.000 | 0.722 | 8.81 | 90.9 | 60.6 | 9.22 | 4.2x |
-| RACLearn (confidence margin) | 95 | 95.0 | 64.115 | 0.042 | 208.081 | 759.25 | 72.7 | 42.4 | 6.35 | 6.1x |
-| Learning to Fix (generator thresholds) | 95 | 94.8 | 60.905 | 1.216 | 191.257 | 845.81 | 69.7 | 15.2 | 7.16 | 5.4x |
-| BCE, OFF x10 + adequacy guard (ours, previous) | 95 | 94.9 | 24.802 | 0.409 | 11.522 | 565.33 | 81.8 | 21.2 | 4.76 | 8.1x |
-| REINFORCE probabilities (ours, previous) | 95 | 95.0 | 5.726 | 1.609 | 18.265 | 49.05 | 93.9 | 6.1 | 0.97 | 39.9x |
-| harm policy (compensated) + adequacy guard | 95 | 94.9 | 22.493 | 0.006 | 4.642 | 678.59 | 84.8 | 48.5 | 3.55 | 10.9x |
-| RACLearn (confidence margin) | 97 | 97.0 | 90.496 | 0.344 | 279.985 | 1286.93 | 63.6 | 33.3 | 5.82 | 6.6x |
-| BCE, OFF x10 + adequacy guard (ours, previous) | 97 | 96.9 | 52.265 | 0.793 | 37.414 | 758.68 | 78.8 | 21.2 | 2.73 | 14.1x |
-| REINFORCE probabilities (ours, previous) | 97 | 97.0 | 7.202 | 2.563 | 14.377 | 52.01 | 81.8 | 6.1 | 4.14 | 9.3x |
-| harm policy (compensated) + adequacy guard | 97 | 96.9 | 29.315 | 0.026 | 5.272 | 697.58 | 78.8 | 39.4 | 6.31 | 6.1x |
+| full MILP (same run) |  | 0.0 | 0.010 | 0.000 | 0.000 | 0.27 | 89.4 | 91.5 | 37.98 | 1.0x |
+| RACLearn (confidence margin) | 90 | 90.0 | 1.636 | 0.000 | 0.468 | 55.53 | 85.1 | 57.4 | 15.82 | 2.4x |
+| Learning to Fix (generator thresholds) | 90 | 90.0 | 9.009 | 0.265 | 2.996 | 391.89 | 89.4 | 27.7 | 13.49 | 2.8x |
+| BCE, OFF x10 + adequacy guard (ours, previous) | 90 | 90.0 | 0.324 | 0.009 | 1.422 | 2.94 | 95.7 | 46.8 | 10.51 | 3.6x |
+| REINFORCE probabilities (ours, previous) | 90 | 90.0 | 2.730 | 0.446 | 9.760 | 32.07 | 93.6 | 23.4 | 3.70 | 10.3x |
+| harm policy (compensated) + adequacy guard | 90 | 89.9 | 0.315 | 0.000 | 0.496 | 8.81 | 91.5 | 57.4 | 10.23 | 3.7x |
+| RACLearn (confidence margin) | 95 | 95.0 | 45.268 | 0.018 | 23.428 | 759.25 | 78.7 | 42.6 | 7.25 | 5.2x |
+| Learning to Fix (generator thresholds) | 95 | 94.9 | 46.368 | 1.639 | 119.680 | 845.81 | 59.6 | 12.8 | 7.45 | 5.1x |
+| BCE, OFF x10 + adequacy guard (ours, previous) | 95 | 95.0 | 17.514 | 0.225 | 4.876 | 565.33 | 87.2 | 25.5 | 4.77 | 8.0x |
+| REINFORCE probabilities (ours, previous) | 95 | 95.0 | 5.121 | 1.589 | 15.462 | 49.05 | 93.6 | 6.4 | 1.23 | 30.8x |
+| harm policy (compensated) + adequacy guard | 95 | 94.9 | 15.839 | 0.007 | 2.104 | 678.59 | 89.4 | 44.7 | 4.81 | 7.9x |
+| RACLearn (confidence margin) | 97 | 97.0 | 64.171 | 0.344 | 91.381 | 1286.93 | 61.7 | 31.9 | 5.56 | 6.8x |
+| BCE, OFF x10 + adequacy guard (ours, previous) | 97 | 97.0 | 36.851 | 0.344 | 5.696 | 758.68 | 85.1 | 21.3 | 2.83 | 13.4x |
+| REINFORCE probabilities (ours, previous) | 97 | 97.0 | 6.710 | 2.404 | 15.260 | 52.01 | 83.0 | 4.3 | 3.07 | 12.4x |
+| harm policy (compensated) + adequacy guard | 97 | 96.9 | 20.777 | 0.074 | 4.846 | 697.58 | 80.9 | 31.9 | 5.27 | 7.2x |
 
 ## Pareto data and mean gap at equal speed-up
 
-Points marked on the frontier are not dominated (lower-or-equal mean gap and higher-or-equal speed-up) by any other rule/share (passes covering the same instances as pass A): BCE, OFF x10 + adequacy guard (ours, previous) @ 90 %, harm policy (compensated) + adequacy guard @ 90 %, REINFORCE probabilities (ours, previous) @ 90 %, REINFORCE probabilities (ours, previous) @ 95 %.
+Points marked on the frontier are not dominated (lower-or-equal mean gap and higher-or-equal speed-up) by any other rule/share on the 47 instances covered by all passes: harm policy (compensated) + adequacy guard @ 90 %, REINFORCE probabilities (ours, previous) @ 90 %, REINFORCE probabilities (ours, previous) @ 95 %.
 
 Best mean gap (%) a rule attains with a share whose speed-up is at least the column value (blank = no share of that rule is that fast):
 
 | rule | 2x | 3x | 4x | 5x | 7x | 10x | 15x | 20x | 30x |
 |---|---|---|---|---|---|---|---|---|---|
-| RACLearn (confidence margin) | 2.289 | 64.115 | 64.115 | 64.115 |  |  |  |  |  |
-| Learning to Fix (generator thresholds) | 12.543 | 60.905 | 60.905 | 60.905 |  |  |  |  |  |
-| BCE, OFF x10 + adequacy guard (ours, previous) | 0.427 | 0.427 | 24.802 | 24.802 | 24.802 | 52.265 |  |  |  |
-| REINFORCE probabilities (ours, previous) | 3.163 | 3.163 | 3.163 | 3.163 | 3.163 | 3.163 | 5.726 | 5.726 | 5.726 |
-| harm policy (compensated) + adequacy guard | 0.429 | 0.429 | 0.429 | 22.493 | 22.493 | 22.493 |  |  |  |
+| RACLearn (confidence margin) | 1.636 | 45.268 | 45.268 | 45.268 |  |  |  |  |  |
+| Learning to Fix (generator thresholds) | 9.009 | 46.368 | 46.368 | 46.368 |  |  |  |  |  |
+| BCE, OFF x10 + adequacy guard (ours, previous) | 0.324 | 0.324 | 17.514 | 17.514 | 17.514 | 36.851 |  |  |  |
+| REINFORCE probabilities (ours, previous) | 2.730 | 2.730 | 2.730 | 2.730 | 2.730 | 2.730 | 5.121 | 5.121 | 5.121 |
+| harm policy (compensated) + adequacy guard | 0.315 | 0.315 | 15.839 | 15.839 | 15.839 |  |  |  |  |
 
 Best median gap (%) at a speed-up of at least the column value:
 
 | rule | 2x | 3x | 4x | 5x | 7x | 10x | 15x | 20x | 30x |
 |---|---|---|---|---|---|---|---|---|---|
-| RACLearn (confidence margin) | 0.000 | 0.042 | 0.042 | 0.042 |  |  |  |  |  |
-| Learning to Fix (generator thresholds) | 0.296 | 1.216 | 1.216 | 1.216 |  |  |  |  |  |
-| BCE, OFF x10 + adequacy guard (ours, previous) | 0.046 | 0.046 | 0.409 | 0.409 | 0.409 | 0.793 |  |  |  |
-| REINFORCE probabilities (ours, previous) | 0.444 | 0.444 | 0.444 | 0.444 | 0.444 | 0.444 | 1.609 | 1.609 | 1.609 |
-| harm policy (compensated) + adequacy guard | 0.000 | 0.000 | 0.000 | 0.006 | 0.006 | 0.006 |  |  |  |
+| RACLearn (confidence margin) | 0.000 | 0.018 | 0.018 | 0.018 |  |  |  |  |  |
+| Learning to Fix (generator thresholds) | 0.265 | 1.639 | 1.639 | 1.639 |  |  |  |  |  |
+| BCE, OFF x10 + adequacy guard (ours, previous) | 0.009 | 0.009 | 0.225 | 0.225 | 0.225 | 0.344 |  |  |  |
+| REINFORCE probabilities (ours, previous) | 0.446 | 0.446 | 0.446 | 0.446 | 0.446 | 0.446 | 1.589 | 1.589 | 1.589 |
+| harm policy (compensated) + adequacy guard | 0.000 | 0.000 | 0.007 | 0.007 | 0.007 |  |  |  |  |
 
 ## Model selection on validation (first 10 val instances, no full MILP in this run; selection between label variants and the guard)
 

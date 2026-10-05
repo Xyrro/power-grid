@@ -32,12 +32,12 @@ def best_gap_at(points, s, key="gap_mean"):
     return min(ok) if ok else None
 
 
-def load_pass(tag, n, obj):
+def load_pass(tag, n, obj, only=None):
     path = os.path.join("results/uc12", f"fixpolicy_eval_{tag}.jsonl")
     if not os.path.exists(path):
         return [], []
     recs = [json.loads(line) for line in open(path)]
-    recs = [r for r in recs if r["i"] < n]
+    recs = [r for r in recs if r["i"] < n and (only is None or r["i"] in only)]
     # keep only instances on which every (rule, share) of this pass has been solved
     groups = {}
     for r in recs:
@@ -70,16 +70,19 @@ if __name__ == "__main__":
     out_dir = "results/uc12"
     te, va = (load(os.path.join("data/generated/uc12", f"{s_}.npz")) for s_ in ("test", "val"))
     rowsA, comA = load_pass("test", a.n, te["obj"])
-    rowsB, comB = load_pass("test80", a.n, te["obj"])
-    rowsC, comC = load_pass("test_lp", a.n, te["obj"])
+    rowsBC, comBC = load_pass("test_bc", a.n, te["obj"])
     rowsV, comV = load_pass("val", 20, va["obj"])
     rowsVL, comVL = load_pass("val_lp", 20, va["obj"])
     fullA = [r for r in rowsA if r["method"] == "full"][0]
-    # frontier over every pass that covers the same instances as pass A (speed-up vs that pass's own full MILP)
-    front = [r for r in rowsA if r["method"] != "full"]
-    for rows_, com_ in ((rowsB, comB), (rowsC, comC)):
-        if rows_ and sorted(com_) == sorted(comA):
-            front += [r for r in rows_ if r["method"] != "full"]
+    # frontier: pass A + the combined pass (80 % and LP-guard rows; speed-up vs each pass's own full MILP) on the
+    # instances both passes cover (pass A recomputed on that subset if the combined pass is shorter)
+    if rowsBC:
+        sub = set(comBC)
+        rowsA_sub, _ = load_pass("test", a.n, te["obj"], only=sub) if sorted(comBC) != sorted(comA) else (rowsA, comA)
+        front = [r for r in rowsA_sub + rowsBC if r["method"] != "full"]
+        n_front = len(comBC)
+    else:
+        front, n_front = [r for r in rowsA if r["method"] != "full"], len(comA)
     for r in front:
         r["pareto"] = not any((q["gap_mean"] <= r["gap_mean"] and q["speedup"] >= r["speedup"]) and
                               (q["gap_mean"] < r["gap_mean"] or q["speedup"] > r["speedup"]) for q in front)
@@ -97,15 +100,19 @@ if __name__ == "__main__":
          f"## 90 / 95 / 97 % fixed (pass A, {len(comA)} instances)\n",
          f"Full MILP in this pass: mean {fullA['time_s']:.1f} s, serves {fullA['served']:.1f} %, mean gap "
          f"{fullA['gap_mean']:.3f} % to the dataset MILP.\n"] + table(rowsA)
-    for title, rows_, com_ in (("80 % fixed (pass B", rowsB, comB),
-                               ("Post-hoc extension: LP-relaxation guard (pass C", rowsC, comC)):
-        if rows_:
-            full_ = [r for r in rows_ if r["method"] == "full"][0]
-            L += ["", f"## {title}, first {len(com_)} instances; its own back-to-back full MILP: mean "
-                  f"{full_['time_s']:.1f} s, serves {full_['served']:.1f} %)\n"] + table(rows_)
+    if rowsBC:
+        full_ = [r for r in rowsBC if r["method"] == "full"][0]
+        head = (f"first {len(comBC)} instances, one back-to-back full MILP per instance shared by both tables: mean "
+                f"{full_['time_s']:.1f} s, serves {full_['served']:.1f} %, mean gap {full_['gap_mean']:.3f} %")
+        L += ["", f"## 80 % fixed (pass B; {head})\n"] + table([r for r in rowsBC if r["method"] == "full" or
+                                                                  (r["target"] == 0.8 and not r["method"].endswith("_lp"))])
+        L += ["", f"## Post-hoc extension: row feasibility check + LP-relaxation guard (pass C; same run as pass B)\n",
+              "Added after pass A showed catastrophic shedding / shortfall outliers that the capacity guard misses; "
+              "no parameter, checked on 10 val instances before this run; the guard's LP time is included.\n"]
+        L += table([r for r in rowsBC if r["method"].endswith("_lp")])
     L += ["", "## Pareto data and mean gap at equal speed-up\n",
           "Points marked on the frontier are not dominated (lower-or-equal mean gap and higher-or-equal speed-up) by any "
-          "other rule/share (passes covering the same instances as pass A)" + ": " +
+          f"other rule/share on the {n_front} instances covered by all passes" + ": " +
           ", ".join(f"{r['name']} @ {int(round(r['target'] * 100))} %" for r in front if r.get("pareto")) + ".\n",
           "Best mean gap (%) a rule attains with a share whose speed-up is at least the column value (blank = no share of that rule is that fast):\n",
           "| rule | " + " | ".join(f"{s}x" for s in grid) + " |", "|---|" + "---|" * len(grid)]
@@ -125,8 +132,8 @@ if __name__ == "__main__":
     with open(os.path.join(out_dir, f"{a.out}.md"), "w") as f:
         f.write(md)
     with open(os.path.join(out_dir, f"{a.out}.json"), "w") as f:
-        json.dump({"pass_A_instances": comA, "pass_B_instances": comB, "pass_C_instances": comC, "val_instances": comV,
-                   "rows_A": rowsA, "rows_B": rowsB, "rows_C": rowsC, "rows_val": rowsV, "rows_val_lp": rowsVL,
+        json.dump({"pass_A_instances": comA, "pass_BC_instances": comBC, "val_instances": comV,
+                   "rows_A": rowsA, "rows_BC": rowsBC, "rows_val": rowsV, "rows_val_lp": rowsVL, "frontier_rows": front,
                    "gap_mean_at_speedup": eq, "gap_median_at_speedup": eq_med},
                   f, indent=1, default=float)
     print(md)

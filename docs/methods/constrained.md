@@ -9,6 +9,61 @@
 
 __RESULTS__
 
+## 3. Why the end-to-end policies over-commit (validation set, 60 instances)
+
+**What the imitation model gets wrong.** The label-free BCE model, decoded at 0.5, serves 7 of 60
+validation instances; 26 shed load and 27 more miss reserve, in 2.9 hours per violating instance. In
+79 % of the violating hours the committed capacity is below net load + reserve (median −48 MW): a few
+missing units in a few hours. When it serves, it is cheap (0.2 % above the MILP).
+
+**What fine-tuning changes** (`scripts/uc_constrained_diag.py`, decisions at threshold 0.5, per instance
+of 12 × 73 unit-hours; MILP: 12.5 units on per hour):
+
+| model | units on | unit-hours added vs. init | removed | added, MILP has on | added, MILP has off | MILP-on still missed | uncertain decisions (0.05 < p < 0.95) | KL to init |
+|---|---|---|---|---|---|---|---|---|
+| LF-BCE (init) | 12.18 | – | – | – | – | ~9.1 | – | – |
+| plain REINFORCE (`rl_lf`) | 14.10 | 23.0 | 0.0 | 3.8 | 19.1 | 5.3 | 7.9 % | 52 |
+| MILP-label + REINFORCE (`milp_rl`) | 14.29 | 25.8 | 2.1 | 4.8 | 21.0 | 5.3 | 10.2 % | 60 |
+| Lagrangian, no repair (`lag_B`) | 14.64 | 29.5 | 0.0 | 4.2 | 25.3 | 4.9 | 9.1 % | 79 |
+| Lagrangian + KL 0.05 (`lag_D`) | 13.09 | 11.0 | 0.07 | 2.9 | 8.2 | 6.3 | 5.1 % | 18 |
+| Lagrangian through block repair (`lag_R`) | 13.58 | 17.1 | 0.25 | 2.9 | 14.2 | 6.4 | 5.3 % | 30 |
+
+* **Fine-tuning only adds units, and mostly the wrong ones**: of ~23 added unit-hours per instance, ~19
+  are units the MILP keeps off, while ~5 MILP-on unit-hours stay missing. A one-shot policy with
+  independent per-decision outputs cannot see the capacity of its own schedule, so it secures
+  coverage by committing extra units broadly ("substitutes"), mostly decisions the imitation model had
+  at p⁰ = 0.01–0.3.
+* **Part of it is hedging against the policy's own sampling noise**: the training objective is the cost of
+  *sampled* schedules; a needed unit at p = 0.9 is missing in 10 % of samples, so backups pay off in
+  training but not at the deterministic threshold. Raising the decision threshold of `lag_B` from 0.5
+  to 0.7 keeps 95 % served and cuts its served-instance gap from 15.3 % to 9.4 %; for `milp_rl`
+  0.5 → 0.7 gives 81.7 → 75.0 % served, 11.3 → 7.1 %.
+* **The Lagrangian alone (`lag_B`) does not fix it**: with the multiplier driven by the deployed
+  violation rate (ε = 0.1) it overshoots in the first steps (λ → 11, 12.7 → 19 units), then settles at
+  ~15 units — more coverage than plain REINFORCE (95 % vs 90 % on val) at a *higher* cost (15.3 % vs 9.9 %
+  served gap). A KL anchor (`lag_D`, α = 0.05, ε = 0.15) halves the drift and the cost (4.4 %) but loses
+  coverage (78 %): a different point on the same trade-off, not a Pareto gain.
+* **A capacity repair does the job the policy does badly**: the min up/down-aware block repair alone
+  takes the imitation model from 11.7 % to 81.7 % served at a 1.55 % median / 2.49 % served-instance
+  gap (val), and a reserve margin traces a frontier: +3 % → 85.0 % / 4.5 %, +5 % → 88.3 % / 6.9 %,
+  +8 % → 96.7 % / 8.8 %. Plain REINFORCE (90.0 % / 9.9 %) lies *behind* this no-learning frontier.
+* **Fine-tuning through the repair**: with the repair in the loop the Lagrangian estimator is markedly
+  leaner than plain REINFORCE at equal steps (val, deployed decoder, gap to the LP relaxation on served
+  instances; the MILP is 0.8 % above the relaxation on val):
+
+| step | Lagrangian ε = 0.1 (`lag_R`) | Lagrangian ε = 0.2 (`lag_R2`) | plain REINFORCE (`rl_R`) |
+|---|---|---|---|
+| 30 | 90.0 % / 4.6 % / 12.97 units | **91.7 % / 4.2 % / 12.85 units** | 93.3 % / 8.4 % / 14.08 units |
+| 60 | 93.3 % / 5.5 % | (run interrupted) | 98.3 % / 10.8 % |
+| 90 | 95.0 % / 6.3 % | | 98.3 % / 7.3 % |
+| 120 | 98.3 % / 9.1 % / 13.74 units | | 96.7 % / 8.2 % / 13.56 units |
+
+  Both drift toward more units with more steps (the multiplier keeps pushing coverage on the harder
+  training instances; the train violation of `lag_R` reached ε = 0.1 only at λ ≈ 4–5, so the cap
+  λ ≤ 5 was active most of the time and the method behaved like a fixed-weight two-stream penalty).
+  Checkpoint selection on val is therefore part of the method.
+
+
 ## 1. Problem
 
 End-to-end mode on B2 (12-hour network-constrained UC, RTS-GMLC): Model 1 predicts the 12 × 73 on/off

@@ -59,6 +59,17 @@ of the results file): uncompensated labels make the policy leave free almost onl
 (94 % of the free set), which is slower and worse (mean gap 1.4 / 4.2 % at 90 / 95 %); compensated labels gave
 0.21 / 1.6 %; the guard changes nothing at 90–95 % and removes the one shortfall outlier at 97 %.
 
+**Post-hoc extension: solver-aware guard** (`release_conflicting_rows`, `lp_guard`). Added after the first
+test pass showed a few catastrophic outliers (load shedding + reserve shortfall at 95–97 % fixed) that the
+capacity guard cannot see (min down-time timing, network, ramping). Two parameter-free checks before the MILP:
+(i) release all fixings of a unit whose fixed entries cannot be completed under min up/down (the reduced MILP
+would be infeasible and fall back to the full MILP); (ii) solve the LP relaxation of the reduced problem (fixed
+decisions at their values, free ones in [0, 1]); since it is a lower bound, any shedding / over-generation /
+reserve shortfall in an hour will also occur in the reduced MILP, so release the OFF fixes in [t − min_dn, t] of
+every such hour t (then ON fixes in [t − min_up, t] if still needed), re-check, up to 4 rounds. The LP time
+(≈ 0.15–0.5 s per check) is counted in the rule's time. It is applied to RACLearn as well, to separate the effect
+of the guard from that of the ranking. It was checked on 10 val instances before the test run; nothing was tuned.
+
 ## Baselines (re-implemented on the same instances and the same probability model)
 
 * **RACLearn** (Park et al. 2024): fix the share with the largest |p − 0.5|. The saved network has no dropout
