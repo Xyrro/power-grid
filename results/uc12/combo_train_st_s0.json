@@ -1,0 +1,7 @@
+{
+ "stage": "st",
+ "seed": 0,
+ "repro_max_abs_diff_val": 0.0,
+ "repro_decisions_differ_val": 0,
+ "train_s": 99.04237651824951
+}
