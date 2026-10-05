@@ -88,9 +88,63 @@ of the guard from that of the ranking. It was checked on 10 val instances before
 * **Asymmetric + adequacy guard** (ours, U5/V3): rank by min(p, 1 − p), OFF decisions × 10, then the guard.
 * **REINFORCE probabilities** (ours, U4): rank and fix by the LP-critic fine-tuned model `uc_model1_rl.pt`.
 
-## Results
+## Results (first 60 B2 test instances)
 
-(filled in below after the test run)
+Protocol: each worker solves the full MILP and then every reduced MILP of the same instance back-to-back
+(60 s limit, 0.1 % gap, as in the dataset); 2 workers on a machine shared with two other jobs (load ≈ 6 on
+4 cores), so absolute times are ≈ 1.4× those of the earlier study (full MILP 39.6 s here vs 28.3 s) and only
+ratios are comparable. Gaps are to `test['obj']`. All baseline numbers reproduce the earlier study exactly
+(e.g. RACLearn 1.384 / 38.509 %, asymmetric 0.413 / 14.004 %, REINFORCE 3.150 / 5.501 % mean gap at 90 / 95 %);
+only the speed-ups moved with the load.
+
+**Pass A — 90 / 95 / 97 % fixed** (full MILP 39.6 s, serves 90.0 %):
+
+| fixed | rule | mean gap | median gap | > 10 % gap | served | speed-up |
+|---|---|---|---|---|---|---|
+| 90 % | RACLearn (margin) | 1.38 % | 0.000 % | 2 | 86.7 % | 2.2× |
+| 90 % | Learning to Fix | 7.81 % | 0.339 % | 3 | 86.7 % | 2.5× |
+| 90 % | asymmetric + guard (ours, previous best) | **0.41 %** | 0.055 % | 0 | **96.7 %** | 3.6× |
+| 90 % | REINFORCE probabilities | 3.15 % | 0.474 % | 6 | 91.7 % | **7.8×** |
+| 90 % | **harm policy + guard (proposed)** | 0.47 % | **0.002 %** | 0 | 90.0 % | 3.7× |
+| 95 % | RACLearn (margin) | 38.5 % | 0.087 % | 7 | 80.0 % | 5.2× |
+| 95 % | Learning to Fix | 49.4 % | 1.514 % | 14 | 63.3 % | 4.0× |
+| 95 % | asymmetric + guard | 14.0 % | 0.268 % | 4 | 90.0 % | 7.4× |
+| 95 % | REINFORCE probabilities | **5.5 %** | 1.482 % | 10 | **91.7 %** | **17.7×** |
+| 95 % | **harm policy + guard** | 13.9 % | **0.052 %** | 4 | 88.3 % | 7.8× |
+| 97 % | RACLearn | 54.0 % | 0.398 % | 10 | 63.3 % | 7.2× |
+| 97 % | asymmetric + guard | 32.1 % | 0.468 % | 6 | 85.0 % | 12.2× |
+| 97 % | REINFORCE | **7.4 %** | 2.426 % | 14 | 81.7 % | **14.8×** |
+| 97 % | **harm policy + guard** | 20.1 % | **0.245 %** | 7 | 78.3 % | 8.2× |
+
+(Learning to Fix was not run at 97 %: dominated on val, 64 % mean gap at 21.5 s.)
+
+PASS_BC_PLACEHOLDER
+
+## Verdict
+
+VERDICT_PLACEHOLDER
+
+## Limitations
+
+* **Mean gaps are dominated by a few instances with load shedding / reserve shortfall** (VOLL $10,000/MWh): at
+  95 % one instance contributes 11 of the policy's 13.9 % (2.6 % without it). The capacity guard misses them; the
+  LP-relaxation guard removes them but releases many fixings (actual fixed share far below the target), because
+  it also fires in hours where even the full relaxation pays reserve shortfall — comparing against the full
+  relaxation's per-hour slack would release less (not tested).
+* **Labels are single-error counterfactuals priced by an LP with heuristic compensation**, not reduced-MILP
+  outcomes; interactions between several wrong fixes are only handled by the guards. A policy-gradient /
+  bandit stage on reduced-MILP rewards was not run (a reduced MILP costs 1–60 s here; the label budget was 26.7k
+  LPs ≈ 1.6 core-hours instead).
+* **Speed is not modelled.** The policy optimises the expected cost of errors at a given share; its reduced MILPs
+  are about as fast as the asymmetric rule's at the same share and slower than REINFORCE's, which over-commits
+  and makes the MILP easy. At ≥ 10× speed-up REINFORCE ranking remains the best of the tested rules.
+* Learning to Fix is re-implemented from its abstract (per-generator decomposition, cost tolerance) on our impact
+  measurements; its published kNN predictor and exact algorithm may behave differently. Our impact measure fixes
+  all other units at the optimum (no compensation), which makes its thresholds conservative for large units and
+  its reduced MILPs slow (rows of risky units stay entirely free).
+* Selection used only 10 val instances with reduced MILPs (plus 60 for early stopping on LP labels); one probability
+  model, one system (RTS-GMLC, 73 units), one horizon (12 h). The machine was shared, so timings are noisy;
+  every rule saw the same load per instance.
 
 ## Prior work and what is new
 
