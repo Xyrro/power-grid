@@ -64,9 +64,10 @@ test pass showed a few catastrophic outliers (load shedding + reserve shortfall 
 capacity guard cannot see (min down-time timing, network, ramping). Two parameter-free checks before the MILP:
 (i) release all fixings of a unit whose fixed entries cannot be completed under min up/down (the reduced MILP
 would be infeasible and fall back to the full MILP); (ii) solve the LP relaxation of the reduced problem (fixed
-decisions at their values, free ones in [0, 1]); since it is a lower bound, any shedding / over-generation /
-reserve shortfall in an hour will also occur in the reduced MILP, so release the OFF fixes in [t − min_dn, t] of
-every such hour t (then ON fixes in [t − min_up, t] if still needed), re-check, up to 4 rounds. The LP time
+decisions at their values, free ones in [0, 1]); its cost bounds the reduced MILP's from below, so if even the
+relaxation pays penalty-priced shedding / over-generation / reserve shortfall, the fixings force such penalties
+on the reduced MILP. Then release the OFF fixes in [t − min_dn, t] of every hour t with slack (then ON fixes in
+[t − min_up, t] if still needed), re-check, up to 4 rounds. The LP time
 (≈ 0.15–0.5 s per check) is counted in the rule's time. It is applied to RACLearn as well, to separate the effect
 of the guard from that of the ranking. It was checked on 10 val instances before the test run; nothing was tuned.
 

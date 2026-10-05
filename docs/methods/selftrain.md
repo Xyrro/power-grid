@@ -4,7 +4,17 @@
 [`scripts/uc_selftrain_report.py`](../../scripts/uc_selftrain_report.py). Raw numbers:
 [`results/uc12/selftrain_results.md`](../../results/uc12/selftrain_results.md) / `.json`, log `results/uc12/selftrain_run.log`.*
 
-SUMMARY_PLACEHOLDER
+**Summary.** Starting from the label-free model (imitation of the repaired LP relaxation), three rounds of
+"predict → fix 80 % of the label-consistent decisions → 15 s reduced MILP → keep the schedule if the dispatch LP says
+it is cheaper → retrain" turn the 500 training labels from 35 % served / 12 % median gap into 91 % served / 0.08 %
+median gap to the MILP (35 % at or below the MILP's cost), **without any full-MILP solve and at 37 % of the label
+compute of MILP labels (1.7 vs 4.7 core-hours)**. On the B2 test set (120 instances for LP decoders, 40 for
+fixing) the self-trained model matches the MILP-label model as a one-shot / screening predictor and is a much better
+fixing ranker at 95 % fixed (1.5 % vs 20.6 % mean gap, 12×). Followed by REINFORCE it is the best one-LP pipeline so
+far (87.5 % served one-shot, 90 % with repair or screening), **but self-training does not remove the REINFORCE
+over-commitment** (+1.8 units per hour, +8.5 % on served instances). Adding the solver labels to the REINFORCE group
+(self-imitation) cuts that excess by 80 % and gives the best label-free 90–95 % fixing (0.52 % at 4.1×, 1.38 % at
+6.4×), at the price of one-shot coverage. Learning to Fix's < 0.5 % at > 20× is not reached.
 
 ## 1. Method
 
@@ -44,8 +54,8 @@ validation MILP objective, no validation labels). The final self-trained model i
 Training MILP objectives appear only as a diagnostic of label quality (*diag* columns).
 
 **Test protocol.** One LP per decoder on all 120 test instances: top-1 (+ min up/down repair), + adequacy repair,
-candidate screening (thresholds 0.2..0.8 + 8 samples, best by LP). Fixing + reduced MILP on the first 60 test
-instances: each worker solves the full MILP (60 s, 0.1 %) and then every reduced MILP of the same instance, back to
+candidate screening (thresholds 0.2..0.8 + 8 samples, best by LP). Fixing + reduced MILP on the first 40 test
+instances (60 planned; cut after a container restart): each worker solves the full MILP (60 s, 0.1 %) and then every reduced MILP of the same instance, back to
 back, in the same process (2 workers; the machine was shared with two other jobs, so compare ratios). Rankings:
 symmetric (RACLearn, |p − 0.5|) and asymmetric (OFF errors × 10) + adequacy guard, as in `scripts/uc_fixing.py`.
 
@@ -74,4 +84,175 @@ self-imitation anchor, aimed at the over-commitment of LP-critic fine-tuning. **
 RINS-style agreement neighbourhoods, confidence fixing, self-imitation.
 
 
-RESULTS_PLACEHOLDER
+## 3. Results
+
+Single seed (0). Timings come from a machine shared with two other experiments (compare ratios, not seconds). A
+container restart interrupted the first ST + REINFORCE run at step ~100; it was rerun from the saved round-3 model
+with the same seed (the RL trajectory is deterministic: the logged sampled gaps at steps 25–75 match the interrupted
+run exactly).
+
+### 3.1 Labels
+
+Label pool on the 500 training instances (the *diag* gap uses the training MILP objective as a diagnostic only):
+
+| label pool | served (no shed / shortfall) | diag. median gap to MILP | diag. mean gap | diag. mean gap, served | label ≤ MILP cost | units on (MILP 13.39) |
+|---|---|---|---|---|---|---|
+| round 0: repaired LP relaxation | 35.4 % | 12.2 % | 155 % | 0.89 % | 7.0 % | 13.12 |
+| after round 1 | 53.6 % | 1.72 % | 108 % | 0.68 % | 13.0 % | 13.16 |
+| after round 2 | 69.4 % | 0.46 % | 53 % | 0.49 % | 22.4 % | 13.23 |
+| **after round 3 (all 500 relabelled once)** | **90.6 %** | **0.080 %** | 5.6 % | **0.41 %** | **34.8 %** | 13.32 |
+
+Per round, on the chunk that round relabels (each chunk is a random third of the training set):
+
+| round | model used | solved | label replaced | mean reduced-MILP time | hit the 15 s limit | chunk served before → after | chunk diag. median gap before → after | chunk labels ≤ MILP after |
+|---|---|---|---|---|---|---|---|---|
+| pilot (30, q = 0.8 and 0.9) | round 0 | 60 | 87–93 % | 10.6–11.6 s | 50–53 % | 26.7 → 93.3 % (q = 0.8), 76.7 % (q = 0.9) | 14.6 → 0.39 % (0.8), 0.52 % (0.9) | 23 % / 20 % |
+| 1 | round 0 | 137 | 84 % | 9.8 s | 45 % | 47.9* → 90.4 % | 4.5* → 0.23 % | 27 % |
+| 2 | round 1 | 167 | 90 % | 11.5 s | 55 % | 41.3 → 88.6 % | 8.9 → 0.080 % | 32 % |
+| 3 | round 2 | 166 | 93 % | 11.4 s | 54 % | 28.9 → 92.8 % | 15.4 → **0.011 %** | **45 %** |
+
+\* chunk 1 includes the 30 pilot instances, already relabelled. q = 0.8 was chosen by the pilot (4.2 % vs 10.2 % mean
+gap to the LP bound). Reading: **one reduced MILP per instance turns a poor label into a near-MILP label**, and the
+labels get better from round to round although each chunk starts from equally poor round-0 labels: a better model
+proposes a better neighbourhood (0.23 → 0.080 → 0.011 % median; 27 → 32 → 45 % at or below the MILP's cost). 52
+instances (10 %) kept their round-0 label (no cheaper schedule found). Unit-hour agreement with the MILP labels
+does not change (98.4 % → 98.3 %): the label errors that matter are a handful of unit-hours (a missing unit for
+reserve, a peaker on too long). Exact agreement with the canonicalised MILP schedule rises from 5.4 % to 24.4 %, and
+the self-trained labels are less arbitrary under identical-unit symmetry than the MILP's (41.8 % vs 57.8 % change
+when canonicalised).
+
+**Label cost** (solver core-seconds): LP relaxations 177, scoring the round-0 labels 121, pilot 683, round reduced
+MILPs 5,143, round dispatch LPs 118: **6,243 core-s (1.73 core-h) = 36.7 % of the 17,018 core-s (4.73 core-h) of
+the 500 full-MILP labels (2.7× cheaper)**. Half of the reduced MILPs stopped at the 15 s limit, so the saving per
+label is ~3× (11 s vs 34 s), not the 87× of pure relaxation labels. REINFORCE adds ~11,500 dispatch LPs per
+120-step run (training compute, not labels; 23–25 min wall each with 2 workers).
+
+### 3.2 Validation (no MILP information; gap to the LP-relaxation bound)
+
+| model | top-1: served / median gap | + adequacy repair: served / median gap | units on |
+|---|---|---|---|
+| LF-BCE (round 0) | 11.7 % / 35.8 % | 33.3 % / 19.7 % | 12.3 |
+| ST round 1 / 2 / 3 | 18.3 / 25.0 / 26.7 % | 40.0 / 50.0 / 46.7 % (median 9.2 / 4.6 / 5.3 %) | 12.3–12.5 |
+| LF + REINFORCE | 90.0 % / 5.10 % | 90.0 % / 5.10 % | 14.0 |
+| ST + REINFORCE | 88.3 % / 5.06 % | 91.7 % / 4.64 % | 14.0 |
+| ST + REINFORCE + SIL | 61.7 % / 3.52 % | 63.3 % / 2.69 % | 12.9 |
+
+The fixed-epoch BCE trainer used in rounds 1–3 gives the same validation numbers as round 0's early-stopped trainer
+(control row in `selftrain_results.md`), so round-to-round changes come from the labels.
+
+### 3.3 Test, Model 1 → LP (120 instances; MILP: 92.5 % served, 14.20 units on per hour)
+
+| Model 1 (B2) | MILP solves in training | top-1: served / median gap / mean gap served | + adequacy repair: served / median gap | screening (~14 LPs): served / median gap / mean gap served | units on − MILP (top-1) |
+|---|---|---|---|---|---|
+| (i) MILP-label BCE (`uc_model1_4`, RACLearn-style predictor) | 500 | 16.7 % / 57 % / 0.62 % | 43.3 % / 5.27 % | 62.5 % / 1.65 % / 1.86 %† | −0.18 |
+| LF-BCE (round 0) | 0 | 20.8 % / 18.8 % / 0.60 % | 39.2 % / 7.35 % | 53.3 % / 1.59 % / 1.34 %† | −0.21 |
+| **ST round 3 (self-trained BCE)** | **0** | 25.8 % / 16.9 % / 0.97 % | 42.5 % / 6.30 % | **66.7 % / 1.46 %** / 1.50 % | −0.14 |
+| (iii) MILP-label + REINFORCE (`uc_model1_rl`) | 500 | 80.8 % / 5.27 % / 9.07 % | 86.7 % / 4.53 % | 87.5 % / 2.06 % / 4.67 %† | +1.81 |
+| (ii) LF + REINFORCE | 0 | 84.2 % / 4.45 % / 9.22 % | 86.7 % / 4.10 % | 88.3 % / 1.87 % / 4.76 %† | +1.69 |
+| **ST + REINFORCE** | **0** | **87.5 % / 3.95 %** / 8.53 % | **90.0 % / 3.92 %** | **90.0 %** / 1.91 % / 4.74 % | +1.77 |
+| **ST + REINFORCE + SIL** | **0** | 55.8 % / **3.04 % / 2.45 %** | 71.7 % / **1.99 %** / 2.22 % | 81.7 % / **1.23 % / 2.62 %** | **+0.36** |
+
+† screening rows of the baselines are from `results/uc12/uc_label_free_results.md` (same decoder, a different random
+draw of the 8 sampled candidates); all other rows are from this run (the reproduced baseline rows match the earlier
+runs to the digit).
+
+* **Self-trained BCE ≈ MILP-label BCE, with zero MILP labels**: one-shot 25.8 vs 16.7 %, with adequacy repair 42.5 vs
+  43.3 %, screening 66.7 % / 1.46 % vs 62.5 % / 1.65 %. Imitation-trained models still under-commit by ~0.15 units
+  per hour and shed in most instances; better labels do not change that.
+* **Self-training + REINFORCE is the best one-LP pipeline so far on B2** (87.5 % one-shot, 90.0 % with adequacy repair or
+  screening; median gap 3.9 %), slightly ahead of both REINFORCE baselines — but single seed, 120 instances: +3.3 pp
+  over LF + REINFORCE one-shot is 4 instances.
+* **It does not fix the over-commitment**: ST + REINFORCE commits +1.77 units per hour above the MILP and costs 8.5 %
+  more on served instances, like both REINFORCE baselines (+1.69 to +1.81 units, 9.1–9.2 %). The over-commitment
+  comes from the critic stage (the stochastic policy hedges against VOLL), not from the quality of the imitation start.
+* **Self-imitation of the solver labels (SIL) cuts the over-commitment by ~80 %** (+0.36 units; mean gap on served
+  instances 2.2–2.6 % instead of 8.4–9.2 %; best median gaps: 1.99 % with adequacy repair, 1.23 % with screening)
+  **but gives back coverage** (55.8 / 71.7 / 81.7 % served). It moves along the cost–coverage trade-off rather
+  than beating the REINFORCE models on both axes.
+
+### 3.4 Test, fixing + reduced MILP
+
+First **40** test instances (time budget after a container restart; the earlier B2 fixing study used 60). Each
+worker solved the full MILP and then all 18 reduced MILPs of an instance back to back. The full MILP took 31.7 s on
+average, serves 87.5 % of these instances and reproduced the reference objective on all 40. "Symmetric" means
+RACLearn's |p − 0.5| ranking; "asym + guard" means OFF errors × 10 plus the adequacy guard.
+
+| fixed | model (ranking) | MILP labels | mean gap | median gap | instances > 1 % / > 5 % | worst | served | time | speed-up |
+|---|---|---|---|---|---|---|---|---|---|
+| – | full MILP (60 s, 0.1 %) | – | 0 | 0 | – | – | 87.5 % | 31.7 s | 1× |
+| 80 % | (i) MILP-label BCE, symmetric (RACLearn) | 500 | **0.006 %** | 0 | 1 / 0 | 1.7 % | 87.5 % | 17.1 s | 1.9× |
+| 80 % | ST round 3, symmetric | 0 | 0.45 % | 0 | 4 / 2 | 6.9 % | 87.5 % | 14.3 s | 2.2× |
+| 90 % | (i) MILP-label BCE, symmetric (RACLearn) | 500 | 1.91 % | 0 | 4 / 3 | 55 % | 82.5 % | 11.1 s | 2.8× |
+| 90 % | (i) MILP-label BCE, asym + guard | 500 | **0.38 %** | 0.032 % | 6 / 0 | 2.9 % | 95.0 % | 7.3 s | 4.3× |
+| 90 % | (iii) MILP-label + REINFORCE, symmetric | 500 | 2.90 % | 0.45 % | 14 / 6 | 32 % | 92.5 % | 2.5 s | 12.8× |
+| 90 % | (ii) LF + REINFORCE, symmetric | 0 | 2.41 % | 0.51 % | 15 / 6 | 18 % | 95.0 % | 2.5 s | 12.7× |
+| 90 % | ST round 3, symmetric | 0 | 0.95 % | 0 | 6 / 3 | 18 % | 87.5 % | 9.7 s | 3.3× |
+| 90 % | ST round 3, asym + guard | 0 | 0.62 % | 0.016 % | 7 / 1 | 8.4 % | 92.5 % | 5.9 s | 5.3× |
+| 90 % | ST + REINFORCE, symmetric | 0 | 2.57 % | 0.41 % | 14 / 10 | 17 % | 95.0 % | 2.7 s | 12.0× |
+| 90 % | **ST + REINFORCE + SIL, symmetric** | 0 | **0.52 %** | **0.007 %** | 4 / 1 | 14 % | 87.5 % | 7.7 s | 4.1× |
+| 95 % | (i) MILP-label BCE, symmetric (RACLearn) | 500 | 53.0 % | 0.037 % | 8 / 5 | 759 % | 77.5 % | 4.4 s | 7.2× |
+| 95 % | (i) MILP-label BCE, asym + guard | 500 | 20.6 % | 0.34 % | 11 / 5 | 565 % | 85.0 % | 3.1 s | 10.4× |
+| 95 % | (iii) MILP-label + REINFORCE, symmetric | 500 | 5.54 % | 1.60 % | 23 / 13 | 49 % | 92.5 % | 0.62 s | **51×** |
+| 95 % | (ii) LF + REINFORCE, symmetric | 0 | 4.46 % | 1.00 % | 20 / 10 | 29 % | 95.0 % | 0.82 s | 39× |
+| 95 % | ST round 3, symmetric | 0 | 10.9 % | 0.022 % | 9 / 4 | 392 % | 82.5 % | 4.5 s | 7.1× |
+| 95 % | **ST round 3, asym + guard** | 0 | **1.52 %** | 0.20 % | 12 / 5 | 18 % | 90.0 % | 2.7 s | **11.9×** |
+| 95 % | ST + REINFORCE, symmetric | 0 | 5.33 % | 1.53 % | 23 / 12 | 29 % | 92.5 % | 1.0 s | 30× |
+| 95 % | **ST + REINFORCE + SIL, symmetric** | 0 | **1.38 %** | **0.027 %** | 10 / 2 | 19 % | 87.5 % | 5.0 s | 6.4× |
+
+(SIL at 95 %: one instance needed the fallback re-solve without fixings; its time is included.)
+
+* **At 95 % fixed, self-training removes the catastrophic tail of the BCE ranking**: with the same asymmetric
+  ranking and guard, the mean gap is 1.52 % instead of 20.6 % (worst instance 18 % instead of 565 %) at the same
+  speed-up (11.9× vs 10.4×). With symmetric ranking it is 10.9 % vs 53 %. The SIL model gives 1.38 % (median
+  0.027 %) at 6.4×. (The 60-instance study in `RESEARCH.md` V3 had 38.5 % / 14.0 % for the two BCE rankings.) They are also cheaper in
+  mean gap than the REINFORCE rankings (4.5–5.5 %), which remain the fastest (30–51×) but are wrong by > 1 % on half
+  of the instances.
+* **At 90 % fixed, nothing beats the MILP-label BCE with asym + guard** (0.38 %, 4.3×). The best label-free rows are
+  SIL symmetric (0.52 %, median 0.007 %, 4.1×) and ST asym + guard (0.62 %, 5.3×), so they match it within noise
+  (one instance moves the mean by several tenths of a percent), without MILP labels.
+* **At 80 %, the MILP-label BCE is better** (0.006 % vs 0.45 %; two ST instances lose 5–7 %).
+* The over-committing REINFORCE models make the fastest reduced MILPs (their confident decisions are mostly ON,
+  which leaves a small, easy problem) but the costliest schedules. ST + REINFORCE behaves like the two REINFORCE
+  baselines here too.
+
+
+## 4. Verdict
+
+* **Against the MILP-label pipeline (RACLearn-style predictor, baseline (i))**: self-training reaches the same
+  one-shot / screening quality **with no full-MILP label, at 37 % of the label compute (2.7× cheaper)**, and its
+  confidence ranks fixings better at aggressive ratios: 1.5 % instead of 20.6 % mean gap at 95 % fixed (same rule,
+  11.9×). Up to 90 % the MILP-label model is as good or better (80 %: 0.006 % vs 0.45 %).
+* **Against Learning to Fix** (Fritz et al. 2026: < 0.5 % mean gap at > 20×, with MILP labels and cost-aware per-unit
+  thresholds): not reached. The best label-free operating points are 0.52 % at 4.1× (SIL, 90 %), 0.62 % at 5.3×
+  (ST, 90 %, asym + guard) and 1.4–1.5 % at 6–12× (95 %). The two ideas are complementary: Learning to Fix's
+  per-unit thresholds could be calibrated on self-trained models (our reduced-MILP machinery already measures fixing
+  errors), not tested.
+* **Against our current best** (label-free + REINFORCE, baseline (ii)): ST + REINFORCE is a small step up for the
+  one-LP pipeline (87.5 vs 84.2 % one-shot, 90.0 vs 86.7 % with adequacy repair, 90.0 vs 88.3 % with screening;
+  single seed). **Self-training does not fix the over-commitment** (+1.77 units per hour, +8.5 % cost on served
+  instances, the same as before). Adding the solver labels to the REINFORCE group (SIL) cuts the excess units by 80 %
+  and the served-instance cost gap from 8.5 % to 2.2–2.6 %, at the price of coverage (55.8 % one-shot, 81.7 % with
+  screening). On the hybrid, SIL is the most reliable aggressive-fixing ranker tested (95 %: 1.38 % mean, 0.027 %
+  median).
+* **Recommendation**: if MILP labels are unaffordable, self-train (3 rounds, q = 0.8, 15 s reduced MILPs) and use the
+  self-trained model for fixing (asym + guard at 90–95 %), and the SIL fine-tune when cheap schedules matter more than
+  one-LP coverage. Do not expect self-training to remove the REINFORCE over-commitment; that needs a change in
+  the critic stage (SIL or a constrained formulation).
+
+
+## 5. Limitations
+
+* **Single seed, small test sets** (120 instances for LP decoders, 40 for fixing): differences of a few points
+  are within noise; no confidence intervals were computed.
+* **Timings** are from a 4-core machine shared with two other experiments (6+ busy processes); speed-ups are ratios
+  of back-to-back solves in the same process, which cancels most but not all of the load variation.
+* **Label cost is only 2.7× below MILP labels**, because half of the 15 s reduced MILPs hit the limit. Shorter limits,
+  q = 0.85–0.9 in later rounds, or a warm start from the current label (not available in SciPy's HiGHS interface)
+  would cut it; not tested. Rounds relabelled each instance once; revisiting instances was not tried.
+* **Hyper-parameters not tuned**: q chosen by a 30-instance pilot on training data; rounds, time limit, epochs,
+  REINFORCE steps and the SIL weighting were fixed in advance; the final self-trained model is the last round.
+  The REINFORCE variant is not selected on validation either: plain REINFORCE is better on validation coverage, SIL on
+  validation cost, and both are reported.
+* The reference for test gaps is the time-limited full MILP (82.5 % proven optimal), so negative gaps are real.
+* Training MILP objectives were read only to report label quality; the method itself never needs them.
+

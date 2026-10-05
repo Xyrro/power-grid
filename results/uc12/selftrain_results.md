@@ -44,7 +44,7 @@ Gap columns marked *diag* use the training MILP objective as a diagnostic only (
 | TOTAL self-training labels | 6,243 | 1.73 |
 | 500 full-MILP labels (data generation) | 17,018 | 4.73 |
 
-Self-training labels cost **36.7 %** of the full-MILP labels (2.7x cheaper). Training-time LPs of REINFORCE are not label cost and are listed separately: n/a dispatch LPs in total over all REINFORCE runs of this study.
+Self-training labels cost **36.7 %** of the full-MILP labels (2.7x cheaper). Training-time LPs of REINFORCE are not label cost and are listed separately: 22951 dispatch LPs in total over all REINFORCE runs of this study.
 
 ## 3. Validation (60 instances; no MILP information: gaps to the LP-relaxation bound)
 
@@ -56,6 +56,61 @@ Self-training labels cost **36.7 %** of the full-MILP labels (2.7x cheaper). Tra
 | ST round 1 | 18.333 | 24.291 | 40.000 | 9.242 | 1.240 | 12.349 |
 | ST round 2 | 25.000 | 26.726 | 50.000 | 4.596 | 1.449 | 12.374 |
 | ST round 3 | 26.667 | 29.624 | 46.667 | 5.335 | 1.910 | 12.483 |
+| ST + REINFORCE | 88.333 | 5.063 | 91.667 | 4.641 | 9.854 | 14.026 |
+| ST + REINFORCE with solver labels (SIL) | 61.667 | 3.520 | 63.333 | 2.694 | 4.075 | 12.901 |
+
+
+## 4. Test, Model 1 -> LP (120 instances; gap to the test MILP, which serves 92.5 % and commits 14.20 units per hour on average)
+
+| method | no_shed_no_shortfall_% | gap_median_% | gap_mean_served_% | gap_mean_% | units_on | excess_units_vs_MILP | unit_hour_accuracy_% | LPs_per_instance |
+|---|---|---|---|---|---|---|---|---|
+| MILP-label BCE (uc_model1_4): top-1 | 16.667 | 57.462 | 0.615 | 447.087 | 14.022 | -0.182 | 98.343 | 1.000 |
+| MILP-label BCE (uc_model1_4): top-1 + adequacy repair | 43.333 | 5.268 | 0.791 | 220.461 | 14.172 | -0.032 | 98.318 | 1.000 |
+| MILP-label + REINFORCE (uc_model1_rl): top-1 | 80.833 | 5.271 | 9.074 | 14.538 | 16.017 | 1.813 | 96.567 | 1.000 |
+| MILP-label + REINFORCE (uc_model1_rl): top-1 + adequacy repair | 86.667 | 4.532 | 8.709 | 13.075 | 16.028 | 1.824 | 96.553 | 1.000 |
+| LF-BCE (round 0): top-1 | 20.833 | 18.848 | 0.604 | 167.321 | 13.999 | -0.206 | 98.571 | 1.000 |
+| LF-BCE (round 0): top-1 + adequacy repair | 39.167 | 7.354 | 0.870 | 112.033 | 14.083 | -0.121 | 98.556 | 1.000 |
+| LF + REINFORCE: top-1 | 84.167 | 4.447 | 9.215 | 14.953 | 15.895 | 1.691 | 96.732 | 1.000 |
+| LF + REINFORCE: top-1 + adequacy repair | 86.667 | 4.102 | 9.169 | 11.029 | 15.899 | 1.695 | 96.729 | 1.000 |
+| ST round 1: top-1 | 23.333 | 13.756 | 0.651 | 180.147 | 14.028 | -0.176 | 98.549 | 1.000 |
+| ST round 1: top-1 + adequacy repair | 42.500 | 4.732 | 0.798 | 127.224 | 14.097 | -0.108 | 98.534 | 1.000 |
+| ST round 2: top-1 | 25.833 | 16.221 | 0.711 | 199.763 | 14.045 | -0.159 | 98.528 | 1.000 |
+| ST round 2: top-1 + adequacy repair | 45.000 | 3.596 | 0.830 | 84.218 | 14.119 | -0.085 | 98.508 | 1.000 |
+| ST round 3: top-1 | 25.833 | 16.943 | 0.965 | 282.427 | 14.067 | -0.137 | 98.416 | 1.000 |
+| ST round 3: top-1 + adequacy repair | 42.500 | 6.297 | 0.978 | 124.009 | 14.154 | -0.050 | 98.400 | 1.000 |
+| ST round 3: screening | 66.667 | 1.458 | 1.504 | 33.155 | 14.477 | 0.273 | 98.211 | 14.200 |
+| ST + REINFORCE: top-1 | 87.500 | 3.948 | 8.526 | 17.588 | 15.976 | 1.772 | 96.656 | 1.000 |
+| ST + REINFORCE: top-1 + adequacy repair | 90.000 | 3.923 | 8.360 | 17.418 | 15.979 | 1.775 | 96.655 | 1.000 |
+| ST + REINFORCE: screening | 90.000 | 1.912 | 4.737 | 7.267 | 15.214 | 1.010 | 97.555 | 14.450 |
+| ST + REINFORCE + SIL: top-1 | 55.833 | 3.037 | 2.449 | 46.435 | 14.567 | 0.363 | 98.167 | 1.000 |
+| ST + REINFORCE + SIL: top-1 + adequacy repair | 71.667 | 1.991 | 2.223 | 35.053 | 14.592 | 0.388 | 98.166 | 1.000 |
+| ST + REINFORCE + SIL: screening | 81.667 | 1.232 | 2.615 | 4.548 | 14.603 | 0.399 | 98.088 | 14.233 |
+
+Screening of the four baselines was skipped in the final run (time budget after a container restart); their screening rows are in `uc_label_free_results.md` (same decoder, another random draw of sampled candidates).
+
+## 5. Test, fixing + reduced MILP (first 40 test instances, full MILP solved back to back in the same process; 2 worker processes on a shared machine; wall 46 min)
+
+| method | fixed_share_ | gap_mean_% | gap_median_% | no_shed_no_shortfall_% | matches_or_beats_milp_% | time_s | speedup_x | speedup_median_x | units_on | fallback_ | hit_time_limit_ |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| full MILP | 0.000 | 0.000 | 0.000 | 87.500 | 100.000 | 31.737 | 1.000 | 1.000 | 13.754 | 0.000 | 17.500 |
+| 80 %: MILP-label BCE (uc_model1_4), sym | 79.909 | 0.006 | 0.000 | 87.500 | 72.500 | 17.123 | 1.853 | 1.890 | 13.781 | 0.000 | 2.500 |
+| 90 %: MILP-label BCE (uc_model1_4), sym | 89.954 | 1.909 | 0.000 | 82.500 | 57.500 | 11.149 | 2.847 | 2.805 | 13.748 | 0.000 | 0.000 |
+| 95 %: MILP-label BCE (uc_model1_4), sym | 94.977 | 52.960 | 0.037 | 77.500 | 40.000 | 4.390 | 7.229 | 6.455 | 13.706 | 0.000 | 0.000 |
+| 90 %: MILP-label BCE (uc_model1_4), asym+guard | 89.951 | 0.376 | 0.032 | 95.000 | 45.000 | 7.343 | 4.322 | 4.680 | 13.915 | 0.000 | 0.000 |
+| 95 %: MILP-label BCE (uc_model1_4), asym+guard | 94.954 | 20.565 | 0.337 | 85.000 | 22.500 | 3.058 | 10.379 | 10.565 | 14.008 | 0.000 | 0.000 |
+| 90 %: MILP-label + REINFORCE (uc_model1_rl), sym | 89.954 | 2.903 | 0.445 | 92.500 | 25.000 | 2.471 | 12.843 | 12.812 | 14.056 | 0.000 | 0.000 |
+| 95 %: MILP-label + REINFORCE (uc_model1_rl), sym | 94.977 | 5.536 | 1.599 | 92.500 | 7.500 | 0.620 | 51.218 | 55.405 | 14.471 | 0.000 | 0.000 |
+| 90 %: LF + REINFORCE, sym | 89.954 | 2.406 | 0.512 | 95.000 | 17.500 | 2.503 | 12.679 | 11.573 | 14.010 | 0.000 | 0.000 |
+| 95 %: LF + REINFORCE, sym | 94.977 | 4.464 | 0.998 | 95.000 | 10.000 | 0.815 | 38.938 | 42.285 | 14.348 | 0.000 | 0.000 |
+| 80 %: ST round 3, sym | 79.909 | 0.453 | 0.000 | 87.500 | 60.000 | 14.299 | 2.219 | 1.917 | 13.763 | 0.000 | 0.000 |
+| 90 %: ST round 3, sym | 89.954 | 0.955 | 0.000 | 87.500 | 55.000 | 9.672 | 3.281 | 3.339 | 13.775 | 0.000 | 0.000 |
+| 95 %: ST round 3, sym | 94.977 | 10.941 | 0.022 | 82.500 | 47.500 | 4.473 | 7.096 | 5.178 | 13.779 | 0.000 | 0.000 |
+| 90 %: ST round 3, asym+guard | 89.951 | 0.623 | 0.016 | 92.500 | 45.000 | 5.949 | 5.335 | 5.406 | 13.894 | 0.000 | 0.000 |
+| 95 %: ST round 3, asym+guard | 94.912 | 1.524 | 0.200 | 90.000 | 37.500 | 2.665 | 11.911 | 14.715 | 13.906 | 0.000 | 0.000 |
+| 90 %: ST + REINFORCE, sym | 89.954 | 2.571 | 0.409 | 95.000 | 25.000 | 2.654 | 11.959 | 12.725 | 14.146 | 0.000 | 0.000 |
+| 95 %: ST + REINFORCE, sym | 94.977 | 5.330 | 1.530 | 92.500 | 10.000 | 1.044 | 30.404 | 29.187 | 14.552 | 0.000 | 0.000 |
+| 90 %: ST + REINFORCE + SIL, sym | 89.954 | 0.515 | 0.007 | 87.500 | 47.500 | 7.703 | 4.120 | 4.004 | 13.865 | 0.000 | 0.000 |
+| 95 %: ST + REINFORCE + SIL, sym | 94.977 | 1.381 | 0.027 | 87.500 | 45.000 | 4.958 | 6.401 | 7.914 | 13.877 | 2.500 | 2.500 |
 
 
 ## Training times (s)
@@ -63,6 +118,8 @@ Self-training labels cost **36.7 %** of the full-MILP labels (2.7x cheaper). Tra
 ```
 {
  "m0_bce": 124.1526231765747,
- "lf_rl": 1392.3178491592407
+ "lf_rl": 1392.3178491592407,
+ "st_rl": 1475.3421885967255,
+ "st_sil": 1384.7055122852325
 }
 ```

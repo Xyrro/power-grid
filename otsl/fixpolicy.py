@@ -431,7 +431,8 @@ def fix_from_thresholds(p, theta):
 def relaxed_reduced(m, sc: UCScenario, fix):
     """LP relaxation of the reduced MILP (fixed decisions at their values, the rest relaxed to [0, 1]).
     Returns (cost, per-hour penalised slack [T] = shedding + over-generation + reserve shortfall, seconds).
-    A lower bound: if the relaxation already sheds or misses reserve in an hour, the reduced MILP will too."""
+    Its cost bounds the reduced MILP's from below: if even the relaxation pays penalty-priced slack, the fixings
+    force such penalties on the reduced MILP."""
     import time as _time
     import scipy.sparse as sp
     from scipy.optimize import linprog

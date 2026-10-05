@@ -98,7 +98,9 @@ if __name__ == "__main__":
         md += ["## 4. Test, Model 1 -> LP (120 instances; gap to the test MILP, which serves 92.5 % and commits "
                f"{tr[0].get('MILP_units_on', float('nan')):.2f} units per hour on average)", "",
                fmt_table(tr, ["method", "no_shed_no_shortfall_%", "gap_median_%", "gap_mean_served_%", "gap_mean_%",
-                              "units_on", "excess_units_vs_MILP", "unit_hour_accuracy_%", "LPs_per_instance"]), ""]
+                              "units_on", "excess_units_vs_MILP", "unit_hour_accuracy_%", "LPs_per_instance"]),
+               "Screening of the four baselines was skipped in the final run (time budget after a container restart); their "
+               "screening rows are in `uc_label_free_results.md` (same decoder, another random draw of sampled candidates).", ""]
 
     # ------------------------------------------------------------------ test, fixing
     if S.get("fix_rows"):
