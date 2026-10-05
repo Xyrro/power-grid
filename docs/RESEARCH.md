@@ -30,11 +30,14 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
    the cost-aware model's probabilities (B1 1.3 % vs 18 %; B2 5.5 % vs 38.5 %, 27×) (U5, V3).
 9. **Open problem**: on B2 the fine-tuned model buys coverage with extra units (+4.7–9.1 % cost on served
    instances); learning alone does not reach MILP quality there, the hybrid with a reduced MILP does.
-10. **Parallel study of three new frameworks (§5)**: a min up/down-aware block adequacy repair lets one LP serve
-   94.2 % of B2 instances (MILP 92.5 %); self-training with reduced MILPs gives near-optimal labels at 37 % of the
-   MILP-label cost and the best 95 %-fixing ranker (1.5 % gap at 12×); a fixing rule learned from LP-priced errors
-   beats re-implemented RACLearn and Learning to Fix at 90–95 % fixed. Constrained (Lagrangian) fine-tuning alone
-   did not beat plain REINFORCE.
+10. **Parallel study of three new frameworks (§5), confirmed with 3 seeds on a fresh test set (§6)**: a min
+   up/down-aware block adequacy repair lets one LP serve ~95 % of B2 instances; self-training with reduced MILPs
+   gives near-optimal labels at 37 % of the MILP-label cost; a fixing rule learned from LP-priced errors reaches
+   0.28 % mean gap at 3.2× (RACLearn: 12.4 %). Constrained (Lagrangian) fine-tuning alone did not beat REINFORCE.
+11. **Best pipelines (§6)**: end-to-end, 93.3 % served at 1.04 % median gap with ~6 LPs and no MILP; with a reduced
+   MILP, 0.59 % at 5.3× and 0.72 % at 7.0×. A reconstruction of Learning to Fix loses to our rules at every
+   speed-up on B2, and its 0.48 % at 20.8× does not reproduce. On a 24-hour benchmark the MILP finds a 0.5 %-good
+   schedule in a median 28 s, so fixing is only ~2× faster to equal quality.
 
 ## 1. The framework and the benchmarks
 
@@ -410,7 +413,7 @@ per-hour credit assignment, an LP-sensitivity control variate and optionally a K
 | kNN-20 (20 LPs) | yes | 79.2 % | 7.19 % | 9.47 % | 21.7 % |
 | label-free + REINFORCE (V4) | no | 84.2 % | 4.45 % | 9.22 % | 14.9 % |
 | **… + block repair** | no | **94.2 %** | 3.92 % | 8.91 % | 11.0 % |
-| … threshold 0.9 (chosen on val) + block repair | no | 90.8 % | **1.18 %** | 2.55 % | 14.1 % |
+| … threshold 0.9 (chosen on val) + block repair | no | 90.8 % | **1.18 %** (best of 3 seeds; §6) | 2.55 % | 14.1 % |
 | He et al.-style: behaviour cloning + RL repair (re-implemented) | yes | 79.2 % | 1.34 % | 1.99 % | 18.2 % |
 | He et al.-style + block repair | yes | 90.8 % | 1.29 % | 2.36 % | 7.06 % |
 | label-free imitation only + block repair | no | 84.2 % | 0.93 % | 1.99 % | 33.9 % |
@@ -441,7 +444,7 @@ prices it cheaper; three rounds relabel the 500 training instances. No full MILP
   self-trained + REINFORCE 87.5 % served, 3.9 % median gap (label-free + REINFORCE 84.2 %, 4.4 %) — a small gain
   that does not remove the over-commitment (+8.5 % cost on served instances).
 * **As a fixing ranker** (first 40 test instances, full MILP back to back, 31.7 s): at 95 % fixed the
-  self-trained model gives **1.52 % mean gap at 11.9×**, against 20.6 % (10.4×) for the MILP-label BCE model
+  self-trained model gives **1.52 % mean gap at 11.9×** (on 60 instances and the fresh set about 2 % at 8–10×; §6 X1), against 20.6 % (10.4×) for the MILP-label BCE model
   (RACLearn-style) and 4.5–5.5 % (30–51×) for REINFORCE probabilities. At 80 % the MILP-label model is better
   (0.006 % vs 0.45 %).
 * Adding solver-polished labels to REINFORCE's comparison group cuts the extra units by 80 % (2.2–2.6 % cost on
@@ -468,7 +471,7 @@ cross-fitted models so the errors resemble deployment errors.
 * *Post hoc*: an **LP-relaxation guard** (release fixings whenever the relaxed reduced problem already pays
   shedding / shortfall penalties; no parameters; checked on val before test) removes the catastrophic cases:
   learned ranking at a 95 % target 0.40 % mean, 0.05 % median, 96.7 % served at 5.4×; RACLearn at 95 % 0.19 % at
-  3.2×. It releases many fixings (actual share 92 % at a 95 % target).
+  3.2× (0.46 % on the fresh test set; §6 X1). It releases many fixings (actual share 92 % at a 95 % target).
 * The 80 % row: every rule is under 1 %; RACLearn is best (−0.01 %, 1.7×).
 
 ### W4. Against the published methods, on the same benchmark
@@ -482,7 +485,88 @@ cross-fitted models so the errors resemble deployment errors.
 * **Not reached**: Learning to Fix's published < 0.5 % at > 20× (EPRI competition systems). On B2 nothing is below
   0.5 % beyond ~5.4×, and the MILP here takes only ~30 s, which caps the attainable speed-up.
 
-## 6. Recommendations for the framework, box by box
+## 6. Confirmation, combined pipelines, Learning to Fix and a 24-hour benchmark
+
+A second parallel study. Every decision rule was fixed on validation before any test set was read; final numbers
+use a **fresh B2 test set** (120 new instances, seed 23; `test_fresh`) and 3 training seeds, unless noted.
+Write-ups: [`methods/combo.md`](methods/combo.md), [`methods/ltf.md`](methods/ltf.md), [`methods/b3.md`](methods/b3.md).
+
+### X1. Which earlier claims held up (3 seeds, fresh test set)
+
+| claim from §5 | result |
+|---|---|
+| block repair: ~94 % served with one LP | **confirmed**: 95.0 % [92.5, 96.7] |
+| Lagrangian + KL anchor + block repair (post hoc) | **confirmed, seed-stable**: 92.5 % served, 3.25 % gap on served |
+| learned error-cost ranking at 90 % fixed: 0.47 % | **confirmed and better**: 0.28 % [0.27, 0.29] at 3.2× (0.47 % was the worst of three seeds) |
+| LP-relaxation guard (post hoc) | **confirmed**: 0.39–0.46 %, seed-stable |
+| REINFORCE ranking at 95 % fixed | **confirmed**: 2.93 % at 10.6× (≤ the claimed 5.5 %) |
+| self-trained ranking at 95 %: 1.52 % at 11.9× | **weaker**: about 2 % at 8–10× on 60 instances (the 40-instance subset was favourable) |
+| RACLearn + LP guard at 95 %: 0.19 % | **weaker**: 0.46 % on the fresh set |
+| REINFORCE + threshold 0.9 + block repair: 1.18 % median | **weaker**: 1.94 % [1.54, 2.56] (1.18 % was the best seed) |
+| one LP serves more instances than the MILP | **only on the original set** (the fresh set's MILP serves 98.3 %) |
+
+### X2. Combined pipelines (fresh test set, 3 seeds)
+
+| end-to-end (no MILP) | LPs | served | median gap | mean gap, served | mean gap |
+|---|---|---|---|---|---|
+| MILP (reference) | – | 98.3 % | 0 | 0 | 0 |
+| REINFORCE + block repair | 1 | 95.0 % | 3.45 % | 6.15 % | 7.44 % |
+| combined: Lagrangian + KL, threshold 0.6, block repair | 1 | 92.2 % | 1.69 % | 2.68 % | 8.31 % |
+| **combined + threshold screening** | 5.8 | **93.3 %** | **1.04 %** | **1.64 %** | **3.31 %** |
+
+(On the original test set the screening pipeline gives 95.8 % served, 0.86 % median, 3.57 % mean gap.)
+
+| solver acceleration (first 60 fresh instances, full MILP back to back) | mean gap | speed-up |
+|---|---|---|
+| RACLearn 90 % / 95 % | 12.4 % / 49.2 % | 2.8× / 8.1× |
+| error-cost ranking + adequacy guard, 90 % | **0.28 %** | 3.2× |
+| error-cost + adequacy + LP guard, 95 % | 0.46 % | 4.6× |
+| **combined**: self-trained probabilities + error cost + both guards, 95 % / 98 % | **0.59 % / 0.72 %** | **5.3× / 7.0×** |
+| REINFORCE ranking, 95 % | 2.93 % | 10.6× |
+
+On the original test set the combined rule at 98 % gives 0.86 % at 10.4× — the only sub-1 % rule at ≥ 10× there.
+The combined fixing pipeline does not beat its parts at lower speed-ups.
+
+### X3. Learning to Fix, reconstructed
+
+The full text (arXiv 2609.39396) could not be retrieved (academic hosts are blocked in this environment); the
+reconstruction uses the published facts: a kNN classifier, generator-specific confidence thresholds from the cost
+impact of fixing errors, a 1 % validation cost tolerance (reported 20.8× at 0.48 % gap, 99.81 % feasible). Fixing
+impact was priced with dispatch LPs; assumptions are listed in `methods/ltf.md`.
+
+| best mean gap at speed-up ≥ (fresh set, 60 instances) | 2× | 3× | 5× | 10× | 20× |
+|---|---|---|---|---|---|
+| Learning to Fix, kNN as published (tolerance 1–2 %) | 37.7 % | 500 % | 500 % | – | – |
+| Learning to Fix thresholds on our REINFORCE probabilities | 0.55 % | 0.55 % | 0.80 % | – | – |
+| RACLearn | 12.4 % | 49.2 % | 49.2 % | – | – |
+| **ours, best rule** | **0.29 %** | **0.29 %** | **0.72 %** | **3.61 %** | **3.61 %** |
+
+* Ours wins at every speed-up on both test sets. The per-generator calibration misses errors that are harmless
+  one generator at a time but remove the reserve together (failing instances carry ~11 wrong OFF fixes vs 3.5).
+* The calibration is the useful part, not the kNN: on our REINFORCE probabilities it is competitive (0.55 % at
+  4.7×), within 0.07–0.12 pp of our rules on the fresh set (not significant); on the original set every Learning to
+  Fix point is significantly worse.
+* The paper's 0.48 % at 20.8× does not reproduce on B2.
+
+### X4. A 24-hour benchmark (uc24)
+
+T = 24, network on, 0.1 % gap, 300 s limit (highspy with incumbent logging). Test MILPs: 154 s mean, 30 % hit the
+limit. **Training used no full MILP** (0.8 core-hours vs ~13 for MILP labels). 40 test instances, one seed:
+
+| | mean gap | served | speed-up | time-to-quality speed-up |
+|---|---|---|---|---|
+| RACLearn-style, 80 % fixed | 0.33 % | 92.5 % | 3.4× | 1.3× |
+| val-selected guarded rules, 80–95 % target | 0.52–0.57 % | 92.5–95 % | 4.7–4.8× | 1.4–2.0× |
+| RACLearn-style, 95 %, no guard | 138 % | 40 % | 14.4× | 2.2× |
+| REINFORCE ranking, 95 % | 8.8 % | 92.5 % | 26× | 5.3× |
+| end-to-end, one LP + screening | 4.3 % median | 92.5 % (MILP 97.5 %) | ~120× | – |
+
+* The guards make aggressive fixing usable (95 %: 138 % → 0.52 % mean gap).
+* **The full MILP finds a schedule within 0.5 % of its final one after a median of 28 s**; the rest of its time
+  proves the bound. Against *time to the same quality*, fixing is only ~2× faster. Speed-ups against the full
+  solve time — the usual way they are reported — overstate the gain for operations that accept a 0.5 % gap.
+
+## 7. Recommendations for the framework, box by box
 
 | box | change | evidence |
 |---|---|---|
@@ -496,19 +580,19 @@ cross-fitted models so the errors resemble deployment errors.
 | dashed arrow | **replace the learned critic by the exact LP** (sampled commitments scored by the LP; or the LP's sensitivities). A learned Model 2 critic made Model 1 worse in every variant. | U6 |
 | validation / test | report the share of instances without shedding / reserve shortfall (against the MILP's own share) and the median cost gap from the exact LP; the mean gap is dominated by penalty-priced instances. Drop MSE to one MILP solution. | U7 |
 
-## 7. Research backlog (not done here)
+## 8. Research backlog (not done here)
 
-1. **Confirm the post-hoc results** (LP-relaxation guard; Lagrangian + KL anchor + block repair) on fresh test
-   instances and 3 seeds; everything in §5 is single-seed.
-2. **Combine the winning parts**: self-trained probabilities + learned error-cost ranking + LP-relaxation guard
-   for fixing; block repair + a calibrated threshold for the end-to-end mode.
-3. **A harder benchmark**: a 24–36 hour horizon or a larger system, where the full MILP takes minutes and
-   speed-ups above 20× become measurable; the label-free and self-training pipelines need no full MILPs to train.
-4. **Cost-aware calibration done properly** (Learning to Fix from its full text) and a policy-gradient fixing
-   policy trained on reduced-MILP reward (not run in §5).
+1. **Report time-to-quality, not only time-to-proof.** On 24 hours the full MILP finds a 0.5 %-good schedule in
+   a median 28 s; fixing then saves ~2×. Reduced MILPs with a looser gap or a time limit, and warm-starting the full
+   MILP with the learned schedule, are the natural next tests.
+2. **Larger systems** where even finding a good incumbent is slow (thousands of buses, hundreds of units) — the
+   regime of RACLearn's 6,708-bus case and the EPRI competition.
+3. **Learning to Fix from its full text** (blocked here); the reconstruction's impact measure may differ.
+4. **Seed the data side too**: the 3-seed spread in §6 varies training only, not the label pool, the error-cost
+   labels or the label-free start.
 5. **Contingencies / topology change**: the setting where a GNN should beat an MLP.
 
-## 8. Reproducibility and caveats
+## 9. Reproducibility and caveats
 
 * Code and exact runs: `README.md`; result tables in `results/uc1/`, `results/uc12/`; sanity tests
   `tests/test_uc.py` (dispatch LP reproduces the MILP; LP sensitivities match finite differences; the
