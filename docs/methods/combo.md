@@ -16,9 +16,12 @@ B2 instances (fixing: the first 60, full MILP back to back), with all decision r
 * **Confirmed**: the block adequacy repair (label-free + REINFORCE serves 95.0 % [92.5, 96.7] of fresh instances with
   one LP; it still over-commits, 6.2 % above the MILP on served instances); lag_D + block repair (92.5 % / 2.16 % /
   3.25 %, identical coverage for all seeds); the learned error-cost ranking at 90 % (0.28 % [0.27, 0.29] at 3.2× vs
-  12.4 % for RACLearn); the post-hoc LP-relaxation guard (0.46 % at 4.6× with the error-cost ranking); REINFORCE-ranked
-  fixing at 95 % (2.9–3.6 % mean gap, the only rule beyond ~8×).
-* **Weaker than claimed / not confirmed**: self-trained ranking at 95 % (2.28 % at 8.1×, claimed 1.52 % at 11.9×);
+  12.4 % for RACLearn; original test 0.66 % [0.47, 0.89], i.e. the earlier 0.47 % was the best seed); the post-hoc
+  LP-relaxation guard (error-cost ranking at a 95 % target: 0.46 % at 4.6× fresh, 0.39 % at 6.3× original, seed-stable);
+  REINFORCE-ranked fixing at 95 % (2.9–3.6 % mean gap at 10–30×). On the original test, seed 0 reproduces every earlier
+  number exactly.
+* **Weaker than claimed / not confirmed**: self-trained ranking at 95 % (2.28 % at 8.1× fresh, 1.93 % at 9.6× on all 60
+  original instances; the claimed 1.52 % at 11.9× came from a favourable 40-instance subset);
   REINFORCE with the val threshold (median 1.94 %, claimed 1.18 %; the threshold changes with the seed);
   RACLearn + LP guard (0.46 %, claimed 0.19 %); "serves more instances than the MILP" (true on the original set only:
   the MILP serves 98.3 % of the fresh instances).
@@ -26,8 +29,10 @@ B2 instances (fixing: the first 60, full MILP back to back), with all decision r
   ~6 LPs): 93.3 % served, 1.04 % median, 1.64 % served-instance gap, 3.31 % mean gap on the fresh set (original set:
   95.8 % / 0.86 % / 1.73 % / 3.57 %) — the best end-to-end result measured. With one LP: 92.2 % / 1.69 % / 2.68 %.
 * **Combined acceleration pipeline** (self-trained probabilities + error-cost ranking + adequacy + LP guard):
-  0.59 % at 5.3× (95 % target) and 0.72 % at 7.0× (98 %), the best seeded rule at ≥ 5×; it does not beat its parts
-  below 5×, and the val preference for self-trained over BCE probabilities did not carry over to test.
+  fresh set 0.59 % at 5.3× (95 % target) and 0.72 % at 7.0× (98 %), the best seeded rule at ≥ 5× there; original set
+  0.73 % at 7.3× and 0.86 % at 10.4× (the only sub-1 % rule at ≥ 10× there). It does not beat its parts at lower speed
+  (error-cost ranking on BCE probabilities with both guards: 0.46 % / 0.39 %), and the val preference for self-trained
+  over BCE probabilities did not carry over to test.
 
 ## 1. Question
 
@@ -238,7 +243,33 @@ On the original set the seed-0 numbers sit at the favourable end of the seed ran
 (median 1.18 % vs 1.63 % mean over seeds) and at the unfavourable end for its served-instance cost without the
 threshold (8.91 % vs 6.80 %). lag_D + block repair is stable across seeds on both sets.
 
-ORIGFIX_PLACEHOLDER
+### 4.5 Fixing on the original test set (first 60 instances, for comparability)
+
+Same 29 reduced MILPs per instance, full MILP back to back (23.8 s mean, serves 88.3 %). **Seed 0 reproduces every
+earlier per-instance result exactly** (mean gaps 0.47 / 0.40 / 0.19 / 1.38 / 38.5 / 5.50 %, and 1.52 % for the
+self-trained rule on its 40 instances); only the speed-ups move with the machine load.
+
+| rule | target | earlier single seed | seeds 0–2: mean gap | median | served | speed-up |
+|---|---|---|---|---|---|---|
+| error-cost ranking + adequacy guard | 90 % | 0.47 % at 3.7× | 0.66 % [0.47, 0.89] | 0.006 % | 88.3 % | 4.4× |
+| error-cost ranking + adequacy + LP guard | 95 % | 0.40 % at 5.4× | **0.39 % [0.34, 0.42]** | 0.062 % | 96.7 % | 6.3× [5.7, 7.6] |
+| RACLearn + LP guard | 95 % | 0.19 % at 3.2× | 0.19 % (deterministic) | 0.014 % | 91.7 % | 3.5× |
+| self-trained, asym + guard | 95 % | 1.52 % at 11.9× (40 inst.) | 1.38 % [1.19, 1.52] on those 40; **1.93 % [1.81, 2.00] on all 60** | 0.27 % | 87.8 % | 9.6× [8.5, 10.7] |
+| label-free + REINFORCE probabilities | 95 % | – | 2.99 % [2.23, 3.90] | 0.89 % | 87.8 % | 14.8× [5.0, 24.9] |
+| MILP-label + REINFORCE probabilities | 95 % | 5.50 % at 17.7× | 5.50 % (deterministic) | 1.48 % | 91.7 % | 29.0× |
+| RACLearn | 90 / 95 % | 1.38 % / 38.5 % | same (deterministic) | | 86.7 / 80.0 % | 2.9× / 6.9× |
+| **combined** (self-trained + error cost + both guards) | 95 % | – | 0.73 % [0.51, 1.15] | 0.084 % | 93.3 % | 7.3× [6.3, 9.2] |
+| **combined** | 98 % | – | **0.86 % [0.73, 1.11]** | 0.19 % | 93.9 % | **10.4× [8.0, 11.8]** |
+| combined without LP guard | 95 / 98 % | – | 4.4 % / 16.0 % | | 87.2 / 76.1 % | 9.2× / 10.8× |
+
+* The error-cost ranking at 90 %: the earlier 0.47 % was the best of three seeds (0.47 / 0.63 / 0.89 %); with the LP guard
+  at 95 % the result is seed-stable (0.34–0.42 %) on both sets.
+* The self-trained rule's 1.52 % at 11.9× was measured on 40 instances; on all 60 it is 1.93 % at 9.6×, in line with
+  the fresh set (2.28 % at 8.1×): the earlier figure was an optimistic instance subset, not a seed effect.
+* On this set the combined pipeline at a 98 % target is the only rule with a sub-1 % mean gap at ≥ 10× (0.86 % at 10.4×;
+  REINFORCE rankings 3.0–5.5 %); on the fresh set the same rule reaches only 7.0× (0.72 %). Whether ≥ 10× at < 1 % is
+  attainable therefore depends on the instance set.
+
 
 ## 5. Which earlier claims held up
 
@@ -248,11 +279,11 @@ ORIGFIX_PLACEHOLDER
 | … + val threshold 0.9: 90.8 % / 1.18 % / 2.55 % | 90.3 % / 1.63 % [1.18, 2.19] / 3.01 % | 91.7 % / 1.94 % [1.54, 2.56] / 3.03 % | **partly**: coverage and ~3 % served gap hold; the threshold is seed-dependent (0.9 / 0.6 / 0.8) and 1.18 % was the best seed |
 | lag_D + block repair (post hoc): 93.3 % / 1.73 % / 3.09 %, 5.96 % mean | 95.0 % / 1.80 % / 3.35 %, 5.86 % | 92.5 % / 2.16 % / 3.25 %, 7.45 % | **confirmed** and seed-stable; "lowest mean gap of any one-LP method" holds on the original set only (fresh: ties REINFORCE + block repair, 7.44 %) |
 | lag_D cheaper than REINFORCE on commonly served instances (3.10 % vs 8.79 %) | 3.1–3.5 % vs 4.8–8.8 % | 3.0–3.4 % vs 4.7–7.6 % | **confirmed** at threshold 0.5; with both thresholds calibrated the advantage disappears |
-| error-cost ranking + adequacy guard, 90 %: 0.47 % at 3.7× | (§4.5) | 0.28 % [0.27, 0.29] at 3.2× | **confirmed** (RACLearn on the same instances: 12.4 % at 2.8×) |
-| + LP-relaxation guard (post hoc), 95 % target: 0.40 % at 5.4× | (§4.5) | 0.46 % [0.43, 0.51] at 4.6× [4.0, 5.1] | **confirmed** |
-| RACLearn + LP guard, 95 %: 0.19 % at 3.2× | (§4.5) | 0.46 % at 3.0× | **partly**: still < 0.5 %, but no longer more accurate than the error-cost ranking with the same guards |
-| self-trained ranking, 95 % (40 instances): 1.52 % at 11.9× | (§4.5) | 2.28 % [1.87, 2.55] at 8.1× [6.4, 9.3] | **not confirmed** in size (worse on both axes); still far better than RACLearn at 95 % (49 %) |
-| REINFORCE ranking, 95 %: 5.5 % at 17.7× | (§4.5) | LF + REINFORCE 2.93 % [1.94, 3.55] at 10.6× [4.9, 14.0]; original MILP-label model 3.61 % at 30.5× | **confirmed** (mean gap ≤ claim); the speed-up varies 3× across seeds |
+| error-cost ranking + adequacy guard, 90 %: 0.47 % at 3.7× | 0.66 % [0.47, 0.89] at 4.4× | 0.28 % [0.27, 0.29] at 3.2× | **confirmed** (< 1 % on both sets; 0.47 % was the best seed; RACLearn on the same fresh instances: 12.4 %) |
+| + LP-relaxation guard (post hoc), 95 % target: 0.40 % at 5.4× | 0.39 % [0.34, 0.42] at 6.3× | 0.46 % [0.43, 0.51] at 4.6× [4.0, 5.1] | **confirmed**, seed-stable |
+| RACLearn + LP guard, 95 %: 0.19 % at 3.2× | 0.19 % at 3.5× (deterministic) | 0.46 % at 3.0× | **partly**: < 0.5 % on both sets, but on the fresh set no more accurate than the error-cost ranking with the same guards, and always ≤ 3.5× |
+| self-trained ranking, 95 % (40 instances): 1.52 % at 11.9× | 1.38 % [1.19, 1.52] on the 40; 1.93 % [1.81, 2.00] at 9.6× on 60 | 2.28 % [1.87, 2.55] at 8.1× [6.4, 9.3] | **not confirmed** in size: seed-stable, but the 40-instance figure was optimistic (~2 % at 8–10× on 60 instances of either set); still far better than RACLearn at 95 % (38–49 %) |
+| REINFORCE ranking, 95 %: 5.5 % at 17.7× | MILP-label model 5.50 % at 29×; LF + REINFORCE 2.99 % [2.23, 3.90] at 14.8× [5.0, 24.9] | LF + REINFORCE 2.93 % [1.94, 3.55] at 10.6× [4.9, 14.0]; MILP-label model 3.61 % at 30.5× | **confirmed** (mean gap ≤ claim); the speed-up varies 3–5× across seeds |
 
 ## 6. Verdict
 
@@ -265,18 +296,20 @@ ORIGFIX_PLACEHOLDER
   makes lag_D + block repair slightly cheaper on served instances (2.7 vs 3.3 % fresh, 2.8 vs 3.4 % original) at
   equal coverage, but not on the mean gap.
 * **Solver-acceleration pipeline** (self-trained probabilities + error-cost ranking + adequacy guard + LP-relaxation
-  guard): 0.59 % mean gap at 5.3× (95 % target), 0.72 % at 7.0× (98 % target), 97–98 % served, small seed spread —
-  the best rule at ≥ 5× among the seeded rules, and the guard is indispensable (without it 2.2 % / 11.6 %). It is not
-  better than its parts below 5× (error-cost ranking on the BCE model: 0.28 % at 3.2×, 0.46 % at 4.6×), and the val
-  preference for self-trained over BCE probabilities did not carry over to test. Beyond ~8× only REINFORCE-ranked
-  fixing remains (2.9–3.6 % mean gap at 10–30×, ~1 % median).
+  guard): fresh set 0.59 % mean gap at 5.3× (95 % target) and 0.72 % at 7.0× (98 % target), 97–98 % served, small
+  seed spread; original set 0.73 % at 7.3× and 0.86 % at 10.4×. It is the best seeded rule at ≥ 5× on the fresh set and
+  the only sub-1 % rule at ≥ 10× on the original set, and the LP guard is indispensable (without it 2–16 %). It is not
+  better than its parts at lower speed (error-cost ranking on the BCE model with both guards: 0.46 % at 4.6× fresh,
+  0.39 % at 6.3× original), and the val preference for self-trained over BCE probabilities did not carry over to test.
+  Otherwise, beyond ~8× only REINFORCE-ranked fixing remains (2.9–5.5 % mean gap at 10–30×, ~1–1.5 % median).
 * **Against RACLearn-style ranking on the same instances**: at ≥ 3× the best new rule has 0.28 % mean gap against
   49 % for RACLearn (its 90 % point, 12.4 %, reaches only 2.8×). Given the same LP-relaxation guard, RACLearn is as
   accurate (0.46 %) but tops out at 3.0–3.1×, because after the guard only 84–87 % of its decisions stay fixed (target
   95–98 %); the learned ranking keeps 92–94 % fixed and is the only guarded rule at ≥ 5×.
-* **What did not hold**: the self-trained 95 % ranking's 1.5 % at 12× (now 2.3 % at 8×); the REINFORCE threshold
-  0.9's 1.18 % median (a favourable seed); "serves more than the MILP" (set-dependent); lag_D's "lowest one-LP mean
-  gap" (set-dependent); RACLearn + LP guard's 0.19 % (0.46 % here).
+* **What did not hold**: the self-trained 95 % ranking's 1.5 % at 12× (a favourable 40-instance subset; ~2 % at 8–10×
+  on 60 instances of either set); the REINFORCE threshold 0.9's 1.18 % median and the error-cost rule's 0.47 % at 90 %
+  (both the best of three seeds); "serves more than the MILP" (set-dependent); lag_D's "lowest one-LP mean gap"
+  (set-dependent); RACLearn + LP guard's 0.19 % (0.46 % on the fresh set).
 
 
 

@@ -138,55 +138,55 @@ Full MILP (60 s, 0.1 %), back to back: 29.8 s mean, serves 100.0 %, mean gap to 
 | best RACLearn-style (confidence ranking, ± LP guard) | 0.46 % (RACLearn + LP-relaxation guard, 95 %, 3.0×) | 0.46 % (RACLearn + LP-relaxation guard, 95 %, 3.0×) | 49.24 % (RACLearn (BCE confidence), 95 %, 8.1×) | – | – |
 | best new rule (error cost / self-trained / REINFORCE / combined) | 0.28 % (error-cost ranking + adequacy guard, 90 %, 3.2×) | 0.28 % (error-cost ranking + adequacy guard, 90 %, 3.2×) | 0.59 % (combined, 95 %, 5.3×) | 2.93 % (LF + REINFORCE probabilities, 95 %, 10.6×) | – |
 
-## Fixing + reduced MILP, test (first 5 instances)
+## Fixing + reduced MILP, test (first 60 instances)
 
-Full MILP (60 s, 0.1 %), back to back: 53.7 s mean, serves 60.0 %, mean gap to the reference 0.000 % (5 instances).
+Full MILP (60 s, 0.1 %), back to back: 23.8 s mean, serves 88.3 %, mean gap to the reference -0.011 % (60 instances).
 
 | rule | target | fixed share | mean gap | (instance bootstrap 95 %) | median gap | instances > 1 % | served | speed-up | seeds |
 |---|---|---|---|---|---|---|---|---|---|
-| combined without LP guard: st probabilities + error-cost + adequacy guard | 95 % | 94.9 % [94.9, 94.9] | 26.80 % [1.76, 76.44] | -0.51–80.16 | 0.018 % [0.018, 0.018] | 2.0 [2.0, 2.0] | 73.3 % [60.0, 80.0] | 14.0 [3.9, 19.1]× | 3 |
-| combined without LP guard: st probabilities + error-cost + adequacy guard | 98 % | 97.8 % [97.7, 97.8] | 30.91 % [3.26, 84.15] | 0.19–90.77 | 0.962 % [0.018, 2.852] | 2.3 [2.0, 3.0] | 60.0 % [40.0, 80.0] | 44.0 [2.2, 125.6]× | 3 |
-| combined: st probabilities + error-cost + adequacy + LP guard | 95 % | 90.6 % [89.4, 91.2] | 0.43 % [0.21, 0.62] | -0.51–1.34 | 0.018 % [0.018, 0.018] | 2.0 [2.0, 2.0] | 80.0 % [60.0, 100.0] | 12.8 [8.9, 15.3]× | 3 |
-| combined: st probabilities + error-cost + adequacy + LP guard | 98 % | 83.2 % [77.5, 86.2] | 0.72 % [0.27, 0.99] | -0.23–1.73 | 0.249 % [0.018, 0.711] | 1.7 [1.0, 2.0] | 80.0 % [80.0, 80.0] | 10.7 [6.9, 16.0]× | 3 |
-| error-cost ranking + adequacy guard | 90 % | 89.9 % [89.9, 89.9] | 1.73 % [1.72, 1.74] | -0.69–5.35 | 0.014 % [0.005, 0.018] | 2.0 [2.0, 2.0] | 66.7 % [60.0, 80.0] | 6.0 [5.3, 6.7]× | 3 |
-| error-cost ranking + adequacy + LP guard | 95 % | 90.8 % [90.1, 91.2] | 0.86 % [0.79, 0.96] | -0.29–2.21 | 0.037 % [0.018, 0.076] | 2.0 [2.0, 2.0] | 100.0 % [100.0, 100.0] | 9.6 [3.7, 12.5]× | 3 |
-| MILP-label + REINFORCE probabilities (original model, 1 seed) | 95 % | 95.0 % | 18.31 % | 6.00–33.92 | 11.218 % | 4.0 | 80.0 % | 108.6× | 1 |
-| RACLearn (BCE confidence) | 90 % | 90.0 % | 13.57 % | -0.10–34.06 | 1.865 % | 3.0 | 40.0 % | 4.8× | 1 |
-| RACLearn (BCE confidence) | 95 % | 95.0 % | 293.52 % | 8.49–588.41 | 44.782 % | 3.0 | 40.0 % | 17.1× | 1 |
-| RACLearn + LP-relaxation guard | 95 % | 69.4 % | 0.21 % | -0.47–1.14 | -0.018 % | 1.0 | 60.0 % | 2.1× | 1 |
-| RACLearn + LP-relaxation guard | 98 % | 65.6 % | 0.32 % | -0.37–1.19 | 0.176 % | 1.0 | 60.0 % | 2.4× | 1 |
-| LF + REINFORCE probabilities | 95 % | 95.0 % [95.0, 95.0] | 9.76 % [6.01, 14.18] | 4.71–13.79 | 10.892 % [5.990, 18.444] | 3.7 [3.0, 4.0] | 73.3 % [60.0, 80.0] | 41.8 [4.2, 97.9]× | 3 |
-| self-trained, asymmetric + adequacy guard | 95 % | 94.9 % [94.9, 94.9] | 3.26 % [3.05, 3.66] | -0.01–8.09 | 1.429 % [0.066, 2.503] | 2.7 [2.0, 3.0] | 80.0 % [80.0, 80.0] | 16.5 [15.1, 17.3]× | 3 |
+| combined without LP guard: st probabilities + error-cost + adequacy guard | 95 % | 94.9 % [94.9, 94.9] | 4.43 % [2.55, 8.17] | 0.62–10.18 | 0.129 % [0.118, 0.142] | 14.0 [13.0, 15.0] | 87.2 % [85.0, 91.7] | 9.2 [7.2, 10.9]× | 3 |
+| combined without LP guard: st probabilities + error-cost + adequacy guard | 98 % | 97.8 % [97.8, 97.8] | 16.00 % [5.02, 25.85] | 4.93–31.67 | 0.356 % [0.347, 0.364] | 20.0 [19.0, 21.0] | 76.1 % [73.3, 81.7] | 10.8 [4.9, 18.9]× | 3 |
+| combined: st probabilities + error-cost + adequacy + LP guard | 95 % | 93.1 % [92.4, 94.1] | 0.73 % [0.51, 1.15] | 0.34–1.25 | 0.084 % [0.039, 0.142] | 12.0 [11.0, 13.0] | 93.3 % [91.7, 95.0] | 7.3 [6.3, 9.2]× | 3 |
+| combined: st probabilities + error-cost + adequacy + LP guard | 98 % | 91.4 % [90.9, 91.7] | 0.86 % [0.73, 1.11] | 0.53–1.25 | 0.190 % [0.125, 0.318] | 15.3 [13.0, 18.0] | 93.9 % [93.3, 95.0] | 10.4 [8.0, 11.8]× | 3 |
+| error-cost ranking + adequacy guard | 90 % | 89.9 % [89.9, 89.9] | 0.66 % [0.47, 0.89] | 0.13–1.48 | 0.006 % [0.002, 0.012] | 5.3 [5.0, 6.0] | 88.3 % [86.7, 90.0] | 4.4 [4.2, 4.7]× | 3 |
+| error-cost ranking + adequacy + LP guard | 95 % | 91.9 % [91.1, 92.7] | 0.39 % [0.34, 0.42] | 0.21–0.60 | 0.062 % [0.052, 0.073] | 7.3 [6.0, 8.0] | 96.7 % [96.7, 96.7] | 6.3 [5.7, 7.6]× | 3 |
+| MILP-label + REINFORCE probabilities (original model, 1 seed) | 95 % | 95.0 % | 5.50 % | 3.38–8.17 | 1.482 % | 34.0 | 91.7 % | 29.0× | 1 |
+| RACLearn (BCE confidence) | 90 % | 90.0 % | 1.38 % | 0.18–3.50 | 0.000 % | 6.0 | 86.7 % | 2.9× | 1 |
+| RACLearn (BCE confidence) | 95 % | 95.0 % | 38.51 % | 8.43–76.28 | 0.087 % | 11.0 | 80.0 % | 6.9× | 1 |
+| RACLearn + LP-relaxation guard | 95 % | 90.1 % | 0.19 % | 0.10–0.30 | 0.014 % | 3.0 | 91.7 % | 3.5× | 1 |
+| RACLearn + LP-relaxation guard | 98 % | 82.9 % | 0.53 % | 0.30–0.78 | 0.157 % | 9.0 | 91.7 % | 3.8× | 1 |
+| LF + REINFORCE probabilities | 95 % | 95.0 % [95.0, 95.0] | 2.99 % [2.23, 3.90] | 2.05–3.97 | 0.890 % [0.742, 0.964] | 28.7 [27.0, 30.0] | 87.8 % [85.0, 91.7] | 14.8 [5.0, 24.9]× | 3 |
+| self-trained, asymmetric + adequacy guard | 95 % | 94.9 % [94.9, 94.9] | 1.93 % [1.81, 2.00] | 0.84–3.54 | 0.270 % [0.179, 0.346] | 17.3 [17.0, 18.0] | 87.8 % [86.7, 90.0] | 9.6 [8.5, 10.7]× | 3 |
 
 ### Best seed-averaged mean gap at a seed-averaged speed-up of at least x (target, speed-up)
 
 | pipeline | ≥ 2× | ≥ 3× | ≥ 5× | ≥ 10× | ≥ 20× |
 |---|---|---|---|---|---|
-| combined without LP guard: st probabilities + error-cost + adequacy guard | 26.80 % (95 %, 14.0×) | 26.80 % (95 %, 14.0×) | 26.80 % (95 %, 14.0×) | 26.80 % (95 %, 14.0×) | 30.91 % (98 %, 44.0×) |
-| combined: st probabilities + error-cost + adequacy + LP guard | 0.43 % (95 %, 12.8×) | 0.43 % (95 %, 12.8×) | 0.43 % (95 %, 12.8×) | 0.43 % (95 %, 12.8×) | – |
-| error-cost ranking + adequacy guard | 1.73 % (90 %, 6.0×) | 1.73 % (90 %, 6.0×) | 1.73 % (90 %, 6.0×) | – | – |
-| error-cost ranking + adequacy + LP guard | 0.86 % (95 %, 9.6×) | 0.86 % (95 %, 9.6×) | 0.86 % (95 %, 9.6×) | – | – |
-| MILP-label + REINFORCE probabilities (original model, 1 seed) | 18.31 % (95 %, 108.6×) | 18.31 % (95 %, 108.6×) | 18.31 % (95 %, 108.6×) | 18.31 % (95 %, 108.6×) | 18.31 % (95 %, 108.6×) |
-| RACLearn (BCE confidence) | 13.57 % (90 %, 4.8×) | 13.57 % (90 %, 4.8×) | 293.52 % (95 %, 17.1×) | 293.52 % (95 %, 17.1×) | – |
-| RACLearn + LP-relaxation guard | 0.21 % (95 %, 2.1×) | – | – | – | – |
-| LF + REINFORCE probabilities | 9.76 % (95 %, 41.8×) | 9.76 % (95 %, 41.8×) | 9.76 % (95 %, 41.8×) | 9.76 % (95 %, 41.8×) | 9.76 % (95 %, 41.8×) |
-| self-trained, asymmetric + adequacy guard | 3.26 % (95 %, 16.5×) | 3.26 % (95 %, 16.5×) | 3.26 % (95 %, 16.5×) | 3.26 % (95 %, 16.5×) | – |
-| best RACLearn-style (confidence ranking, ± LP guard) | 0.21 % (RACLearn + LP-relaxation guard, 95 %, 2.1×) | 13.57 % (RACLearn (BCE confidence), 90 %, 4.8×) | 293.52 % (RACLearn (BCE confidence), 95 %, 17.1×) | 293.52 % (RACLearn (BCE confidence), 95 %, 17.1×) | – |
-| best new rule (error cost / self-trained / REINFORCE / combined) | 0.43 % (combined, 95 %, 12.8×) | 0.43 % (combined, 95 %, 12.8×) | 0.43 % (combined, 95 %, 12.8×) | 0.43 % (combined, 95 %, 12.8×) | 9.76 % (LF + REINFORCE probabilities, 95 %, 41.8×) |
+| combined without LP guard: st probabilities + error-cost + adequacy guard | 4.43 % (95 %, 9.2×) | 4.43 % (95 %, 9.2×) | 4.43 % (95 %, 9.2×) | 16.00 % (98 %, 10.8×) | – |
+| combined: st probabilities + error-cost + adequacy + LP guard | 0.73 % (95 %, 7.3×) | 0.73 % (95 %, 7.3×) | 0.73 % (95 %, 7.3×) | 0.86 % (98 %, 10.4×) | – |
+| error-cost ranking + adequacy guard | 0.66 % (90 %, 4.4×) | 0.66 % (90 %, 4.4×) | – | – | – |
+| error-cost ranking + adequacy + LP guard | 0.39 % (95 %, 6.3×) | 0.39 % (95 %, 6.3×) | 0.39 % (95 %, 6.3×) | – | – |
+| MILP-label + REINFORCE probabilities (original model, 1 seed) | 5.50 % (95 %, 29.0×) | 5.50 % (95 %, 29.0×) | 5.50 % (95 %, 29.0×) | 5.50 % (95 %, 29.0×) | 5.50 % (95 %, 29.0×) |
+| RACLearn (BCE confidence) | 1.38 % (90 %, 2.9×) | 38.51 % (95 %, 6.9×) | 38.51 % (95 %, 6.9×) | – | – |
+| RACLearn + LP-relaxation guard | 0.19 % (95 %, 3.5×) | 0.19 % (95 %, 3.5×) | – | – | – |
+| LF + REINFORCE probabilities | 2.99 % (95 %, 14.8×) | 2.99 % (95 %, 14.8×) | 2.99 % (95 %, 14.8×) | 2.99 % (95 %, 14.8×) | – |
+| self-trained, asymmetric + adequacy guard | 1.93 % (95 %, 9.6×) | 1.93 % (95 %, 9.6×) | 1.93 % (95 %, 9.6×) | – | – |
+| best RACLearn-style (confidence ranking, ± LP guard) | 0.19 % (RACLearn + LP-relaxation guard, 95 %, 3.5×) | 0.19 % (RACLearn + LP-relaxation guard, 95 %, 3.5×) | 38.51 % (RACLearn (BCE confidence), 95 %, 6.9×) | – | – |
+| best new rule (error cost / self-trained / REINFORCE / combined) | 0.39 % (error-cost ranking + adequacy + LP guard, 95 %, 6.3×) | 0.39 % (error-cost ranking + adequacy + LP guard, 95 %, 6.3×) | 0.39 % (error-cost ranking + adequacy + LP guard, 95 %, 6.3×) | 0.86 % (combined, 98 %, 10.4×) | – |
 
 ### Original test: earlier single-seed runs vs this study on the same instances
 
-Original test, first 5 instances done in this study (same instances for every column; old = the earlier single-seed run, its own back-to-back full MILP).
+Original test, first 60 instances done in this study (same instances for every column; old = the earlier single-seed run, its own back-to-back full MILP).
 
 | rule | target | old: mean gap / speed-up | this study, seed 0 | seeds 0–2: mean gap [min, max] / speed-up |
 |---|---|---|---|---|
-| error-cost ranking + adequacy guard | 90 % | 1.74 % / 5.1× (5 inst.) | 1.74 % / 5.9× | 1.73 % [1.72, 1.74] / 6.0× |
-| error-cost ranking + adequacy + LP guard | 95 % | 0.82 % / 3.8× (5 inst.) | 0.82 % / 3.7× | 0.86 % [0.79, 0.96] / 9.6× |
-| MILP-label + REINFORCE probabilities (original model, 1 seed) | 95 % | 18.31 % / 53.1× (5 inst.) | 18.31 % / 108.6× | 18.31 % [18.31, 18.31] / 108.6× |
-| RACLearn (BCE confidence) | 90 % | 13.57 % / 3.2× (5 inst.) | 13.57 % / 4.8× | 13.57 % [13.57, 13.57] / 4.8× |
-| RACLearn (BCE confidence) | 95 % | 293.52 % / 14.7× (5 inst.) | 293.52 % / 17.1× | 293.52 % [293.52, 293.52] / 17.1× |
-| RACLearn + LP-relaxation guard | 95 % | 0.21 % / 1.9× (5 inst.) | 0.21 % / 2.1× | 0.21 % [0.21, 0.21] / 2.1× |
-| self-trained, asymmetric + adequacy guard | 95 % | 3.07 % / 14.4× (5 inst.) | 3.07 % / 15.1× | 3.26 % [3.05, 3.66] / 16.5× |
+| error-cost ranking + adequacy guard | 90 % | 0.47 % / 3.7× (60 inst.) | 0.47 % / 4.7× | 0.66 % [0.47, 0.89] / 4.4× |
+| error-cost ranking + adequacy + LP guard | 95 % | 0.40 % / 5.4× (60 inst.) | 0.40 % / 5.7× | 0.39 % [0.34, 0.42] / 6.3× |
+| MILP-label + REINFORCE probabilities (original model, 1 seed) | 95 % | 5.50 % / 17.7× (60 inst.) | 5.50 % / 29.0× | 5.50 % [5.50, 5.50] / 29.0× |
+| RACLearn (BCE confidence) | 90 % | 1.38 % / 2.2× (60 inst.) | 1.38 % / 2.9× | 1.38 % [1.38, 1.38] / 2.9× |
+| RACLearn (BCE confidence) | 95 % | 38.51 % / 5.2× (60 inst.) | 38.51 % / 6.9× | 38.51 % [38.51, 38.51] / 6.9× |
+| RACLearn + LP-relaxation guard | 95 % | 0.19 % / 3.2× (60 inst.) | 0.19 % / 3.5× | 0.19 % [0.19, 0.19] / 3.5× |
+| self-trained, asymmetric + adequacy guard | 95 % | 1.52 % / 11.9× (40 inst.) | 1.52 % / 12.6× | 1.38 % [1.19, 1.52] / 11.1× |
 
 ## Training runs
 
