@@ -76,6 +76,10 @@ shortfall in 1.3 % of hours) and the **median gap** to the MILP; the mean gap is
   closed-form repair layers). **Using a learned dispatch model as a differentiable critic for the commitment
   model — the dashed arrow — was not found in the literature**; the obvious competitor is the exact LP's own
   sensitivities (envelope theorem), tested here.
+* **Dispatch-LP feedback for training is published** for a separate *repair policy*: He et al. 2026 (IET GTD)
+  clone the MILP's commitments, then train a PPO repair policy on LP dispatch cost and feasibility. U4 here
+  instead fine-tunes the predictor itself, and U8 / V4 drop the MILP labels entirely. Iterative label
+  collection with a solver (DAgger-style) is used for neural diving in UC by Qin & Yu 2023.
 
 
 ## 3. Findings on B1 (single-period network-constrained UC)
