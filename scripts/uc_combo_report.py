@@ -282,6 +282,64 @@ def fix_tables(split, res):
     return lines, plines
 
 
+
+def orig_compare(res):
+    """original test: the earlier single-seed per-instance records vs this study's seeds, on the instances done here"""
+    path = os.path.join(OUT, "combo_fix_test.jsonl")
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return []
+    d = load(os.path.join(ROOT, "test.npz"))
+    ref = d["obj"]
+    rows, common = summarize_fix(path, ref)
+    new = {}
+    for line in open(path):
+        r = json.loads(line)
+        if r["i"] in set(common):
+            new.setdefault((r["config"], r["ratio"]), {}).setdefault(r["seed"], {})[r["i"]] = r
+    old = {}                                                    # (config, ratio) -> {i: (obj, time)}, plus full times
+    for f, mp in (("fixpolicy_eval_test.jsonl", {("harm_c_guard", 0.9): ("harm+guard", 0.9), ("rac", 0.9): ("rac", 0.9),
+                                                 ("rac", 0.95): ("rac", 0.95), ("rl", 0.95): ("milp_rl rac", 0.95)}),
+                  ("fixpolicy_eval_test_bc.jsonl", {("harm_c_lp", 0.95): ("harm+lp", 0.95), ("rac_lp", 0.95): ("rac+lp", 0.95)})):
+        full = {}
+        recs = [json.loads(x) for x in open(os.path.join(OUT, f))]
+        for r in recs:
+            if r["method"] == "full":
+                full[r["i"]] = r["time"]
+        for r in recs:
+            k = (r["method"], r["ratio"])
+            if k in mp:
+                old.setdefault(mp[k], {})[r["i"]] = (r["obj"], r["time"], full[r["i"]])
+    st = json.load(open(os.path.join(OUT, "selftrain_fix_per_instance.json")))
+    for key, cfg in (("95 %: ST round 3, asym+guard", ("st asym+guard", 0.95)),):
+        old[cfg] = {i: (st[key]["obj"][i], st[key]["time"][i], st["full MILP"]["time"][i]) for i in range(len(st[key]["obj"]))}
+    full_new = new[("full", 0.0)][-1]
+    out, lines = [], [f"Original test, first {len(common)} instances done in this study (same instances for every column; "
+                      "old = the earlier single-seed run, its own back-to-back full MILP).", "",
+                      "| rule | target | old: mean gap / speed-up | this study, seed 0 | seeds 0–2: mean gap [min, max] / speed-up |",
+                      "|---|---|---|---|---|"]
+    for (c, q), o in sorted(old.items()):
+        if (c, q) not in new:
+            continue
+        ids = [i for i in common if i in o]
+        if not ids:
+            continue
+        g_old = np.mean([(o[i][0] - ref[i]) / ref[i] * 100 for i in ids])
+        sp_old = np.mean([o[i][2] for i in ids]) / np.mean([o[i][1] for i in ids])
+        per_seed = []
+        for s_, recs in sorted(new[(c, q)].items()):
+            g = np.mean([(recs[i]["obj"] - ref[i]) / ref[i] * 100 for i in ids])
+            sp = np.mean([full_new[i]["time"] for i in ids]) / np.mean([recs[i]["time"] for i in ids])
+            per_seed.append((s_, g, sp))
+        g0 = [x for x in per_seed if x[0] == 0][0]
+        gs = [x[1] for x in per_seed]
+        sps = [x[2] for x in per_seed]
+        out.append(dict(config=c, target=q, n=len(ids), old_gap=g_old, old_speedup=sp_old, seeds=per_seed))
+        lines.append(f"| {FIX_LABEL.get(c, c)} | {q * 100:.0f} % | {g_old:.2f} % / {sp_old:.1f}× ({len(ids)} inst.) | "
+                     f"{g0[1]:.2f} % / {g0[2]:.1f}× | {np.mean(gs):.2f} % [{min(gs):.2f}, {max(gs):.2f}] / {np.mean(sps):.1f}× |")
+    res["fix_test_vs_old"] = out
+    return lines
+
+
 if __name__ == "__main__":
     os.chdir(os.path.dirname(HERE))
     res = {}
@@ -313,6 +371,9 @@ if __name__ == "__main__":
         if lines:
             md += [f"## Fixing + reduced MILP, {split} (first {res['fix_' + split]['n']} instances)", ""] + lines + [""]
             md += ["### Best seed-averaged mean gap at a seed-averaged speed-up of at least x (target, speed-up)", ""] + plines + [""]
+    ol = orig_compare(res)
+    if ol:
+        md += ["### Original test: earlier single-seed runs vs this study on the same instances", ""] + ol + [""]
     tr = {}
     for f in sorted(os.listdir(OUT)):
         if f.startswith("combo_train_") and f.endswith(".json"):

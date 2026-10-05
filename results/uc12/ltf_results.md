@@ -89,9 +89,9 @@ Paired comparison: every Learning-to-Fix point against the rule of ours with the
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | full MILP |  | 0.0 | 0.028 | 0.000 | 0.000 | 1.97 | 1 | 0 | 100.0 | 100.0 | 29.97 | 1.0x | 1.0x |
 | Learning to Fix, kNN (each, comp) | tau 0.1 % | 91.5 | 71.866 | 1.000 | 217.072 | 998.12 | 30 | 13 | 78.3 | 100.0 | 11.87 | 2.5x | 3.4x |
-| Learning to Fix, kNN, bootstrap calibration (budget, comp) | tau 1 % | 90.7 | 70.864 | 0.994 | 262.875 | 904.22 | 30 | 13 | 75.0 | 100.0 | 11.43 | 2.6x | 3.8x |
-| Learning to Fix, kNN, bootstrap calibration (budget, comp) | tau 1 % | 89.0 | 59.308 | 1.480 | 196.671 | 622.82 | 33 | 11 | 71.7 | 100.0 | 11.28 | 2.7x | 3.2x |
-| Learning to Fix, kNN, bootstrap calibration (budget, comp) | tau 1 % | 87.1 | 38.275 | 0.389 | 23.251 | 949.89 | 22 | 9 | 78.3 | 100.0 | 13.32 | 2.2x | 2.6x |
+| Learning to Fix, kNN, bootstrap calibration seed 0 (budget, comp) | tau 1 % | 87.1 | 38.275 | 0.389 | 23.251 | 949.89 | 22 | 9 | 78.3 | 100.0 | 13.32 | 2.2x | 2.6x |
+| Learning to Fix, kNN, bootstrap calibration seed 1 (budget, comp) | tau 1 % | 89.0 | 59.308 | 1.480 | 196.671 | 622.82 | 33 | 11 | 71.7 | 100.0 | 11.28 | 2.7x | 3.2x |
+| Learning to Fix, kNN, bootstrap calibration seed 2 (budget, comp) | tau 1 % | 90.7 | 70.864 | 0.994 | 262.875 | 904.22 | 30 | 13 | 75.0 | 100.0 | 11.43 | 2.6x | 3.8x |
 
 Seeded calibration (3 seeds; mean, range in brackets):
 
@@ -116,6 +116,87 @@ Best **median** gap (%) at equal speed-up:
 | [union] Learning to Fix, any model / tolerance / guard | 1.00 (tau 0.1 %, 2.5x, served 78 %) | – | – | – | – |
 | [union] Learning to Fix, kNN as published (no guard) | 1.00 (tau 0.1 %, 2.5x, served 78 %) | – | – | – | – |
 | [union] RACLearn or Learning to Fix (any model) | 1.00 (tau 0.1 %, 2.5x, served 78 %) | – | – | – | – |
+
+## Original test set, first 60 instances (60 instances)
+
+| rule | point | fixed % | mean gap % | median gap % | p90 gap % | max gap % | # > 1 % | # > 10 % | served % | reduced MILP feasible % | time s | speed-up | median speed-up |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| full MILP |  | 0.0 | 0.002 | 0.000 | 0.000 | 0.12 | 0 | 0 | 88.3 | 100.0 | 27.64 | 1.0x | 1.0x |
+| Learning to Fix, BCE GNN (budget, comp) | tau 1 % | 96.3 | 32.066 | 0.466 | 38.983 | 1045.47 | 26 | 13 | 60.0 | 98.3 | 3.69 | 7.5x | 9.8x |
+| Learning to Fix, REINFORCE GNN (budget, comp) | tau 2 % | 89.8 | 1.015 | 0.293 | 3.071 | 10.15 | 15 | 1 | 93.3 | 91.7 | 7.07 | 3.9x | 7.4x |
+| Learning to Fix, REINFORCE GNN (budget, comp) | tau 1 % | 85.9 | 0.757 | 0.212 | 2.535 | 7.05 | 14 | 0 | 90.0 | 91.7 | 9.00 | 3.1x | 5.1x |
+| Learning to Fix, kNN (budget, comp) | tau 2 % | 94.0 | 117.740 | 1.751 | 354.786 | 1258.43 | 35 | 19 | 61.7 | 100.0 | 4.87 | 5.7x | 7.1x |
+| Learning to Fix, kNN (budget, comp) | tau 1 % | 89.2 | 7.969 | 0.357 | 10.670 | 135.40 | 23 | 7 | 78.3 | 100.0 | 11.22 | 2.5x | 2.9x |
+| Learning to Fix, kNN (budget, comp) + LP guard | tau 2 % | 81.1 | 1.601 | 0.134 | 3.156 | 32.64 | 18 | 2 | 96.7 | 100.0 | 7.99 | 3.5x | 5.1x |
+| Learning to Fix, self-trained GNN (budget, comp) | tau 1 % | 93.2 | 15.177 | 0.318 | 6.343 | 670.57 | 17 | 4 | 78.3 | 96.7 | 4.94 | 5.6x | 10.8x |
+| RACLearn (BCE confidence) | 95 % target | 95.0 | 38.509 | 0.087 | 38.454 | 759.25 | 11 | 7 | 80.0 | 100.0 | 4.38 | 6.3x | 6.1x |
+| RACLearn (BCE confidence) | 90 % target | 90.0 | 1.384 | 0.000 | 0.584 | 55.53 | 6 | 2 | 86.7 | 100.0 | 10.24 | 2.7x | 2.6x |
+| REINFORCE probabilities (ours) | 97 % target | 97.0 | 7.380 | 2.426 | 17.266 | 67.82 | 40 | 14 | 81.7 | 96.7 | 1.93 | 14.3x | 78.0x |
+| REINFORCE probabilities (ours) | 95 % target | 95.0 | 5.501 | 1.482 | 20.151 | 49.05 | 34 | 10 | 91.7 | 100.0 | 1.06 | 26.0x | 46.0x |
+| REINFORCE probabilities (ours) + LP guard | 97 % target | 93.7 | 5.602 | 2.170 | 16.481 | 30.77 | 37 | 13 | 96.7 | 100.0 | 0.89 | 30.9x | 40.8x |
+| asymmetric + adequacy guard (ours) | 95 % target | 94.9 | 14.004 | 0.268 | 3.781 | 565.33 | 17 | 4 | 90.0 | 100.0 | 2.98 | 9.3x | 12.5x |
+| asymmetric + adequacy guard (ours) | 90 % target | 89.9 | 0.413 | 0.055 | 1.447 | 3.77 | 9 | 0 | 96.7 | 100.0 | 6.71 | 4.1x | 4.2x |
+| learned error-cost + adequacy guard (ours) | 95 % target | 94.9 | 13.909 | 0.052 | 3.615 | 678.59 | 11 | 4 | 88.3 | 100.0 | 2.76 | 10.0x | 9.9x |
+| learned error-cost + adequacy guard (ours) | 90 % target | 89.9 | 0.469 | 0.002 | 0.584 | 8.81 | 5 | 0 | 90.0 | 100.0 | 6.37 | 4.3x | 4.8x |
+| learned error-cost + adequacy guard (ours) + LP guard | 95 % target | 92.1 | 0.398 | 0.052 | 1.141 | 4.93 | 8 | 0 | 96.7 | 100.0 | 4.95 | 5.6x | 8.6x |
+| self-trained, asym + guard (ours) | 95 % target | 94.9 | 1.990 | 0.284 | 5.467 | 37.18 | 18 | 2 | 86.7 | 100.0 | 2.67 | 10.4x | 9.4x |
+| self-trained, asym + guard (ours) + LP guard | 95 % target | 93.0 | 0.806 | 0.095 | 2.530 | 7.50 | 14 | 0 | 96.7 | 100.0 | 3.88 | 7.1x | 7.8x |
+
+Best **mean** gap (%) a rule family attains with a point at least that fast:
+
+| rule family | >= 2x | >= 3x | >= 5x | >= 10x | >= 20x |
+|---|---|---|---|---|---|
+| Learning to Fix, BCE GNN (budget, comp) | 32.07 (tau 1 %, 7.5x, served 60 %) | 32.07 (tau 1 %, 7.5x, served 60 %) | 32.07 (tau 1 %, 7.5x, served 60 %) | – | – |
+| Learning to Fix, REINFORCE GNN (budget, comp) | 0.76 (tau 1 %, 3.1x, served 90 %) | 0.76 (tau 1 %, 3.1x, served 90 %) | – | – | – |
+| Learning to Fix, kNN (budget, comp) | 7.97 (tau 1 %, 2.5x, served 78 %) | 117.74 (tau 2 %, 5.7x, served 62 %) | 117.74 (tau 2 %, 5.7x, served 62 %) | – | – |
+| Learning to Fix, kNN (budget, comp) + LP guard | 1.60 (tau 2 %, 3.5x, served 97 %) | 1.60 (tau 2 %, 3.5x, served 97 %) | – | – | – |
+| Learning to Fix, self-trained GNN (budget, comp) | 15.18 (tau 1 %, 5.6x, served 78 %) | 15.18 (tau 1 %, 5.6x, served 78 %) | 15.18 (tau 1 %, 5.6x, served 78 %) | – | – |
+| RACLearn (BCE confidence) | 1.38 (90 % target, 2.7x, served 87 %) | 38.51 (95 % target, 6.3x, served 80 %) | 38.51 (95 % target, 6.3x, served 80 %) | – | – |
+| REINFORCE probabilities (ours) | 5.50 (95 % target, 26.0x, served 92 %) | 5.50 (95 % target, 26.0x, served 92 %) | 5.50 (95 % target, 26.0x, served 92 %) | 5.50 (95 % target, 26.0x, served 92 %) | 5.50 (95 % target, 26.0x, served 92 %) |
+| REINFORCE probabilities (ours) + LP guard | 5.60 (97 % target, 30.9x, served 97 %) | 5.60 (97 % target, 30.9x, served 97 %) | 5.60 (97 % target, 30.9x, served 97 %) | 5.60 (97 % target, 30.9x, served 97 %) | 5.60 (97 % target, 30.9x, served 97 %) |
+| [union] Learning to Fix, any model / tolerance / guard | 0.76 (tau 1 %, 3.1x, served 90 %) | 0.76 (tau 1 %, 3.1x, served 90 %) | 15.18 (tau 1 %, 5.6x, served 78 %) | – | – |
+| [union] Learning to Fix, kNN as published (no guard) | 7.97 (tau 1 %, 2.5x, served 78 %) | 117.74 (tau 2 %, 5.7x, served 62 %) | 117.74 (tau 2 %, 5.7x, served 62 %) | – | – |
+| [union] RACLearn or Learning to Fix (any model) | 0.76 (tau 1 %, 3.1x, served 90 %) | 0.76 (tau 1 %, 3.1x, served 90 %) | 15.18 (tau 1 %, 5.6x, served 78 %) | – | – |
+| [union] ours, any ranking / guard | 0.40 (95 % target, 5.6x, served 97 %) | 0.40 (95 % target, 5.6x, served 97 %) | 0.40 (95 % target, 5.6x, served 97 %) | 1.99 (95 % target, 10.4x, served 87 %) | 5.50 (95 % target, 26.0x, served 92 %) |
+| asymmetric + adequacy guard (ours) | 0.41 (90 % target, 4.1x, served 97 %) | 0.41 (90 % target, 4.1x, served 97 %) | 14.00 (95 % target, 9.3x, served 90 %) | – | – |
+| learned error-cost + adequacy guard (ours) | 0.47 (90 % target, 4.3x, served 90 %) | 0.47 (90 % target, 4.3x, served 90 %) | 13.91 (95 % target, 10.0x, served 88 %) | – | – |
+| learned error-cost + adequacy guard (ours) + LP guard | 0.40 (95 % target, 5.6x, served 97 %) | 0.40 (95 % target, 5.6x, served 97 %) | 0.40 (95 % target, 5.6x, served 97 %) | – | – |
+| self-trained, asym + guard (ours) | 1.99 (95 % target, 10.4x, served 87 %) | 1.99 (95 % target, 10.4x, served 87 %) | 1.99 (95 % target, 10.4x, served 87 %) | 1.99 (95 % target, 10.4x, served 87 %) | – |
+| self-trained, asym + guard (ours) + LP guard | 0.81 (95 % target, 7.1x, served 97 %) | 0.81 (95 % target, 7.1x, served 97 %) | 0.81 (95 % target, 7.1x, served 97 %) | – | – |
+
+Best **median** gap (%) at equal speed-up:
+
+| rule family | >= 2x | >= 3x | >= 5x | >= 10x | >= 20x |
+|---|---|---|---|---|---|
+| Learning to Fix, BCE GNN (budget, comp) | 0.47 (tau 1 %, 7.5x, served 60 %) | 0.47 (tau 1 %, 7.5x, served 60 %) | 0.47 (tau 1 %, 7.5x, served 60 %) | – | – |
+| Learning to Fix, REINFORCE GNN (budget, comp) | 0.21 (tau 1 %, 3.1x, served 90 %) | 0.21 (tau 1 %, 3.1x, served 90 %) | – | – | – |
+| Learning to Fix, kNN (budget, comp) | 0.36 (tau 1 %, 2.5x, served 78 %) | 1.75 (tau 2 %, 5.7x, served 62 %) | 1.75 (tau 2 %, 5.7x, served 62 %) | – | – |
+| Learning to Fix, kNN (budget, comp) + LP guard | 0.13 (tau 2 %, 3.5x, served 97 %) | 0.13 (tau 2 %, 3.5x, served 97 %) | – | – | – |
+| Learning to Fix, self-trained GNN (budget, comp) | 0.32 (tau 1 %, 5.6x, served 78 %) | 0.32 (tau 1 %, 5.6x, served 78 %) | 0.32 (tau 1 %, 5.6x, served 78 %) | – | – |
+| RACLearn (BCE confidence) | 0.00 (90 % target, 2.7x, served 87 %) | 0.09 (95 % target, 6.3x, served 80 %) | 0.09 (95 % target, 6.3x, served 80 %) | – | – |
+| REINFORCE probabilities (ours) | 1.48 (95 % target, 26.0x, served 92 %) | 1.48 (95 % target, 26.0x, served 92 %) | 1.48 (95 % target, 26.0x, served 92 %) | 1.48 (95 % target, 26.0x, served 92 %) | 1.48 (95 % target, 26.0x, served 92 %) |
+| REINFORCE probabilities (ours) + LP guard | 2.17 (97 % target, 30.9x, served 97 %) | 2.17 (97 % target, 30.9x, served 97 %) | 2.17 (97 % target, 30.9x, served 97 %) | 2.17 (97 % target, 30.9x, served 97 %) | 2.17 (97 % target, 30.9x, served 97 %) |
+| [union] Learning to Fix, any model / tolerance / guard | 0.13 (tau 2 %, 3.5x, served 97 %) | 0.13 (tau 2 %, 3.5x, served 97 %) | 0.32 (tau 1 %, 5.6x, served 78 %) | – | – |
+| [union] Learning to Fix, kNN as published (no guard) | 0.36 (tau 1 %, 2.5x, served 78 %) | 1.75 (tau 2 %, 5.7x, served 62 %) | 1.75 (tau 2 %, 5.7x, served 62 %) | – | – |
+| [union] RACLearn or Learning to Fix (any model) | 0.00 (90 % target, 2.7x, served 87 %) | 0.09 (95 % target, 6.3x, served 80 %) | 0.09 (95 % target, 6.3x, served 80 %) | – | – |
+| [union] ours, any ranking / guard | 0.00 (90 % target, 4.3x, served 90 %) | 0.00 (90 % target, 4.3x, served 90 %) | 0.05 (95 % target, 10.0x, served 88 %) | 0.28 (95 % target, 10.4x, served 87 %) | 1.48 (95 % target, 26.0x, served 92 %) |
+| asymmetric + adequacy guard (ours) | 0.06 (90 % target, 4.1x, served 97 %) | 0.06 (90 % target, 4.1x, served 97 %) | 0.27 (95 % target, 9.3x, served 90 %) | – | – |
+| learned error-cost + adequacy guard (ours) | 0.00 (90 % target, 4.3x, served 90 %) | 0.00 (90 % target, 4.3x, served 90 %) | 0.05 (95 % target, 10.0x, served 88 %) | – | – |
+| learned error-cost + adequacy guard (ours) + LP guard | 0.05 (95 % target, 5.6x, served 97 %) | 0.05 (95 % target, 5.6x, served 97 %) | 0.05 (95 % target, 5.6x, served 97 %) | – | – |
+| self-trained, asym + guard (ours) | 0.28 (95 % target, 10.4x, served 87 %) | 0.28 (95 % target, 10.4x, served 87 %) | 0.28 (95 % target, 10.4x, served 87 %) | 0.28 (95 % target, 10.4x, served 87 %) | – |
+| self-trained, asym + guard (ours) + LP guard | 0.10 (95 % target, 7.1x, served 97 %) | 0.10 (95 % target, 7.1x, served 97 %) | 0.10 (95 % target, 7.1x, served 97 %) | – | – |
+
+Paired comparison: every Learning-to-Fix point against the rule of ours with the closest speed-up (difference of per-instance gaps, ours minus LtF, percentage points; bootstrap 95 % CI over instances):
+
+| Learning to Fix | speed-up | ours | speed-up | mean diff | 95 % CI | median diff | ours better / LtF better |
+|---|---|---|---|---|---|---|---|
+| Learning to Fix, BCE GNN (budget, comp), tau 1 % | 7.5x | self-trained, asym + guard (ours) + LP guard, 95 % target | 7.1x | -31.260 | [-72.129, -7.204] | -0.145 | 33 / 15 |
+| Learning to Fix, kNN (budget, comp), tau 1 % | 2.5x | asymmetric + adequacy guard (ours), 90 % target | 4.1x | -7.555 | [-14.453, -1.565] | -0.028 | 37 / 16 |
+| Learning to Fix, kNN (budget, comp), tau 2 % | 5.7x | learned error-cost + adequacy guard (ours) + LP guard, 95 % target | 5.6x | -117.343 | [-186.928, -55.835] | -1.212 | 48 / 6 |
+| Learning to Fix, kNN (budget, comp) + LP guard, tau 2 % | 3.5x | asymmetric + adequacy guard (ours), 90 % target | 4.1x | -1.187 | [-2.439, -0.231] | -0.080 | 37 / 15 |
+| Learning to Fix, REINFORCE GNN (budget, comp), tau 1 % | 3.1x | asymmetric + adequacy guard (ours), 90 % target | 4.1x | -0.343 | [-0.621, -0.111] | -0.036 | 36 / 16 |
+| Learning to Fix, REINFORCE GNN (budget, comp), tau 2 % | 3.9x | asymmetric + adequacy guard (ours), 90 % target | 4.1x | -0.602 | [-1.080, -0.227] | -0.078 | 41 / 11 |
+| Learning to Fix, self-trained GNN (budget, comp), tau 1 % | 5.6x | learned error-cost + adequacy guard (ours) + LP guard, 95 % target | 5.6x | -14.779 | [-40.075, -0.650] | -0.007 | 32 / 18 |
 
 ## Validation (selection only; no back-to-back full MILP: speed-ups vs the dataset's MILP times) (9 instances)
 

@@ -17,7 +17,9 @@ gives 0.55 % mean / 98 % served at 4.7× and 0.80 % at 6.7×. **Our rules beat L
 best mean gap at ≥ 2–3× 0.29 % (learned error-cost + adequacy guard) vs 0.55 % for the best LtF variant and 37.7 % for
 LtF as published; at ≥ 5× 0.72 % (self-trained ranking + LP-relaxation guard, 100 % served) vs 0.80 %; at ≥ 10–20× only
 our REINFORCE ranking has points (3.6 % mean at 33×) — but against the strongest LtF hybrid at matched 4.6–6.9× the
-advantage (−0.07 to −0.12 pp) is **not significant**. The paper's 0.48 % at 20.8× is not reproduced here.
+advantage (−0.07 to −0.12 pp) is **not significant** on the fresh set. On the original test set (60 instances) the
+ordering is the same and every LtF point is significantly worse than our closest-speed rule (best mean gap at ≥ 2–5×:
+0.40 % ours vs 0.76 % best LtF vs 7.97 % LtF-kNN). The paper's 0.48 % at 20.8× is not reproduced here.
 
 ## 1. What is known about the paper
 
@@ -204,7 +206,34 @@ calibration (37.7 %) is at the favourable end of that range; the failure of LtF-
 calibration sample. The alternative "each" reading at τ = 0.1 % (91.5 % fixed): 71.9 % mean, 1.00 % median, 78.3 %
 served, 2.5×.
 
-<!-- ORIGTEST -->
+**Original test set (first 60 instances, separate pass with its own back-to-back full MILP, 27.6 s).** Same rules.
+The re-run reproduces the earlier studies exactly where they overlap (RACLearn 1.384 / 38.509 %, asymmetric 0.413 /
+14.004 %, learned error-cost 0.469 / 13.909 % mean gap at 90 / 95 %, REINFORCE 5.501 % at 95 %, error-cost + LP guard
+0.398 %).
+
+| rule (original test 0–59) | fixed | mean gap | median gap | # > 10 % | served | speed-up |
+|---|---|---|---|---|---|---|
+| full MILP | 0 | 0.00 % | 0.000 % | 0 | 88.3 % | 1× |
+| Learning to Fix, kNN, τ = 1 % | 89.2 % | 7.97 % | 0.36 % | 7 | 78.3 % | 2.5× |
+| Learning to Fix, kNN, τ = 2 % | 94.0 % | 118 % | 1.75 % | 19 | 61.7 % | 5.7× |
+| Learning to Fix, kNN, τ = 2 % + LP guard | 81.1 % | 1.60 % | 0.13 % | 2 | 96.7 % | 3.5× |
+| Learning to Fix on BCE / self-trained GNN, τ = 1 % | 96.3 / 93.2 % | 32.1 / 15.2 % | 0.47 / 0.32 % | 13 / 4 | 60.0 / 78.3 % | 7.5 / 5.6× |
+| Learning to Fix on REINFORCE GNN, τ = 1 % / 2 % | 85.9 / 89.8 % | 0.76 / 1.02 % | 0.21 / 0.29 % | 0 / 1 | 90.0 / 93.3 % | 3.1 / 3.9× |
+| RACLearn 90 / 95 % | 90 / 95 % | 1.38 / 38.5 % | 0.000 / 0.087 % | 2 / 7 | 86.7 / 80.0 % | 2.7 / 6.3× |
+| asymmetric + adequacy guard (ours), 90 % | 89.9 % | 0.41 % | 0.055 % | 0 | 96.7 % | 4.1× |
+| learned error-cost + adequacy guard (ours), 90 % | 89.9 % | 0.47 % | 0.002 % | 0 | 90.0 % | 4.3× |
+| learned error-cost + adequacy + LP guard, 95 % target | 92.1 % | **0.40 %** | 0.052 % | 0 | 96.7 % | 5.6× |
+| self-trained + LP guard, 95 % target | 93.0 % | 0.81 % | 0.095 % | 0 | 96.7 % | 7.1× |
+| self-trained, asym + guard, 95 % | 94.9 % | 1.99 % | 0.28 % | 2 | 86.7 % | 10.4× |
+| REINFORCE probabilities, 95 % | 95.0 % | 5.50 % | 1.48 % | 10 | 91.7 % | 26.0× |
+| REINFORCE + LP guard, 97 % target | 93.7 % | 5.60 % | 2.17 % | 13 | 96.7 % | 30.9× |
+
+Best mean gap at ≥ 2 / 3 / 5 / 10 / 20×: **ours 0.40 / 0.40 / 0.40 / 1.99 / 5.50 %**; Learning to Fix, any variant 0.76 /
+0.76 / 15.2 % / – / –; kNN as published 7.97 / 118 / 118 % / – / –. Paired at matched speed-up, ours minus LtF: vs
+LtF on REINFORCE τ = 1 % (3.1×; asymmetric 90 %, 4.1×) −0.34 pp [−0.62, −0.11]; τ = 2 % (3.9×) −0.60 pp [−1.08,
+−0.23]; vs LtF-kNN τ = 1 % (2.5×) −7.6 pp [−14.5, −1.6]; vs LtF-kNN τ = 2 % + LP guard −1.19 pp [−2.44, −0.23]; all
+LtF points are worse with a CI excluding zero. Failure signature as on the fresh set: LtF-kNN instances with > 10 % gap
+carry 7.9 wrong OFF fixes (1.8 on instances with ≤ 1 %).
 
 **How good is the LP impact proxy?** (`scripts/uc_ltf_proxycheck.py`, `results/uc12/ltf_proxycheck.json`) For 24
 random calibration cells (val instance, generator, threshold level) of the kNN curves with a compensated LP impact
@@ -234,9 +263,14 @@ This is the main untested difference to the paper.
   but **not significantly** (−0.12 pp [−0.31, +0.08] at 4.7×; −0.07 pp [−0.34, +0.21] at 6.9×), with lower medians
   (0.07 vs 0.28 %; 0.29 vs 0.48 %). The LtF calibration on the BCE GNN (21 % mean) and the self-trained GNN (1.06 %) is
   worse; the probability model matters as much as the threshold rule.
-* **Net:** on B2 our rules dominate Learning to Fix as published, and match or slightly beat (not significantly) the
-  strongest hybrid we could build from it (its calibration on our cost-aware REINFORCE probabilities) at 4.5–7×; they
-  are clearly better at 2–3× (0.29 vs 0.55 %) and are the only rules beyond ~7×.
+* **Second test set.** On the original test set's first 60 instances the picture is the same and sharper: best mean
+  gap at ≥ 2–5× 0.40 % (ours, error-cost + LP guard, 5.6×) vs 0.76 % at 3.1× (LtF on REINFORCE) and 7.97 % (LtF-kNN);
+  every LtF point is significantly worse than our closest-speed rule (e.g. −0.34 pp [−0.62, −0.11] against LtF on
+  REINFORCE τ = 1 %).
+* **Net:** on B2 our rules dominate Learning to Fix as published (kNN) on both test sets and at every speed-up. Against
+  the strongest hybrid we could build from it (its calibration on our cost-aware REINFORCE probabilities) they are
+  better on both test sets — significantly on the original one, within noise on the fresh one at 4.5–7× — and they are
+  the only rules beyond ~7×.
 
 ## 6. Where this reconstruction may differ from the paper
 
@@ -268,7 +302,9 @@ This is the main untested difference to the paper.
   instances (e.g. REINFORCE 97 %: 15.9× mean ratio, 57.6× median ratio). The LP-guard time is included.
 * Mean gaps are driven by a few penalty-priced instances (VOLL $10,000/MWh); medians, served shares and the count of
   > 10 % gaps are reported for that reason.
-* The fresh test set shares calendar days with the original test set (different random scenarios).
+* The fresh test set shares calendar days with the original test set (different random scenarios). The original
+  test set was used by earlier studies whose rules (asymmetric, error-cost, LP guard) were partly designed after
+  seeing it; the fresh set is the clean comparison.
 
 ## 8. Reproduce
 
