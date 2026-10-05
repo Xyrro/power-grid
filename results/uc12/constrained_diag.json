@@ -1,0 +1,42 @@
+[
+ {
+  "model": "lag_R",
+  "init": "lf_bce",
+  "KL_to_init_per_inst": 29.722801208496094,
+  "added_per_inst": 17.05,
+  "removed_per_inst": 0.25,
+  "added_and_milp_on": 2.8666666666666667,
+  "added_and_milp_off": 14.183333333333334,
+  "removed_and_milp_off": 0.1,
+  "uncertain_decisions_%": 5.319634703196347,
+  "units_on": 13.581944444444444,
+  "units_on_init": 12.181944444444445,
+  "units_on_milp": 12.487499999999999,
+  "missed_milp_on_per_inst": 6.4,
+  "extra_vs_milp_per_inst": 19.533333333333335,
+  "added_with_p0_in_[0,0.01)": 0.15,
+  "added_with_p0_in_[0.01,0.1)": 6.633333333333334,
+  "added_with_p0_in_[0.1,0.3)": 7.1,
+  "added_with_p0_in_[0.3,0.5)": 3.1666666666666665
+ },
+ {
+  "model": "lag_D",
+  "init": "lf_bce",
+  "KL_to_init_per_inst": 17.974170684814453,
+  "added_per_inst": 11.016666666666667,
+  "removed_per_inst": 0.06666666666666667,
+  "added_and_milp_on": 2.85,
+  "added_and_milp_off": 8.166666666666666,
+  "removed_and_milp_off": 0.05,
+  "uncertain_decisions_%": 5.116057838660579,
+  "units_on": 13.094444444444443,
+  "units_on_init": 12.181944444444445,
+  "units_on_milp": 12.487499999999999,
+  "missed_milp_on_per_inst": 6.283333333333333,
+  "extra_vs_milp_per_inst": 13.566666666666666,
+  "added_with_p0_in_[0,0.01)": 0.3,
+  "added_with_p0_in_[0.01,0.1)": 2.3833333333333333,
+  "added_with_p0_in_[0.1,0.3)": 5.05,
+  "added_with_p0_in_[0.3,0.5)": 3.283333333333333
+ }
+]

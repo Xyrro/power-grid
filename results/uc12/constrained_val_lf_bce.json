@@ -1,0 +1,50 @@
+{
+ "rows": [
+  {
+   "method": "LF-BCE: top-1 -> LP",
+   "gap_mean_%": 244.47635363908734,
+   "gap_median_%": 34.4188592569024,
+   "gap_p95_%": 1368.5900640640223,
+   "no_shed_no_shortfall_%": 11.666666666666666,
+   "gap_mean_served_%": 0.203710401151407,
+   "matches_or_beats_milp_%": 1.6666666666666667,
+   "unit_hour_accuracy_%": 98.32572298325722,
+   "exact_match_%": 1.6666666666666667,
+   "units_on": 12.176388888888889,
+   "LPs_per_instance": 1.0,
+   "gap_to_relax_mean_served_%": 0.6027815372845854,
+   "split": "val"
+  },
+  {
+   "method": "LF-BCE: top-1 + adequacy repair -> LP",
+   "gap_mean_%": 139.36257534646978,
+   "gap_median_%": 19.35875732787659,
+   "gap_p95_%": 618.1793078547905,
+   "no_shed_no_shortfall_%": 33.33333333333333,
+   "gap_mean_served_%": 0.6281692517436153,
+   "matches_or_beats_milp_%": 1.6666666666666667,
+   "unit_hour_accuracy_%": 98.23059360730593,
+   "exact_match_%": 1.6666666666666667,
+   "units_on": 12.298611111111112,
+   "LPs_per_instance": 1.0,
+   "gap_to_relax_mean_served_%": 1.2074292183466995,
+   "split": "val"
+  },
+  {
+   "method": "LF-BCE: candidate screening -> LP",
+   "gap_mean_%": 41.365289230115785,
+   "gap_median_%": 2.2021334366904,
+   "gap_p95_%": 245.0866102848868,
+   "no_shed_no_shortfall_%": 48.333333333333336,
+   "gap_mean_served_%": 1.2248096706166418,
+   "matches_or_beats_milp_%": 1.6666666666666667,
+   "unit_hour_accuracy_%": 98.20015220700152,
+   "exact_match_%": 1.6666666666666667,
+   "units_on": 12.531944444444443,
+   "LPs_per_instance": 13.683333333333334,
+   "gap_to_relax_mean_served_%": 1.9369973378492746,
+   "split": "val"
+  }
+ ],
+ "train_s": 217.8143560886383
+}

@@ -3,3 +3,4 @@ __pycache__/
 data/generated/
 results/**/*.pt
 *.log
+results/uc12/fixpolicy_probs.npz

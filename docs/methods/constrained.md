@@ -1,0 +1,124 @@
+# Constrained fine-tuning of Model 1 for the end-to-end mode (B2)
+
+*Code: [`otsl/constrained.py`](../../otsl/constrained.py), [`scripts/uc_constrained.py`](../../scripts/uc_constrained.py)
+(driver), [`scripts/uc_constrained_queue.sh`](../../scripts/uc_constrained_queue.sh) (the exact run sequence),
+[`scripts/uc_constrained_report.py`](../../scripts/uc_constrained_report.py),
+[`scripts/uc_constrained_diag.py`](../../scripts/uc_constrained_diag.py). Raw numbers:
+[`results/uc12/constrained_results.md`](../../results/uc12/constrained_results.md) / `.json`, logs
+`results/uc12/constrained_*.log`.*
+
+__RESULTS__
+
+## 1. Problem
+
+End-to-end mode on B2 (12-hour network-constrained UC, RTS-GMLC): Model 1 predicts the 12 × 73 on/off
+schedule, min up/down repair, **one** dispatch LP, no MILP at inference. The current best learned model
+(label-free BCE on repaired LP-relaxation labels + REINFORCE with the dispatch LP as critic,
+`RESEARCH.md` V4) serves 84.2 % of test instances without shedding or reserve shortfall, but costs
+9.2 % more than the MILP on the instances it serves. The goal was to keep that coverage and cut the
+served-instance gap below ~2 %.
+
+## 2. Method
+
+### 2.1 Lagrangian policy gradient with per-hour credit and an LP-sensitivity control variate
+
+The dispatch LP of every sampled commitment is split per hour into the operating cost
+`op_t` (no-load + energy + start-up of hour t) and the penalty `pen_t = VOLL·(shed_t + spill_t) + RES_SHORT·short_t`
+(`otsl.constrained.hourly_dispatch`; `Σ_t op_t + pen_t` equals the LP objective, checked against
+`UCModel.solve_dispatch` and `UCModel.dispatch_gradient` to machine precision). Model 1 is trained on
+
+    min_θ  E_u~π_θ [ Σ_t op_t(u) / ref ]    s.t.   P( deployed commitment sheds or misses reserve ) ≤ ε
+
+* **Dual ascent on the deployed policy.** At every step the deployed commitment (threshold 0.5 +
+  repairs) of each batch instance is solved too (one of the six LPs per instance), and
+  `log λ ← log λ + η (violation rate of the deployed commitments − ε)`. The constraint is therefore on
+  what is shipped, not on the stochastic samples.
+* **Two advantage streams, normalised separately** (as PPO-Lagrangian, Ray et al. 2019):
+  `A = (Â_op + λ Â_pen)/(1 + λ)`, with the penalty stream `c_t = log(1 + pen_t / (κ·ref))`, κ = 10⁻³
+  (graded, scale-free: a 1 MWh reserve shortfall counts, a 50 MW shed counts more but does not swamp
+  the cost signal). Plain REINFORCE uses one stream, `−log(total cost / ref)`, in which the VOLL terms
+  dominate the advantage normalisation.
+* **Per-hour credit assignment**: the decision for unit g at hour t is credited with the cost of hours
+  t−1 … t+1 only (window w = 1; ramping and start-ups couple neighbouring hours).
+* **Baseline**: leave-one-out over the five samples of an instance plus the deployed commitment.
+* **Control variate from the exact LP sensitivities (MuProp, Gu et al. 2016)**: the dual-based gradient
+  `∂op/∂u_tg` at the deployed commitment (`dispatch_gradient`, at hours without penalties) gives a
+  first-order Taylor model of the operating cost; it is subtracted from every sampled return and its
+  expectation is differentiated analytically (`Σ_tg ∂op/∂u_tg · ∂p_tg/∂θ`). The estimator stays unbiased
+  (up to the credit window); the analytic term is a dense per-unit signal that pushes down units whose
+  no-load cost exceeds their dispatch value.
+* **KL anchor to the imitation policy** (optional, weight α): `α Σ_tg KL(Bern(p_tg) ‖ Bern(p⁰_tg))`, as in
+  KL-regularised policy optimisation; the imitation policy is cheap whenever it serves, so the fine-tune
+  should move only decisions the LP critic asks for.
+* **Label-free**: the reference cost is the LP-relaxation cost (no MILP solve anywhere in training).
+
+### 2.2 Block adequacy repair (solver-free) and fine-tuning through it
+
+`otsl.constrained.adequacy_repair_blocks`: for each hour whose committed capacity is below net load +
+reserve, switch on the off unit with the lowest cost per MW of the **block it needs** (start-up +
+no-load over its minimum up time; or bridging back to its last on-hour when that is within its minimum
+down time, which avoids a start-up), until the deficit is covered; then min up/down repair. The
+existing `adequacy_repair` adds single unit-hours, which the Hamming-nearest min up/down repair then
+largely reverts for units with long minimum up times. The repair is used (a) as a decoder for every
+model and (b) inside the training loop (every sampled and deployed commitment is repaired before the LP),
+so the policy no longer has to secure aggregate capacity itself.
+
+### 2.3 Baselines (same LP budget: 120 steps × 16 instances × 6 LPs = 11,520 training LPs)
+
+* **Plain REINFORCE** (current method, `otsl.ucml.train_uc_reinforce`, re-run with the same seed from the
+  re-trained label-free BCE model; `rl_lf`), and the same estimator with the block repair in the loop
+  (`rl_R`, `otsl.constrained.train_reinforce_plain`).
+* **He et al. 2026-style prediction and repair** (`he_bc`): behaviour cloning of MILP commitments (the
+  MILP-label BCE model `uc_model1_4.pt`); reliable / repairable split by an uncertainty score
+  `(1 − |2p − 1|) + h_tg + 1[root relaxation fractional]`, where `h_tg` is the frequency with which the
+  root LP relaxation of the training instances is fractional for that unit-hour ("historical
+  root-relaxation records"); the k = 48 most uncertain decisions are repairable; a shared per-decision
+  policy (MLP on decision, unit and hour features incl. the BC schedule's capacity margin, initialised
+  to reproduce the BC logit) sets them; PPO-clip (4 epochs, clip 0.2) on the reward −log(LP cost /
+  MILP cost), where the LP cost contains the operating cost and the priced infeasibility. Simplification:
+  He et al. learn a *sequential* repair policy; here the repair is a single step (all repairable
+  decisions at once), so that inference needs one LP like the other end-to-end methods.
+* **kNN-20**: the 20 nearest training schedules (MILP labels), each checked with the LP (20 LPs).
+
+### 2.4 Protocol
+
+Hyperparameters and variants were chosen on the 60 validation instances only; the test set (120
+instances) was evaluated once at the end for all models. Decoders: top-1 (threshold 0.5) + min
+up/down repair; + the existing adequacy repair; + the block adequacy repair; candidate screening
+(`candidates_from_probs`: 7 thresholds + 8 samples, best by LP); a decision threshold calibrated per
+model on val by the label-free expected cost (mean LP cost incl. penalties / LP-relaxation cost).
+Single seed (0) throughout.
+
+## 4. Prior work and what is new
+
+Searched 2026-10-05 (search-engine abstracts and snippets; arXiv and publisher pages were not reachable,
+so details marked † are from abstracts only).
+
+| work | what it does | relation |
+|---|---|---|
+| He et al. 2026, *A prediction and repair framework with dispatch feedback for UC via RL* (IET GTD, [doi:10.1049/gtd2.70405](https://doi.org/10.1049/gtd2.70405)) | BC commitment prediction; root-relaxation history + confidence restrict the repair space; PPO repair policy trained on LP operating-cost and feasibility feedback; IEEE 300-bus, French 1888-bus† | closest; baseline `he_bc` (simplified to a one-step repair). Cost and feasibility enter one reward; no constraint / multiplier† |
+| Yang et al. 2024, FPG-STGCN ([arXiv 2405.01200](https://arxiv.org/abs/2405.01200)) | few MILP solutions + augmented-Lagrangian physics loss on the constraints, straight-through estimator for the binaries | Lagrangian on the *UC constraints* of a relaxed model; here the multiplier is on the *outcome* of the exact dispatch LP (shedding / shortfall) and the gradient is a score-function estimator |
+| Park et al. 2024, RACLearn (IEEE TPS, [2211.15755](https://arxiv.org/abs/2211.15755)); Fritz et al. 2026, Learning to Fix ([2609.39396](https://arxiv.org/abs/2609.39396)) | confidence / cost-aware fixing + reduced MILP | MILP at inference; not end-to-end |
+| Pineda & Morales 2022 ([2106.11687](https://arxiv.org/abs/2106.11687)); Xavier, Qiu & Ahmed 2021 | kNN schedules + LP check | baseline kNN-20 |
+| Dalal & Mannor 2015 ([1507.05268](https://arxiv.org/abs/1507.05268)); de Mars & O'Sullivan 2021/2022 ([2212.06001](https://arxiv.org/abs/2212.06001), [code](https://github.com/pwdemars/rl4uc)); Qin et al. 2022 ([2206.04249](https://arxiv.org/abs/2206.04249)) | UC as a sequential MDP (hour by hour), PPO / Q-learning, guided tree search; shedding priced in the reward | RL *solves* UC hour by hour; here RL fine-tunes a one-shot predictor with the LP as critic |
+| Ray, Achiam & Amodei 2019, PPO-Lagrangian ([Safety Gym](https://github.com/openai/safety-starter-agents)); Tessler et al. 2019, RCPO ([1805.11074](https://arxiv.org/abs/1805.11074)); Stooke et al. 2020, PID Lagrangian ([2007.03964](https://arxiv.org/abs/2007.03964)) | constrained policy optimisation with a dual-ascent multiplier, separately normalised reward / cost advantages; multiplier overshoot and oscillation | the estimator used here; the overshoot they describe is exactly what happened in run `lag_B` |
+| Solozabal et al. 2020, constrained combinatorial optimisation with RL ([2006.11984](https://arxiv.org/abs/2006.11984)) | Lagrangian-relaxed penalties for non-maskable constraints in neural combinatorial optimisation, REINFORCE | same idea for routing / scheduling; not UC, no LP critic |
+| Fioretto, Mak & Van Hentenryck 2020 ([AAAI](https://ojs.aaai.org/index.php/AAAI/article/view/5403)); Park & Van Hentenryck 2023, PDL ([AAAI](https://ojs.aaai.org/index.php/AAAI/article/view/25520)) | Lagrangian-dual / primal-dual *self-supervised* learning of (continuous) OPF solutions | continuous decisions, differentiable constraints; here decisions are binary and the constraint is the outcome of an LP |
+| Gu et al. 2016, MuProp ([1511.05176](https://arxiv.org/abs/1511.05176)); Kool, van Hoof & Welling 2019, RLOO | Taylor control variate for discrete stochastic nodes; leave-one-out baseline | estimator components; the Taylor gradient here comes from LP duals (envelope theorem) rather than backpropagation |
+| Za'ter et al. 2026 ([2604.21891](https://arxiv.org/abs/2604.21891)); Ramesh & Li 2024 ([2208.06742](https://arxiv.org/abs/2208.06742)) | min up/down and excess-capacity heuristics / feasibility layers after prediction | the block adequacy repair is of this family; the new part is making it min up/down-aware and training *through* it |
+
+**What is new here** (to the extent the search could establish):
+1. A constrained (Lagrangian) policy-gradient fine-tune of a *one-shot* commitment predictor with the
+   exact dispatch LP as critic, in which operating cost is the objective and LP shedding / reserve
+   shortfall is a chance constraint on the **deployed** (thresholded and repaired) commitment, with the
+   multiplier driven by the deployed violation rate. No published UC work found does this; He et al.
+   train a separate repair policy on one combined reward, FPG-STGCN dualises the UC constraints of a
+   relaxed model.
+2. Per-hour credit assignment from a per-hour split of the dispatch LP objective, and a MuProp control
+   variate whose Taylor gradient is the LP's exact sensitivities at the deployed commitment.
+3. The diagnosis that the end-to-end policies' extra cost comes from units the MILP keeps off (and that
+   fine-tuning never removes a unit), partly from hedging against the policy's own sampling noise, and
+   that a min up/down-aware capacity repair in the training loop removes most of the pressure.
+None of the components is new in isolation (Lagrangian RL, RLOO, MuProp, KL anchors, adequacy
+heuristics are all standard); the combination and the application to the UC end-to-end mode are.
+

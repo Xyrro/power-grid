@@ -1,0 +1,372 @@
+{
+ "label_cost": {
+  "lp_relaxation_s_per_label": 0.3546692132949829,
+  "lp_relaxation_core_s": 177.33460664749146,
+  "score_lp_core_s_round0": 120.78585004806519,
+  "full_milp_label_core_s": 17017.699302196503,
+  "full_milp_s_per_label": 34.035398604393
+ },
+ "label_cost_summary": {
+  "LP relaxations (500, also model inputs)": 177.33460664749146,
+  "dispatch LPs scoring the round-0 labels": 120.78585004806519,
+  "pilot reduced MILPs + LPs (2 settings)": 683.4376904964447,
+  "round reduced MILPs": 5143.212281227112,
+  "round dispatch LPs": 117.94120359420776,
+  "TOTAL self-training labels": 6242.711632013321,
+  "500 full-MILP labels (data generation)": 17017.699302196503
+ },
+ "labels": {
+  "round0": {
+   "n": 500,
+   "gap_to_LP_bound_mean_%": 163.36310520186868,
+   "gap_to_LP_bound_median_%": 12.662966131414606,
+   "served_%": 35.4,
+   "diag_gap_to_MILP_mean_%": 154.74661662209465,
+   "diag_gap_to_MILP_median_%": 12.15532515493214,
+   "diag_gap_to_MILP_mean_served_%": 0.8850487154546111,
+   "diag_label_le_MILP_%": 7.000000000000001,
+   "units_on": 13.118166666666667,
+   "diag_MILP_units_on": 13.394166666666665
+  }
+ },
+ "pilot": {
+  "0.8": {
+   "n_solved": 30,
+   "accepted_%": 93.33333333333333,
+   "milp_core_s": 349.03918051719666,
+   "lp_core_s": 8.031838178634644,
+   "milp_s_mean": 11.634639350573222,
+   "hit_time_limit_%": 53.333333333333336,
+   "cost_reduction_mean_%": 25.201950498658295,
+   "cost_reduction_median_%": 12.668529150063902,
+   "infeasible": 0,
+   "released_per_instance": 0.3,
+   "labels_after": {
+    "n": 30,
+    "gap_to_LP_bound_mean_%": 4.211550085433855,
+    "gap_to_LP_bound_median_%": 0.8263328410958066,
+    "served_%": 93.33333333333333,
+    "diag_gap_to_MILP_mean_%": 3.378599170944006,
+    "diag_gap_to_MILP_median_%": 0.39199588783112627,
+    "diag_gap_to_MILP_mean_served_%": 0.5272132674431237,
+    "diag_label_le_MILP_%": 23.333333333333332,
+    "units_on": 14.097222222222221,
+    "diag_MILP_units_on": 14.088888888888889
+   }
+  },
+  "0.9": {
+   "n_solved": 30,
+   "accepted_%": 86.66666666666667,
+   "milp_core_s": 318.50356006622314,
+   "lp_core_s": 7.863111734390259,
+   "milp_s_mean": 10.616785335540772,
+   "hit_time_limit_%": 50.0,
+   "cost_reduction_mean_%": 22.90361117543491,
+   "cost_reduction_median_%": 12.034197638472353,
+   "infeasible": 0,
+   "released_per_instance": 0.7333333333333333,
+   "labels_after": {
+    "n": 30,
+    "gap_to_LP_bound_mean_%": 10.206902269559146,
+    "gap_to_LP_bound_median_%": 0.9724996479753081,
+    "served_%": 76.66666666666667,
+    "diag_gap_to_MILP_mean_%": 9.30393481558878,
+    "diag_gap_to_MILP_median_%": 0.516631253083251,
+    "diag_gap_to_MILP_mean_served_%": 0.5112108197597748,
+    "diag_label_le_MILP_%": 20.0,
+    "units_on": 14.069444444444445,
+    "diag_MILP_units_on": 14.088888888888889
+   }
+  },
+  "before": {
+   "n": 30,
+   "gap_to_LP_bound_mean_%": 72.54481874417415,
+   "gap_to_LP_bound_median_%": 14.786215232770068,
+   "served_%": 26.666666666666668,
+   "diag_gap_to_MILP_mean_%": 70.66234247642782,
+   "diag_gap_to_MILP_median_%": 14.604780339609519,
+   "diag_gap_to_MILP_mean_served_%": 1.2045049302368276,
+   "diag_label_le_MILP_%": 3.3333333333333335,
+   "units_on": 13.944444444444445,
+   "diag_MILP_units_on": 14.088888888888889
+  },
+  "chosen_q": 0.8,
+  "labels_best_of_both": {
+   "n": 30,
+   "gap_to_LP_bound_mean_%": 4.211512011323452,
+   "gap_to_LP_bound_median_%": 0.8263328410958066,
+   "served_%": 93.33333333333333,
+   "diag_gap_to_MILP_mean_%": 3.3785611584756534,
+   "diag_gap_to_MILP_median_%": 0.39199588783112627,
+   "diag_gap_to_MILP_mean_served_%": 0.5271725397984597,
+   "diag_label_le_MILP_%": 26.666666666666668,
+   "units_on": 14.097222222222221,
+   "diag_MILP_units_on": 14.088888888888889
+  }
+ },
+ "q": 0.8,
+ "rounds": [
+  {
+   "n_solved": 137,
+   "accepted_%": 83.94160583941606,
+   "milp_core_s": 1341.8358399868011,
+   "lp_core_s": 32.92422652244568,
+   "milp_s_mean": 9.79442218968468,
+   "hit_time_limit_%": 45.25547445255474,
+   "cost_reduction_mean_%": 23.780936439575903,
+   "cost_reduction_median_%": 8.30317737645246,
+   "infeasible": 0,
+   "round": 1,
+   "q": 0.8,
+   "released_per_instance": 0.45255474452554745,
+   "chunk_before": {
+    "n": 167,
+    "gap_to_LP_bound_mean_%": 147.11231464047427,
+    "gap_to_LP_bound_median_%": 5.503834828846464,
+    "served_%": 47.90419161676647,
+    "diag_gap_to_MILP_mean_%": 133.14603525815633,
+    "diag_gap_to_MILP_median_%": 4.504245451497335,
+    "diag_gap_to_MILP_mean_served_%": 1.0675024008188931,
+    "diag_label_le_MILP_%": 13.17365269461078,
+    "units_on": 13.22554890219561,
+    "diag_MILP_units_on": 13.459081836327345
+   },
+   "chunk_after": {
+    "n": 167,
+    "gap_to_LP_bound_mean_%": 7.63318316837288,
+    "gap_to_LP_bound_median_%": 0.7730103504827597,
+    "served_%": 90.41916167664671,
+    "diag_gap_to_MILP_mean_%": 6.094816948920554,
+    "diag_gap_to_MILP_median_%": 0.23108190304511356,
+    "diag_gap_to_MILP_mean_served_%": 0.6960110337039813,
+    "diag_label_le_MILP_%": 26.94610778443114,
+    "units_on": 13.335828343313374,
+    "diag_MILP_units_on": 13.459081836327345
+   },
+   "pool_after": {
+    "n": 500,
+    "gap_to_LP_bound_mean_%": 112.67707688621576,
+    "gap_to_LP_bound_median_%": 3.1148192658174434,
+    "served_%": 53.6,
+    "diag_gap_to_MILP_mean_%": 108.27448282773281,
+    "diag_gap_to_MILP_median_%": 1.7205135676293453,
+    "diag_gap_to_MILP_mean_served_%": 0.6771488370586498,
+    "diag_label_le_MILP_%": 13.0,
+    "units_on": 13.164166666666667,
+    "diag_MILP_units_on": 13.394166666666665
+   },
+   "train_s": 129.47106790542603,
+   "wall_s": 833.1717534065247
+  },
+  {
+   "n_solved": 167,
+   "accepted_%": 90.41916167664671,
+   "milp_core_s": 1913.711876153946,
+   "lp_core_s": 42.07036113739014,
+   "milp_s_mean": 11.459352551820036,
+   "hit_time_limit_%": 55.08982035928144,
+   "cost_reduction_mean_%": 22.751544656365223,
+   "cost_reduction_median_%": 5.673839014459037,
+   "infeasible": 0,
+   "round": 2,
+   "q": 0.8,
+   "released_per_instance": 0.4431137724550898,
+   "chunk_before": {
+    "n": 167,
+    "gap_to_LP_bound_mean_%": 179.45355585502446,
+    "gap_to_LP_bound_median_%": 9.104788959667534,
+    "served_%": 41.31736526946108,
+    "diag_gap_to_MILP_mean_%": 173.15859654753186,
+    "diag_gap_to_MILP_median_%": 8.932695537356503,
+    "diag_gap_to_MILP_mean_served_%": 0.6888732882646712,
+    "diag_label_le_MILP_%": 4.191616766467066,
+    "units_on": 13.4750499001996,
+    "diag_MILP_units_on": 13.706586826347305
+   },
+   "chunk_after": {
+    "n": 167,
+    "gap_to_LP_bound_mean_%": 10.064868075326013,
+    "gap_to_LP_bound_median_%": 0.6723442507331536,
+    "served_%": 88.62275449101796,
+    "diag_gap_to_MILP_mean_%": 8.892388357405931,
+    "diag_gap_to_MILP_median_%": 0.07974300906932702,
+    "diag_gap_to_MILP_mean_served_%": 0.25261903427821775,
+    "diag_label_le_MILP_%": 32.33532934131736,
+    "units_on": 13.665169660678643,
+    "diag_MILP_units_on": 13.706586826347305
+   },
+   "pool_after": {
+    "n": 500,
+    "gap_to_LP_bound_mean_%": 56.10125516779648,
+    "gap_to_LP_bound_median_%": 1.2348837928766359,
+    "served_%": 69.39999999999999,
+    "diag_gap_to_MILP_mean_%": 53.409569292230735,
+    "diag_gap_to_MILP_median_%": 0.4556935146473597,
+    "diag_gap_to_MILP_mean_served_%": 0.4937499957194007,
+    "diag_label_le_MILP_%": 22.400000000000002,
+    "units_on": 13.227666666666666,
+    "diag_MILP_units_on": 13.394166666666665
+   },
+   "train_s": 137.91038155555725,
+   "wall_s": 1124.2724931240082
+  },
+  {
+   "n_solved": 166,
+   "accepted_%": 92.7710843373494,
+   "milp_core_s": 1887.6645650863647,
+   "lp_core_s": 42.94661593437195,
+   "milp_s_mean": 11.371473283652799,
+   "hit_time_limit_%": 54.21686746987952,
+   "cost_reduction_mean_%": 26.754732333264656,
+   "cost_reduction_median_%": 13.018954250998018,
+   "infeasible": 0,
+   "round": 3,
+   "q": 0.8,
+   "released_per_instance": 0.3313253012048193,
+   "chunk_before": {
+    "n": 166,
+    "gap_to_LP_bound_mean_%": 151.17501823012367,
+    "gap_to_LP_bound_median_%": 15.64900169954845,
+    "served_%": 28.915662650602407,
+    "diag_gap_to_MILP_mean_%": 145.79470698770388,
+    "diag_gap_to_MILP_median_%": 15.407601491668121,
+    "diag_gap_to_MILP_mean_served_%": 0.6009576115032217,
+    "diag_label_le_MILP_%": 7.83132530120482,
+    "units_on": 12.678714859437752,
+    "diag_MILP_units_on": 13.014558232931726
+   },
+   "chunk_after": {
+    "n": 166,
+    "gap_to_LP_bound_mean_%": 2.9126790081998766,
+    "gap_to_LP_bound_median_%": 0.6249126734579644,
+    "served_%": 92.7710843373494,
+    "diag_gap_to_MILP_mean_%": 1.7327957975581185,
+    "diag_gap_to_MILP_median_%": 0.011318747747978846,
+    "diag_gap_to_MILP_mean_served_%": 0.2930807372612062,
+    "diag_label_le_MILP_%": 45.18072289156627,
+    "units_on": 12.942269076305221,
+    "diag_MILP_units_on": 13.014558232931726
+   },
+   "pool_after": {
+    "n": 500,
+    "gap_to_LP_bound_mean_%": 6.878158546117789,
+    "gap_to_LP_bound_median_%": 0.6781666356553878,
+    "served_%": 90.60000000000001,
+    "diag_gap_to_MILP_mean_%": 5.581014777102341,
+    "diag_gap_to_MILP_median_%": 0.0795398558012479,
+    "diag_gap_to_MILP_mean_served_%": 0.4141715600457024,
+    "diag_label_le_MILP_%": 34.8,
+    "units_on": 13.315166666666668,
+    "diag_MILP_units_on": 13.394166666666665
+   },
+   "train_s": 125.89119553565979,
+   "wall_s": 1105.1377358436584
+  }
+ ],
+ "val": {
+  "LF-BCE (round 0)": {
+   "top-1": {
+    "no_shed_no_shortfall_%": 11.666666666666666,
+    "gap_median_%": 35.79778509257473,
+    "gap_mean_served_%": 0.6027815372845854,
+    "gap_mean_%": 248.60742093534193,
+    "units_on": 12.176388888888889
+   },
+   "adequacy": {
+    "no_shed_no_shortfall_%": 33.33333333333333,
+    "gap_median_%": 19.72973052090132,
+    "gap_mean_served_%": 1.2074292183466995,
+    "gap_mean_%": 142.2303413470879,
+    "units_on": 12.298611111111112
+   }
+  },
+  "LF-BCE, fixed-epoch trainer (control)": {
+   "top-1": {
+    "no_shed_no_shortfall_%": 11.666666666666666,
+    "gap_median_%": 35.79778509257473,
+    "gap_mean_served_%": 0.6027815372845854,
+    "gap_mean_%": 253.09823950221374,
+    "units_on": 12.174999999999999
+   },
+   "adequacy": {
+    "no_shed_no_shortfall_%": 33.33333333333333,
+    "gap_median_%": 19.72973052090132,
+    "gap_mean_served_%": 1.2074292183466995,
+    "gap_mean_%": 146.72115991395972,
+    "units_on": 12.297222222222222
+   }
+  },
+  "LF + REINFORCE": {
+   "top-1": {
+    "no_shed_no_shortfall_%": 90.0,
+    "gap_median_%": 5.104201697234012,
+    "gap_mean_served_%": 10.800204322929373,
+    "gap_mean_%": 12.602854351669178,
+    "units_on": 14.020833333333334
+   },
+   "adequacy": {
+    "no_shed_no_shortfall_%": 90.0,
+    "gap_median_%": 5.104201697234012,
+    "gap_mean_served_%": 10.800204322929373,
+    "gap_mean_%": 12.602854351669178,
+    "units_on": 14.020833333333334
+   }
+  },
+  "ST round 1": {
+   "top-1": {
+    "no_shed_no_shortfall_%": 18.333333333333332,
+    "gap_median_%": 24.291064259300075,
+    "gap_mean_served_%": 0.6968428047569544,
+    "gap_mean_%": 287.59505606213327,
+    "units_on": 12.227777777777776
+   },
+   "adequacy": {
+    "no_shed_no_shortfall_%": 40.0,
+    "gap_median_%": 9.24187196983373,
+    "gap_mean_served_%": 1.2398603146470693,
+    "gap_mean_%": 158.6741541498624,
+    "units_on": 12.348611111111111
+   }
+  },
+  "ST round 2": {
+   "top-1": {
+    "no_shed_no_shortfall_%": 25.0,
+    "gap_median_%": 26.725757853321973,
+    "gap_mean_served_%": 1.1097512365557125,
+    "gap_mean_%": 246.14920050687567,
+    "units_on": 12.277777777777779
+   },
+   "adequacy": {
+    "no_shed_no_shortfall_%": 50.0,
+    "gap_median_%": 4.596147209440666,
+    "gap_mean_served_%": 1.4486725828927378,
+    "gap_mean_%": 124.91845417720687,
+    "units_on": 12.37361111111111
+   }
+  },
+  "ST round 3": {
+   "top-1": {
+    "no_shed_no_shortfall_%": 26.666666666666668,
+    "gap_median_%": 29.624379623475598,
+    "gap_mean_served_%": 1.519445597390531,
+    "gap_mean_%": 249.3582312977191,
+    "units_on": 12.387500000000001
+   },
+   "adequacy": {
+    "no_shed_no_shortfall_%": 46.666666666666664,
+    "gap_median_%": 5.334746965051714,
+    "gap_mean_served_%": 1.9097314935506482,
+    "gap_mean_%": 107.89159668456995,
+    "units_on": 12.483333333333334
+   }
+  }
+ },
+ "test_rows": null,
+ "fix_rows": null,
+ "train_s": {
+  "m0_bce": 124.1526231765747,
+  "lf_rl": 1392.3178491592407
+ },
+ "rl_LPs_total": null,
+ "fix_wall_s": null
+}
