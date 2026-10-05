@@ -1,0 +1,12 @@
+{
+ "note": "single process, first 10 test instances, measured during the test fixing run (machine shared); seconds per instance",
+ "lp_relaxation_s": 1.01,
+ "inference_s": 0.004,
+ "block_repair_s": 0.014,
+ "dispatch_lp_s": 0.24,
+ "one_lp_pipeline_s": 1.27,
+ "one_lp_pipeline_cpu_s": 1.19,
+ "screening_15_lps_estimate_s": 4.6,
+ "full_milp_mean_s_same_10": 141.2,
+ "full_milp_mean_s_all_40": 154.3
+}
