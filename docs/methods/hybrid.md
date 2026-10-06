@@ -8,7 +8,16 @@ subclasses `otsl.ltfx.LtFTuner` and imports the guards of `otsl.combo` / `otsl.f
 `hybrid_tune_<tag>_cuts.jsonl`, held-out checks `hybrid_holdout_*.json`, run log `hybrid_run.log`. New data:
 `data/generated/uc12/val_extra2.npz` (180 validation-day instances, seed 41).
 
-__SUMMARY__
+**Summary.** Learning to Fix's joint ε-tuning, applied to our learned error-cost scores (BCE GNN) with the
+adequacy and min up/down guards inside the check ("guard-aware LtF on error-cost scores", ε = 1 %), gives on the
+first 60 fresh 12-hour test instances a **0.24 % mean gap to the dual bound at 5.2× (360 validation instances;
+seeds 0/1 on 180: 0.23–0.26 % at 5.3–7.6×)**. It is **significantly better than the paper's own setting** (faithful
+LtF with kNN: 0.40 % at 4.6×; paired −0.16 pp [−0.33, −0.03] and a higher log speed-up, +0.33 [+0.00, +0.63]), but
+only **level with faithful LtF on our BCE probabilities** (0.28 % at 5.2×; −0.03 pp [−0.15, +0.06]). The gain over
+the paper comes from our model and scores; the guard-aware tuning itself adds little. Putting the LP-relaxation
+guard inside the tuning check is degenerate (the tuner fixes 99.8 % and lets the guard release most fixings).
+Doubling validation from 180 to 360 instances lowered the worst test gap (3.14 % → 1.78 %); the 180-instance
+thresholds failed the ε check on 2.8 % of the 180 held-out validation instances.
 
 ## 1. Question
 
@@ -89,4 +98,28 @@ allowed here, and it is the weakest source by the paper's criterion).
 * **Compute.** One core for all MILP / LP work (the machine was shared with two other agents' MILP jobs, load 4–6 on
   4 cores), HiGHS and PyTorch single-threaded; every heavy job ran alone, in the order of `hybrid_run.log`.
 
-__RESULTS__
+## Results (first 60 instances of test_fresh; full MILP back to back, 20.3 s mean)
+
+Paper metrics (gap to the full MILP's dual bound; feasible instances only; mean of per-instance speed-ups).
+Full table: [`results/uc12/hybrid_results.md`](../../results/uc12/hybrid_results.md).
+
+| rule | feasible | gap mean [95 % CI] | gap max | speed-up mean | fixed |
+|---|---|---|---|---|---|
+| full MILP | 100 % | 0.12 % | 1.66 % | 1.0× | 0 % |
+| faithful LtF, kNN, ε = 1 % (paper's setting) | 100 % | 0.40 % [0.28, 0.56] | 3.60 % | 4.6× | 68 % |
+| faithful LtF, our BCE GNN, ε = 1 % | 98.3 % | 0.28 % [0.17, 0.40] | 2.37 % | 5.2× | 84 % |
+| faithful LtF, self-trained GNN, ε = 10 % | 96.7 % | 0.85 % | 5.07 % | 13.6× | 85 % |
+| ours: error-cost + adequacy guard, 90 % | 100 % | 0.42 % | 4.34 % | 4.2× | 90 % |
+| ours: combined pipeline, 98 % | 100 % | 0.82 % | 6.28 % | 13.8× | 92 % |
+| **hybrid: guard-aware LtF on error-cost scores, ε = 1 %, 360 val** | 100 % | **0.24 % [0.17, 0.33]** | **1.78 %** | 5.2× | 86 % |
+| hybrid, same, 180 val, seeds 0 / 1 | 100 % | 0.26 / 0.23 % | 3.14 / 1.73 % | 5.3 / 7.6× | 87 / 84 % |
+| hybrid on BCE probabilities (instead of error-cost scores), 180 val | 100 % | 0.30 % | 4.29 % | 4.3× | 82 % |
+
+Paired against faithful LtF-kNN (paper's setting), hybrid at 360 val: Δ gap −0.16 pp [−0.33, −0.03], Δ log speed-up
++0.33 [+0.00, +0.63] — better on both. Against faithful LtF on our BCE GNN: Δ gap −0.03 pp [−0.15, +0.06], Δ log
+speed-up −0.18 [−0.40, +0.04] — level.
+
+**Verdict.** Against the paper's method as published we are significantly better at equal speed-up; against the
+paper's calibration run on our probabilities we are level. **Limitations**: 60 test instances, two seeds of the
+selected family (seed 2 and ε = 5 % were not run in time), BCE only (REINFORCE not retrained), relaxation MILPs capped
+as in `ltfx`, a shared machine.
