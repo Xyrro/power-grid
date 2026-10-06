@@ -151,12 +151,13 @@ if __name__ == "__main__":
             rs, ttq = [], []
             for r in recs:
                 es = [e for e in r["e2e"] if e["src"] == s]
+                cold = r["e2e"][0]["lp_s"]        # the instance's first dispatch LP (model loaded, no warm start)
                 if mode == "th0.5":
                     e = [x for x in es if abs(x["th"] - 0.5) < 1e-9][0]
-                    tm = e["extra"] + e["lp_s"]
-                else:
+                    tm = e["t_in"] + e["rep_s"] + cold
+                else:                              # inference + all repairs + one cold and k - 1 warm-started LPs
                     e = min(es, key=lambda x: x["cost"])
-                    tm = max(x["extra"] for x in es) + sum(x["lp_s"] for x in es)   # all repairs + all LPs
+                    tm = es[0]["t_in"] + sum(x["rep_s"] + x["lp_s"] for x in es) - es[0]["lp_s"] + cold
                 rs.append(dict(obj=e["cost"], shed=e["shed"], short=e["short"], time=tm, feasible=True, fixed=1.0))
             row = stats(rs, db, t_full, np.zeros(n), ref, f"end-to-end, {s} p, " + ("threshold 0.5, 1 LP" if mode == "th0.5" else f"screening {len(es)} thresholds"))
             tt = np.array([tq(recs[k]["inc_t"], recs[k]["inc_obj"], rs[k]["obj"], t_full[k]) / rs[k]["time"] for k in range(n)])

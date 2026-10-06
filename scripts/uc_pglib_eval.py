@@ -148,7 +148,7 @@ if __name__ == "__main__":
                 u, t_r = timed(rep_block, (p > th).astype(np.int8), inst, sysm)
                 us.append(u)
                 names.append((s, th))
-                ex.append(t_in + t_r)
+                ex.append((t_in, t_r))
         e2e_jobs.append((i, inst_arrays(d, k), us))
         e2e_meta[i] = (names, ex)
 
@@ -176,8 +176,8 @@ if __name__ == "__main__":
             r["extra"] = meta[i][name]["extra"]
             r["n_fixed"] = r["n_fixed_final"]
             rec["rules"][name] = r
-        for (s, th), (c, sh, so, dt), e in zip(names, e2e.get(i, []), ex):
-            rec["e2e"].append(dict(src=s, th=th, cost=c, shed=sh, short=so, lp_s=dt, extra=e))
+        for (s, th), (c, sh, so, dt), (t_in, t_r) in zip(names, e2e.get(i, []), ex):
+            rec["e2e"].append(dict(src=s, th=th, cost=c, shed=sh, short=so, lp_s=dt, t_in=t_in, rep_s=t_r, extra=t_in + t_r))
         with open(out_path, "a") as fh:
             fh.write(json.dumps(rec, default=float) + "\n")
         done += 1

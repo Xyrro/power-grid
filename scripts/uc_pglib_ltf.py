@@ -29,7 +29,7 @@ def tag(name, eps):
 
 def val_probs(name, n_val):
     P = np.load(os.path.join(OUT, "pglib_probs.npz"))
-    return P[f"{name}_va"][:n_val]
+    return P[f"{name}_va" if name == "knn" else f"m1_{name}_va"][:n_val]
 
 
 def run_job(args):
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--n_val", type=int, default=30)
     ap.add_argument("--T", type=int, default=48)
-    ap.add_argument("--K_max", type=int, default=10)
+    ap.add_argument("--K_max", type=int, default=3)
     ap.add_argument("--check_tl", type=float, default=120.0)
     ap.add_argument("--relax_tl", type=float, default=20.0)
     ap.add_argument("--master_tl", type=float, default=120.0)
