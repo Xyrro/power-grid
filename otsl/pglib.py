@@ -540,11 +540,15 @@ BASES = ["2014-09-01", "2014-12-01", "2015-03-01", "2015-06-01", "Scenario400"]
 def load_bases(T=48):
     """the five California load profiles (reserves_0 files: reserve requirement drawn per instance instead).
     Returns (PGSystem, list of dict(demand [T], wind_max [T, W], wind_min [T, W]))."""
-    out, sysm = [], None
+    out = []
+    sysm, _, _ = load_case(os.path.join(PGLIB, "ca", "Scenario400_reserves_0.json"), T=T)   # the fleet + its wind unit
+    W = len(sysm.ren_names)
     for b in BASES:
         s, sc, _ = load_case(os.path.join(PGLIB, "ca", f"{b}_reserves_0.json"), T=T)
-        sysm = sysm or s
-        out.append(dict(name=b, demand=sc.load[:, 0], wmax=sc.avail, wmin=sc.avail_min))
+        assert np.array_equal(s.names_all, sysm.names_all) and np.allclose(s.pmax_all, sysm.pmax_all)
+        wmax = sc.avail if sc.avail.shape[1] == W else np.zeros((T, W))     # profiles without wind: wind = 0
+        wmin = sc.avail_min if sc.avail_min.shape[1] == W else np.zeros((T, W))
+        out.append(dict(name=b, demand=sc.load[:, 0], wmax=wmax, wmin=wmin))
     return sysm, out
 
 
@@ -569,7 +573,7 @@ def make_instance(sysm, bases, rng, W=1, scale=(0.92, 1.08), noise=0.015, res=(0
     rf = rng.uniform(*res)
     ws = 1.0
     wmax = np.zeros((T, W)); wmin = np.zeros((T, W))
-    if B["wmax"].shape[1]:
+    if B["wmax"].sum() > 0:
         ws = rng.uniform(*wind)
         f = ws * np.clip(1 + _ar1(rng, T, wind_noise), 0.5, 1.5)
         wmax = B["wmax"] * f[:, None]
