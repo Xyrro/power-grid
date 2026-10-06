@@ -1,0 +1,8 @@
+{
+ "rule": "larger guarded validation fixed share at eps = 1 %, 180 instances, seed 0 (tie: hg)",
+ "val_fixed_share": {
+  "hg": 0.8183219178082192,
+  "he": 0.8365233384069001
+ },
+ "chosen": "he"
+}

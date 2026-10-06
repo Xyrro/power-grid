@@ -24,6 +24,7 @@ sys.path.insert(0, HERE)
 from uc_papereval_score import PAPER, stats  # noqa: E402
 
 OUT = "results/pglib"
+SLACK_TOL = 1e-4          # MWh of shedding + over-generation + reserve shortfall counted as zero
 ROOT = "data/generated/pglib_ca"
 
 NAMES = {
@@ -62,9 +63,9 @@ def fmt_row(r, cols):
             out.append("–")
         elif isinstance(v, str):
             out.append(v)
-        elif c.startswith("speedup") or c.startswith("ttq"):
+        elif c.startswith("speedup") or c.startswith("ttq") or c == "old_speedup":
             out.append(f"{v:.1f}")
-        elif c in ("n", "n_feas"):
+        elif c in ("n", "n_feas", "soft_n", "no_solution", "soft_gt1", "soft_gt10"):
             out.append(f"{int(v)}")
         else:
             out.append(f"{v:.2f}")
@@ -76,12 +77,40 @@ def table(rows, cols, head):
     return s + "\n".join(fmt_row(r, cols) for r in rows) + "\n"
 
 
+def soft_all(row, rs, ref):
+    """our earlier convention: every instance with a solution, penalty-priced cost, gap to the reference objective"""
+    k = [j for j in range(len(rs)) if rs[j].get("obj_any") is not None]
+    g = np.array([(rs[j]["obj_any"] - ref[j]) / ref[j] * 100 for j in k])
+    row.update(soft_n=len(k), soft_gap_mean=float(g.mean()) if len(k) else np.nan,
+               soft_gap_median=float(np.median(g)) if len(k) else np.nan, soft_gt1=int((g > 1).sum()),
+               soft_gt10=int((g > 10).sum()), soft_served=float(np.mean([rs[j]["shed"] + rs[j]["short"] <= SLACK_TOL for j in k]) * 100) if k else np.nan,
+               no_solution=int(len(rs) - len(k)))
+
+
+def hard_ok(v):
+    return bool(v["feasible"]) and np.isfinite(v["shed"]) and np.isfinite(v["short"]) and v["shed"] + v["short"] <= SLACK_TOL
+
+
+def soft_paired(recs, a, b):
+    """our convention: all instances with a solution, penalty-priced costs, gap to the reference objective"""
+    da = []
+    for r in recs:
+        ra, rb = r["rules"].get(a), r["rules"].get(b)
+        if ra and rb and ra["feasible"] and rb["feasible"]:
+            da.append((ra["obj"] - rb["obj"]) / r["obj"] * 100)
+    da = np.array(da)
+    if len(da) == 0:
+        return None
+    bi = np.random.default_rng(0).integers(0, len(da), (2000, len(da)))
+    return dict(n=len(da), mean=float(da.mean()), ci=[float(x) for x in np.percentile(da[bi].mean(1), [2.5, 97.5])])
+
+
 def paired(recs, a, b, key="gap"):
     """per-instance gap difference a - b over instances feasible for both; bootstrap 95 % CI"""
     da = []
     for r in recs:
         ra, rb = r["rules"].get(a), r["rules"].get(b)
-        if ra and rb and ra["feasible"] and rb["feasible"]:
+        if ra and rb and hard_ok(ra) and hard_ok(rb):
             ga = (ra["obj"] - r["bound"]) / ra["obj"] * 100
             gb = (rb["obj"] - r["bound"]) / rb["obj"] * 100
             da.append(ga - gb)
@@ -133,10 +162,15 @@ if __name__ == "__main__":
         for r in recs:
             v = r["rules"][nm]
             tm = v["time"] + v["extra"] + v.get("lpg_s", 0.0)
-            rs.append(dict(obj=v["obj"], shed=v["shed"] if np.isfinite(v["shed"]) else 0, short=v["short"] if np.isfinite(v["short"]) else 0,
-                           time=tm, feasible=bool(v["feasible"]), fixed=v["n_fixed"] / (T * G)))
+            sh = v["shed"] if np.isfinite(v["shed"]) else np.inf
+            so = v["short"] if np.isfinite(v["short"]) else np.inf
+            # PGLib's model has hard balance and reserve constraints: a reduced problem whose best solution needs
+            # penalty-priced shedding / reserve shortfall has no feasible solution there -> infeasible (paper metric)
+            rs.append(dict(obj=v["obj"], shed=sh, short=so, time=tm, feasible=bool(v["feasible"]) and sh + so <= SLACK_TOL,
+                           fixed=v["n_fixed"] / (T * G), obj_any=v["obj"] if v["feasible"] else None, time_any=tm))
             ov.append(v["extra"] + v.get("lpg_s", 0.0))
         row = stats(rs, db, t_full, np.zeros(n), ref, NAMES.get(nm, nm))
+        soft_all(row, rs, ref)
         f = [k for k in range(n) if rs[k]["feasible"]]
         if f:
             tt = np.array([tq(recs[k]["inc_t"], recs[k]["inc_obj"], rs[k]["obj"], t_full[k]) / rs[k]["time"] for k in f])
@@ -158,8 +192,10 @@ if __name__ == "__main__":
                 else:                              # inference + all repairs + one cold and k - 1 warm-started LPs
                     e = min(es, key=lambda x: x["cost"])
                     tm = es[0]["t_in"] + sum(x["rep_s"] + x["lp_s"] for x in es) - es[0]["lp_s"] + cold
-                rs.append(dict(obj=e["cost"], shed=e["shed"], short=e["short"], time=tm, feasible=True, fixed=1.0))
+                rs.append(dict(obj=e["cost"], shed=e["shed"], short=e["short"], time=tm, feasible=e["shed"] + e["short"] <= SLACK_TOL,
+                               fixed=1.0, obj_any=e["cost"], time_any=tm))
             row = stats(rs, db, t_full, np.zeros(n), ref, f"end-to-end, {s} p, " + ("threshold 0.5, 1 LP" if mode == "th0.5" else f"screening {len(es)} thresholds"))
+            soft_all(row, rs, ref)
             tt = np.array([tq(recs[k]["inc_t"], recs[k]["inc_obj"], rs[k]["obj"], t_full[k]) / rs[k]["time"] for k in range(n)])
             row.update(ttq_mean=float(tt.mean()), ttq_median=float(np.median(tt)), key=f"e2e_{s}_{mode}")
             out["e2e"].append(row)
@@ -200,7 +236,8 @@ if __name__ == "__main__":
         p = os.path.join(OUT, f)
         if os.path.exists(p):
             out[k] = [{kk: v for kk, v in json.loads(x).items() if kk != "inc"} for x in open(p)]
-    for k, f in (("validate", "pglib_validate.json"), ("train_stats", "pglib_train_stats.json")):
+    for k, f in (("validate", "pglib_validate_lp.json"), ("validate_milp", "pglib_validate_milp.json"),
+                 ("train_stats", "pglib_train_stats.json"), ("stcheck", "pglib_stcheck.json")):
         p = os.path.join(OUT, f)
         if os.path.exists(p):
             out[k] = json.load(open(p))
@@ -238,9 +275,16 @@ if __name__ == "__main__":
             "speedup_ratio_of_means", "ttq_mean", "fixed_mean", "served"]
     head = ["method", "feasible %", "gap mean %", "gap max %", "runtime mean s", "runtime max s", "speed-up mean",
             "speed-up max", "ratio of mean times", "time-to-quality speed-up mean", "fixed %", "served %"]
-    md = [f"# PGLib-UC California (24 h, 410 free units): results on {n} {a.split} instances\n"]
+    md = [f"# PGLib-UC California (24 h, 410 free units): results on {n} {a.split} instances\n\n"
+          "Write-up, verdict and limitations: [docs/methods/pglib.md](../../docs/methods/pglib.md). Generated by "
+          "scripts/uc_pglib_report.py from results/pglib/pglib_eval_test*.jsonl.\n\n"]
     md.append("Paper metrics (gap to the full MILP's dual bound; feasible instances; runtimes include inference and guards).\n")
     md.append(table(out["rows"] + out["e2e"], cols, head))
+    md.append("\nOur earlier convention (every instance with a solution; penalty-priced shedding / reserve shortfall included; "
+              "gap to the full MILP's objective; served = no shedding and no reserve shortfall):\n\n")
+    cols2 = ["method", "soft_n", "no_solution", "soft_served", "soft_gap_mean", "soft_gap_median", "soft_gt1", "soft_gt10", "old_speedup"]
+    head2 = ["method", "with a solution", "no solution", "served %", "mean gap %", "median gap %", "# > 1 %", "# > 10 %", "ratio of mean times"]
+    md.append(table([r for r in out["rows"][1:] + out["e2e"]], cols2, head2))
     md.append("\nPaper, Table I (Irish system, 72 h, Gurobi), for reference:\n")
     md.append("| method | feasible % | gap mean % | gap max % | runtime mean s | speed-up mean | speed-up max | fixed % |\n|---|---|---|---|---|---|---|---|\n")
     for p in PAPER:
@@ -261,5 +305,11 @@ if __name__ == "__main__":
             md.append(f"| {NAMES.get(r['key'], r['key'])} | {r['speedup_b2b']:.1f} | {r['speedup_gen']:.1f} |\n")
     md.append("\nData:\n\n```\n" + json.dumps(data, indent=1) + "\n```\n")
     md.append("\nLearning to Fix tuning:\n\n```\n" + json.dumps(out["ltf_tuning"], indent=1) + "\n```\n")
+    if "train_stats" in out:
+        ts = {k: v for k, v in out["train_stats"].items() if k != "rl_hist"}
+        md.append("\nTraining (no full MILP) and label costs:\n\n```\n" + json.dumps(ts, indent=1) + "\n```\n")
+    if "stcheck" in out:
+        md.append("\nSelf-training labels vs MILP on validation instances (kNN labelled set quality):\n\n```\n"
+                  + json.dumps(out["stcheck"], indent=1) + "\n```\n")
     open(os.path.join(OUT, "pglib_results.md"), "w").write("".join(md))
     print("".join(md))

@@ -75,10 +75,11 @@ def solve_ref(m, gap=1e-6, tl=600.0, relax=False, fix_u=None, names=None):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="results/pglib/pglib_validate.json")
-    ap.add_argument("--lp", nargs="+", default=["ca/2014-09-01_reserves_3.json", "ca/Scenario400_reserves_5.json",
+    ap.add_argument("--lp", nargs="*", default=["ca/2014-09-01_reserves_3.json", "ca/Scenario400_reserves_5.json",
                                                  "rts_gmlc/2020-01-27.json"])
-    ap.add_argument("--milp", nargs="+", default=["rts_gmlc/2020-01-27.json:24", "ca/2015-03-01_reserves_1.json:12"])
+    ap.add_argument("--milp", nargs="*", default=["rts_gmlc/2020-01-27.json:24", "ca/2015-03-01_reserves_1.json:12"])
     ap.add_argument("--tl", type=float, default=600.0)
+    ap.add_argument("--gap", type=float, default=1e-6, help="MIP gap of the MILP comparison (ours and reference)")
     a = ap.parse_args()
     tmp = tempfile.mkdtemp(prefix="pglib_val_", dir=os.environ.get("PGLIB_TMP", None))
     out = {"lp": [], "fixed": [], "milp": []}
@@ -116,11 +117,11 @@ if __name__ == "__main__":
         row = dict(file=f, T=T)
         for db in (False, True):
             m = PGModel(s, T=T, delta_binary=db)
-            sol = m.solve_milp(sc, time_limit=a.tl, mip_gap=1e-6, incumbents=False)
+            sol = m.solve_milp(sc, time_limit=a.tl, mip_gap=a.gap, incumbents=False)
             row[f"ours_delta_{'bin' if db else 'cont'}"] = dict(obj=sol["obj"], bound=sol["bound"], time=sol["time"],
                                                                status=sol["status"], slack=sol["shed"] + sol["short"])
         ref, _ = build_reference(path)
-        v, dt, st, bd = solve_ref(ref, gap=1e-6, tl=a.tl)
+        v, dt, st, bd = solve_ref(ref, gap=a.gap, tl=a.tl)
         row["ref"] = dict(obj=v, bound=bd, time=dt, status=st)
         row["rel_diff"] = (row["ours_delta_cont"]["obj"] - v) / abs(v)
         print("MILP", row, flush=True)

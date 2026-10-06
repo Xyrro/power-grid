@@ -3,7 +3,7 @@
     python3 scripts/uc_pglib_ltf.py --jobs knn:0.01,knn:0.05,st:0.01 --workers 2 --n_val 30 --relax_tl 20
 
 Probabilities: kNN (k = 50, Table II features, labelled set data/generated/pglib_ca/knn.npz) and our models
-(results/pglib/pglib_probs.npz). C* = the validation MILP objective. One tuning run per process (HiGHS single
+(data/generated/pglib_ca/pglib_probs.npz). C* = the validation MILP objective. One tuning run per process (HiGHS single
 thread). Writes results/pglib/pglib_ltf_<model>_<eps>.{json,log} and the cheap thresholds (constant, worst case).
 """
 import argparse
@@ -28,7 +28,7 @@ def tag(name, eps):
 
 
 def val_probs(name, n_val):
-    P = np.load(os.path.join(OUT, "pglib_probs.npz"))
+    P = np.load(os.path.join(ROOT, "pglib_probs.npz"))
     return P[f"{name}_va" if name == "knn" else f"m1_{name}_va"][:n_val]
 
 

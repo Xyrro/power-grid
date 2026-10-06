@@ -229,6 +229,6 @@ if __name__ == "__main__":
                                                                                        val_full["u0"][i])).mean() for i in range(len(p))])))
         best = min((v["err95"], k) for k, v in crit.items() if k != "knn")[1]
         update_stats(val_criterion=crit, val_selected_source=best)
-        np.savez_compressed(os.path.join(OUT, "pglib_probs.npz"), **out)
+        np.savez_compressed(os.path.join(ROOT, "pglib_probs.npz"), **out)
         log(f"val criterion {crit} -> selected {best}")
         log("saved probabilities " + ", ".join(k for k in out if not k.endswith("_s")))

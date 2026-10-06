@@ -65,7 +65,7 @@ if __name__ == "__main__":
     d = subset(d, idx)
     n = len(idx)
     sp = "te" if a.split == "test" else "va"
-    P = np.load(os.path.join(OUT, "pglib_probs.npz"))
+    P = np.load(os.path.join(ROOT, "pglib_probs.npz"))
     probs = {k: P[f"m1_{k}_{sp}"][idx] for k in ("lf", "rl", "st") if f"m1_{k}_{sp}" in P.files}
     t_fwd = {k: float(P[f"m1_{k}_{sp}_s"]) for k in probs}
     # kNN (paper's classifier, k = 50, Table II features) on the self-training labelled set: probabilities and

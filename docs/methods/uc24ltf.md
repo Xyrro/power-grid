@@ -21,7 +21,16 @@ labelled training schedules. This study adds both, tunes LtF, and evaluates it a
 
 ## 2. What was added to uc24 (and what it cost)
 
-COST_TABLE
+| item | instances | settings | solve time mean / median | proven | solver core-hours (wall of the solves; CPU) |
+|---|---|---|---|---|---|
+| validation full MILPs (`uc24ltf_val.npz`) | 40 | 0.1 %, 300 s, 1 thread | 106 s / 65 s | 87.5 % (final gap mean 0.10 %, max 0.34 %) | **1.18 h** (1.12 h CPU) |
+| kNN training labels (`uc24ltf_train_lab.npz`) | 120 | 0.5 %, 60 s, 1 thread | 28 s / 24 s | 86 % reached 0.5 % (mean gap 0.35 %, max 3.0 %) | **0.92 h** (0.90 h CPU) |
+| LtF tuning, 4 runs (§4) | – | one core per run | – | – | TUNING_COST |
+| test evaluation (§5) | 40 | reduced MILPs, 0.1 %, 300 s | – | – | EVAL_COST |
+| *for comparison: label-free training of the GNNs ([`b3.md`](b3.md))* | 300 | LP relaxations + dispatch LPs | – | – | *≈ 0.8 h* |
+
+All solves ran in one worker process (one core) while two other agents shared the 4-core machine (1-minute load
+average ≈ 4 during the label runs, against ≈ 6.7 when the test set was generated).
 
 * **Validation (40 instances, full MILP, 0.1 % gap, 300 s, 1 thread — the test settings).** The jobs are
   `make_jobs(val days, 40, seed 202)`: the first 30 are exactly the 30 label-free instances of `val.npz` (same day /

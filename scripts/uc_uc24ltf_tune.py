@@ -4,8 +4,9 @@ validation instances with full MILPs (data/generated/uc24/uc24ltf_val.npz).
     python3 scripts/uc_uc24ltf_tune.py --jobs gnn:0.05,gnn:0.05:g,knn:0.01 --relax_tl 10 --budget_min 25
 
 A job is <model>:<eps>[:g]; model in knn / bce / rl / gnn (= the GNN chosen in results/uc24/uc24ltf_probs.json);
-":g" = guard-aware tuning (otsl.uc24ltf.GuardedLtFTuner: adequacy + LP-relaxation guards + min up/down conflict
-release applied to the fixings inside every check, cut and verification). Jobs run one after the other in this
+unguarded jobs use otsl.uc24ltf.StartLtFTuner (better relaxation-MILP warm starts;
+--plain_start: otsl.ltfx.LtFTuner as on uc12); ":g" = guard-aware tuning (otsl.uc24ltf.GuardedLtFTuner: adequacy guard + soft LP-relaxation guard applied to the
+fixings inside every check, cut and verification). Jobs run one after the other in this
 process (one core; HiGHS single-threaded). Per job: results/uc24/uc24ltf_tune_<model>[_g]_<eps%>.{json,log}.
 """
 import argparse
@@ -21,7 +22,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from otsl.b3 import load_b3  # noqa: E402
 from otsl.ltfx import LtFTuner, fix_masks  # noqa: E402
 from otsl.uc import UCModel, load_rts_gmlc  # noqa: E402
-from otsl.uc24ltf import GuardedLtFTuner  # noqa: E402
+from otsl.uc24ltf import GuardedLtFTuner, StartLtFTuner  # noqa: E402
 
 ROOT, OUT = os.path.join("data", "generated", "uc24"), os.path.join("results", "uc24")
 FIELDS = ("load", "avail", "u0", "sr", "obj", "u", "day", "start", "gap", "time")
@@ -45,7 +46,7 @@ def run_job(name, eps, guarded, cfg, sysm, m):
         logf.flush()
     log(f"LtF tuning (uc24) {name} eps={eps} guarded={guarded} n_val={n} K_max={cfg['K_max']} relax_tl={cfg['relax_tl']} "
         f"check_tl={cfg['check_tl']} Q={cfg['Q']} budget {cfg['budget_s']:.0f}s")
-    cls = GuardedLtFTuner if guarded else LtFTuner
+    cls = GuardedLtFTuner if guarded else (LtFTuner if cfg.get("plain_start") else StartLtFTuner)
     tu = cls(m, sysm, d, pi, eps, K_max=cfg["K_max"], Q=cfg["Q"], check_tl=cfg["check_tl"], relax_tl=cfg["relax_tl"],
              master_tl=cfg["master_tl"], log=log, time_budget=cfg["budget_s"])
     lo, hi = tu.run()
@@ -86,10 +87,11 @@ if __name__ == "__main__":
     ap.add_argument("--check_tl", type=float, default=60.0)
     ap.add_argument("--master_tl", type=float, default=120.0)
     ap.add_argument("--budget_min", type=float, default=25.0)
+    ap.add_argument("--plain_start", action="store_true", help="otsl.ltfx.LtFTuner's label start only")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     cfg = dict(val=a.val, n_val=a.n_val, K_max=a.K_max, Q=a.Q, relax_tl=a.relax_tl, check_tl=a.check_tl,
-               master_tl=a.master_tl, budget_s=a.budget_min * 60)
+               master_tl=a.master_tl, budget_s=a.budget_min * 60, plain_start=a.plain_start)
     sysm = load_rts_gmlc()
     m = UCModel(sysm, T=24, network=True)
     choice = json.load(open(os.path.join(OUT, "uc24ltf_probs.json"))).get("gnn_choice", "bce")

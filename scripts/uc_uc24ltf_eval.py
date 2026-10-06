@@ -76,6 +76,11 @@ def _job(job):
         ginfo = {}
         if kind == "ltf_guard":
             fix, ginfo = guard_fix(m, s, sc, fix)
+        elif kind == "ltf_guard_cr":                   # + min up/down conflict release (test-time safety net)
+            fix, ginfo = guard_fix(m, s, sc, fix, use_conflict=True)
+        elif kind == "ltf_cr":
+            fix, r_c = release_conflicting_rows(fix, s, u0)
+            ginfo = dict(released_conflict=r_c)
         elif kind in ("b3", "b3_guard"):               # scripts/uc_b3_fix.py _job: LP guard (guarded rules), conflicts
             r_lp = 0
             if kind == "b3_guard" and fix:
@@ -91,19 +96,25 @@ def _job(job):
 
 
 def thresholds(tags):
+    """{tag: (rule name, model, lo, hi, kind)}; a tag ending in "+cr" adds the min up/down conflict release of our
+    pipelines at test time (otsl.fixpolicy.release_conflicting_rows) to the rule"""
     th = {}
     cheap = json.load(open(os.path.join(OUT, "uc24ltf_cheap_thresholds.json"))) \
         if os.path.exists(os.path.join(OUT, "uc24ltf_cheap_thresholds.json")) else {}
-    for tg in tags:
+    for tg0 in tags:
+        cr = tg0.endswith("+cr")
+        tg = tg0[:-3] if cr else tg0
         f = os.path.join(OUT, f"uc24ltf_tune_{tg}.json")
         if os.path.exists(f):
             r = json.load(open(f))
             nm = f"LtF{'+guards' if r['guarded'] else ''} {r['model']} eps={r['eps'] * 100:g}%" + \
-                 ("" if r["converged"] else " (not converged)")
-            th[tg] = (nm, r["model"], np.array(r["lo"]), np.array(r["hi"]), r["guarded"])
+                 (" + conflict release" if cr else "") + ("" if r["converged"] else " (not converged)")
+            kind = ("ltf_guard" if r["guarded"] else "ltf") + ("_cr" if cr else "")
+            th[tg0] = (nm, r["model"], np.array(r["lo"]), np.array(r["hi"]), kind)
         elif tg in cheap:
-            model, kind = tg.split("_", 1)
-            th[tg] = (f"{model} {kind}", model, np.array(cheap[tg]["lo"]), np.array(cheap[tg]["hi"]), False)
+            model, k2 = tg.split("_", 1)
+            th[tg0] = (f"{model} {k2}" + (" + conflict release" if cr else ""), model, np.array(cheap[tg]["lo"]),
+                       np.array(cheap[tg]["hi"]), "ltf_cr" if cr else "ltf")
         else:
             print(f"WARNING: no thresholds for {tg}", flush=True)
     return th
@@ -161,12 +172,12 @@ if __name__ == "__main__":
     jobs = []
     for i in range(n):
         specs = []
-        for tg, (nm, model, lo, hi, guarded) in th.items():
+        for tg, (nm, model, lo, hi, kind) in th.items():
             t0 = time.time()
             fix = fix_dict(P[model][i], lo, hi)
             pre = T_inf[model][i] + time.time() - t0
             arr = np.array([(t, g, v) for (t, g), v in fix.items()], np.int64).reshape(-1, 3)
-            specs.append((nm, arr, "ltf_guard" if guarded else "ltf", pre))
+            specs.append((nm, arr, kind, pre))
         for o in old:
             q, rk = o.split("|")
             rk = rk.replace("best=", "")

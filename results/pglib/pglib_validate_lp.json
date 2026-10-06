@@ -1,0 +1,70 @@
+{
+ "lp": [
+  {
+   "file": "ca/2014-09-01_reserves_3.json",
+   "T": 48,
+   "ours": 48392.92617844318,
+   "ours_s": 6.7019829750061035,
+   "ref": 48392.92617844354,
+   "ref_s": 54.88362383842468,
+   "ref_status": "TerminationCondition.optimal",
+   "rel_diff": -7.367232181421575e-15,
+   "ours_slack": 0.0
+  },
+  {
+   "file": "ca/Scenario400_reserves_5.json",
+   "T": 48,
+   "ours": 33834.86308788232,
+   "ours_s": 13.91001558303833,
+   "ref": 33834.863087881684,
+   "ref_s": 74.36738848686218,
+   "ref_status": "TerminationCondition.optimal",
+   "rel_diff": 1.8708759387907106e-14,
+   "ours_slack": 0.0
+  },
+  {
+   "file": "rts_gmlc/2020-01-27.json",
+   "T": 48,
+   "ours": 1205494.5062093902,
+   "ours_s": 1.579941749572754,
+   "ref": 1205494.5062093886,
+   "ref_s": 5.374972581863403,
+   "ref_status": "TerminationCondition.optimal",
+   "rel_diff": 1.351988331080786e-15,
+   "ours_slack": 0.0
+  }
+ ],
+ "fixed": [
+  {
+   "file": "ca/2014-09-01_reserves_3.json",
+   "T": 48,
+   "threshold": 0.05,
+   "ours_dispatch": 48507.963500660786,
+   "ours_slack": 0.0,
+   "ref_fixed_u": 48507.96350066187,
+   "ref_status": "TerminationCondition.optimal",
+   "rel_diff": -2.2349272290075384e-14
+  },
+  {
+   "file": "ca/Scenario400_reserves_5.json",
+   "T": 48,
+   "threshold": 0.05,
+   "ours_dispatch": 34380.30426613434,
+   "ours_slack": 0.0,
+   "ref_fixed_u": 34380.30426613373,
+   "ref_status": "TerminationCondition.optimal",
+   "rel_diff": 1.7777051501939445e-14
+  },
+  {
+   "file": "rts_gmlc/2020-01-27.json",
+   "T": 48,
+   "threshold": 0.2,
+   "ours_dispatch": 1557614.8737242282,
+   "ours_slack": 0.0,
+   "ref_fixed_u": 1557614.873724229,
+   "ref_status": "TerminationCondition.optimal",
+   "rel_diff": -4.484368650714841e-16
+  }
+ ],
+ "milp": []
+}

@@ -136,11 +136,24 @@ if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", default="", help="evaluation file suffix (uc24ltf_eval_test<tag>.jsonl) and output suffix")
+    ap.add_argument("--extra", default="", help="further evaluation jsonl files (same instances, other rules) to merge")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     d = dict(np.load(os.path.join(ROOT, "test.npz")))
-    ev = [json.loads(x) for x in open(os.path.join(OUT, f"uc24ltf_eval_test{a.tag}.jsonl"))]
-    ev.sort(key=lambda r: r["i"])
+    by_i = {}
+    for k_f, fn in enumerate([f"uc24ltf_eval_test{a.tag}.jsonl"] + [f for f in a.extra.split(",") if f]):
+        for line in open(os.path.join(OUT, fn)):
+            r = json.loads(line)
+            for nm in [k for k in r if k not in SKIP]:      # GNN rules pay the LP relaxation timed in their own run
+                r[nm]["_t_rel"] = r["t_rel"] if "knn" not in nm.lower() else 0.0
+            if k_f == 0:
+                by_i[r["i"]] = r
+            elif r["i"] in by_i:
+                by_i[r["i"]].update({k: v for k, v in r.items() if k not in SKIP})
+    ev = [by_i[i] for i in sorted(by_i)]
+    if a.extra:                                             # keep instances present in every file
+        need = set().union(*[set(k for k in r if k not in SKIP) for r in ev])
+        ev = [r for r in ev if need <= set(r)]
     idx = np.array([r["i"] for r in ev])
     n = len(idx)
     incs = [inc_from_arrays(d["inc_t"][i], d["inc_obj"][i]) for i in idx]
@@ -170,9 +183,7 @@ if __name__ == "__main__":
     for nm in names:
         R = []
         for r in ev:
-            x = dict(r[nm])
-            x["_t_rel"] = r["t_rel"] if "knn" not in nm.lower() else 0.0
-            R.append(x)
+            R.append(dict(r[nm]))
         row, p = score(nm, R, d, idx, incs, t_full, fac=fac)
         row["source"] = "this run"
         rows.append(row)
@@ -269,7 +280,7 @@ if __name__ == "__main__":
               "time; method time includes inference, LP relaxation for GNN features, guards; statistics over feasible "
               "instances)\n")
     md.append(fmt_rows(rows + srows, PAPER))
-    md.append("\n`stored:` rows are the earlier uc24 runs (`b3_fix_test*.jsonl`), timed in October under a heavier load "
+    md.append("\n`stored:` rows are the earlier uc24 runs (`b3_fix_test*.jsonl`), timed in the earlier study under a heavier load "
               "(1-min load average ~6.7, two solver workers); `old:` rows are the same rules re-run in this study's worker.\n")
     md.append("\n## Our earlier convention, load correction\n")
     md.append("Gap to the full MILP's objective over all instances, an infeasible reduced problem charged with the full MILP "

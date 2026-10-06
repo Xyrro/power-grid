@@ -12,6 +12,14 @@
                    Because the guards only ever release fixings, the guarded set of a threshold pair is a subset of
                    the plain one; the tuning can therefore accept tighter thresholds wherever the guards already
                    remove the harmful fixings.
+* StartLtFTuner    otsl.ltfx.LtFTuner with better warm starts for the relaxation MILP of ADD CUTS (Algorithm 2).
+                   On uc24 an 8 s relaxation MILP cannot improve on the existing start (the instance's optimal schedule
+                   aligned to the fixings, which releases every fixing it disagrees with: 17-154 decisions in a first
+                   run), so the cuts were far from minimal. Extra start candidates, each a reduced-MILP solution under the
+                   cost cap (found like a check): the fixings with min up/down-conflicting generator rows released, and
+                   additionally with the adequacy / soft LP-relaxation guards applied. The feasible start that
+                   disagrees with the fewest fixings is used. Starts only change where HiGHS begins; the relaxation
+                   MILP (min sum nu, UC constraints, cost cap, no-goods) is the paper's.
 * guard_fix        the guard chain on a fixing dict (also used by the test evaluation).
 * adequacy_guard   identical copy of scripts/uc_fixing.adequacy_guard (scripts are not importable from otsl).
 """
@@ -115,7 +123,91 @@ def guard_fix(m, sysm, sc: UCScenario, fix, use_adequacy=True, use_lp=True, use_
                      guard_lp_s=lp_s, lp_infeasible=lp_inf)
 
 
-class GuardedLtFTuner(LtFTuner):
+class StartLtFTuner(LtFTuner):
+    """LtFTuner with extra warm-start candidates for the relaxation MILP (see module docstring)."""
+
+    def __init__(self, *args, start_tl=15.0, **kw):
+        super().__init__(*args, **kw)
+        self.start_tl = start_tl
+        self.stats.update(n_start_cand=0, t_start_cand=0.0, start_used={})
+
+    def _start_candidates(self, i, off, on):
+        """[(x, mismatches, tag)] feasible full solutions with cost <= cap"""
+        from .fixpolicy import align_to_prediction
+        P = self.prob(i)
+        pi = self.pi[i]
+        T, G = off.shape
+        out = []
+        yhat = np.where(on, 1, np.where(off, 0, (pi > 0.5).astype(np.int8)))
+        ua = align_to_prediction(self.s, self.d["u"][i], yhat, self.d["u0"][i])
+        x0, c0 = P.label_start(ua)
+        if x0 is not None and c0 <= P.cap:
+            out.append((x0, P._u(x0), "label"))
+        t0 = time.time()
+        fix = masks_to_fix(off, on)
+        sc = P.sc
+        fx_c, n_c = release_conflicting_rows(fix, self.s, sc.u0)
+        cands = []
+        if n_c > 0:
+            cands.append(("conflict-release", fx_c))
+        fx_g, _ = guard_fix(self.m, self.s, sc, fx_c, use_adequacy=True, use_lp=True, use_conflict=False)
+        if len(fx_g) < len(fx_c):
+            cands.append(("conflict-release+guards", fx_g))
+        for tag, fx in cands:
+            o2, n2 = fix_to_masks(fx, T, G)
+            ok, info = P.check(o2, n2, self.start_tl)          # a check with a short limit; a pass is a witness
+            self.stats["n_start_cand"] += 1
+            if ok and info.get("u") is not None:
+                self.passed[i].append((o2.copy(), n2.copy(), info["u"]))
+                x, c = P.label_start(info["u"])
+                if x is not None and c <= P.cap:
+                    out.append((x, P._u(x), tag))
+                    break                                   # the first (less released) candidate that passes
+        self.stats["t_start_cand"] += time.time() - t0
+        mism = lambda u: int((off & (u == 1)).sum() + (on & (u == 0)).sum())
+        return sorted([(x, mism(u), tag) for x, u, tag in out], key=lambda z: z[1])
+
+    def add_cuts(self, i, off, on):
+        """Algorithm 2 (as LtFTuner.add_cuts) with the start candidates; for k >= 1 the best candidate that violates
+        no no-good constraint is used."""
+        P = self.prob(i)
+        pi = self.pi[i]
+        starts = self._start_candidates(i, off, on)
+        sets, conj, infos = [], [], []
+        for k in range(self.K_max):
+            st, tag = None, None
+            for x, _, tg in starts:
+                u0 = P._u(x)
+                mm = {(t, g) for t, g in zip(*np.where((off & (u0 == 1)) | (on & (u0 == 0))))}
+                if not any(set(R_) <= mm for R_ in sets):
+                    st, tag = x, tg
+                    break
+            R, info = P.relaxation(off, on, sets, self.relax_tl, start_x=st)
+            self.stats["n_relax"] += 1
+            self.stats["t_relax"] += info["time"]
+            info = dict(info, start=tag)
+            self.stats["start_used"][str(tag)] = self.stats["start_used"].get(str(tag), 0) + 1
+            infos.append({kk: v for kk, v in info.items() if kk != "u"})
+            if R is None or len(R) == 0:
+                break
+            sets.append(R)
+            alo, bhi = {}, {}
+            for t, g in R:
+                if off[t, g]:
+                    alo[g] = min(alo.get(g, 1.0), float(pi[t, g]))
+                else:
+                    bhi[g] = max(bhi.get(g, 0.0), float(pi[t, g]))
+            conj.append((alo, bhi))
+            if info.get("u") is not None:
+                ow = off.copy(); nw = on.copy()
+                for t, g in R:
+                    ow[t, g] = False; nw[t, g] = False
+                self.passed[i].append((ow, nw, info["u"]))
+        self.stats["n_addcuts"] += 1
+        return conj, sets, infos
+
+
+class GuardedLtFTuner(StartLtFTuner):
     """LtFTuner whose check / ADD CUTS / verification see the guarded fixing set (see module docstring).
     Guard results are cached per (instance, plain fixing set)."""
 

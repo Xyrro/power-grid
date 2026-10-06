@@ -1,0 +1,56 @@
+{
+ "lp": [],
+ "fixed": [],
+ "milp": [
+  {
+   "file": "ca/2015-03-01_reserves_1.json",
+   "T": 12,
+   "ours_delta_cont": {
+    "obj": 7121.701812864753,
+    "bound": 7120.996789476967,
+    "time": 25.21493124961853,
+    "status": "Optimal",
+    "slack": 0.0
+   },
+   "ours_delta_bin": {
+    "obj": 7121.701812864754,
+    "bound": 7121.021088845779,
+    "time": 38.5056939125061,
+    "status": "Optimal",
+    "slack": 0.0
+   },
+   "ref": {
+    "obj": 7121.701812864746,
+    "bound": 7121.207220560596,
+    "time": 59.294416427612305,
+    "status": "TerminationCondition.optimal"
+   },
+   "rel_diff": 1.021659963499178e-15
+  },
+  {
+   "file": "rts_gmlc/2020-01-27.json",
+   "T": 12,
+   "ours_delta_cont": {
+    "obj": 148851.67162731374,
+    "bound": 148839.66238400154,
+    "time": 10.787558794021606,
+    "status": "Optimal",
+    "slack": 0.0
+   },
+   "ours_delta_bin": {
+    "obj": 148851.67162731418,
+    "bound": 148837.2792230835,
+    "time": 14.216902256011963,
+    "status": "Optimal",
+    "slack": 0.0
+   },
+   "ref": {
+    "obj": 148851.67162731427,
+    "bound": 148839.08148295013,
+    "time": 14.043664932250977,
+    "status": "TerminationCondition.optimal"
+   },
+   "rel_diff": -3.5194025199316388e-15
+  }
+ ]
+}
