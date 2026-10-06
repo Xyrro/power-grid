@@ -12,7 +12,7 @@ subclasses `otsl.ltfx.LtFTuner` and imports the guards of `otsl.combo` / `otsl.f
 adequacy and min up/down guards inside the check ("guard-aware LtF on error-cost scores", ε = 1 %), gives on the
 first 60 fresh 12-hour test instances a **0.24 % mean gap to the dual bound at 5.2× (360 validation instances;
 seeds 0/1 on 180: 0.23–0.26 % at 5.3–7.6×)**. It is **significantly better than the paper's own setting** (faithful
-LtF with kNN: 0.40 % at 4.6×; paired −0.16 pp [−0.33, −0.03] and a higher log speed-up, +0.33 [+0.00, +0.63]), but
+LtF with kNN: 0.40 % at 4.6×; paired −0.16 pp [−0.33, −0.02] and a higher log speed-up, +0.33 [+0.00, +0.63]), but
 only **level with faithful LtF on our BCE probabilities** (0.28 % at 5.2×; −0.03 pp [−0.15, +0.06]). The gain over
 the paper comes from our model and scores; the guard-aware tuning itself adds little. Putting the LP-relaxation
 guard inside the tuning check is degenerate (the tuner fixes 99.8 % and lets the guard release most fixings).
@@ -115,7 +115,7 @@ Full table: [`results/uc12/hybrid_results.md`](../../results/uc12/hybrid_results
 | hybrid, same, 180 val, seeds 0 / 1 | 100 % | 0.26 / 0.23 % | 3.14 / 1.73 % | 5.3 / 7.6× | 87 / 84 % |
 | hybrid on BCE probabilities (instead of error-cost scores), 180 val | 100 % | 0.30 % | 4.29 % | 4.3× | 82 % |
 
-Paired against faithful LtF-kNN (paper's setting), hybrid at 360 val: Δ gap −0.16 pp [−0.33, −0.03], Δ log speed-up
+Paired against faithful LtF-kNN (paper's setting), hybrid at 360 val: Δ gap −0.16 pp [−0.33, −0.02], Δ log speed-up
 +0.33 [+0.00, +0.63] — better on both. Against faithful LtF on our BCE GNN: Δ gap −0.03 pp [−0.15, +0.06], Δ log
 speed-up −0.18 [−0.40, +0.04] — level.
 

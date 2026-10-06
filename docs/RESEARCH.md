@@ -11,7 +11,7 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
 2. **Many MILP labels are arbitrary** — 34 % of B1 hours have an exactly tied optimum; 21 % (B1) and 62.5 % (B2)
    of labels change when identical units are reordered — so BCE and the MSE test metric penalise correct
    answers (U1, U7, V1).
-3. **The framework's one-shot pipeline under-commits**: 59–74 % of B1 hours and 10–17 % of B2 instances are
+3. **The framework's one-shot pipeline under-commits**: 59–74 % of B1 hours and 8–17 % of B2 instances are
    served without shedding or reserve shortfall (MILP: 98.7 % / 92.5 %) (U3, V2).
 4. **Fine-tuning Model 1 with the exact dispatch LP as critic** (REINFORCE, 1–13 min) fixes this: 93.9 % (B1)
    and 80.8 % (B2) with one LP; 97.4 % / 87.5 % with candidate screening (U4, V2).
@@ -120,7 +120,7 @@ shortfall in 1.3 % of hours) and the **median gap** to the MILP; the mean gap is
 
 *Adequacy repair*: per hour, switch on the cheapest available units until committed capacity covers net
 load + reserve, then switch off the most expensive while minimum outputs exceed demand (polynomial, no solver).
-The single-period LP relaxation is tight (1.3 % below the MILP on average), so relax-and-round is already
+The single-period LP relaxation is tight (1.76 % below the MILP on average), so relax-and-round is already
 strong, and kNN with an LP check is near-optimal — both have to be in any comparison.
 
 ### U3. The framework's one-shot pipeline (Model 1 → one LP) under-commits
@@ -600,7 +600,7 @@ speed-up and barely moves the others).
 | 12 h fresh: combined pipeline, 98 % | 0.84 % | 12.6× | 92 % |
 | 12 h fresh: REINFORCE ranking, 95 % | 3.37 % | 32.5× | 95 % |
 | 12 h original: error-cost + both guards | 0.63 % | 10.4× | 92 % |
-| 24 h: guarded rule, 95 % target | 0.67 % | 11.6× | 85 % |
+| 24 h: guarded rule, 95 % target | 0.67 % | 11.5× | 85 % |
 | 12 h fresh: paper's cost-ranked kNN (k = 50) | 12.0 % | 5.4× | 100 % |
 
 The paper's own baselines are 1.7–4.6× worse in gap and mostly 1.3–2.6× slower on our 12-hour benchmark than on
@@ -622,7 +622,7 @@ generated). First 60 fresh test instances, paper metrics:
 | **hybrid: guard-aware LtF on our error-cost scores, ε = 1 %** | **0.24 %** (max 1.78 %) | 5.2× | 86 % |
 | hybrid, other seed (180 validation instances) | 0.23 % | 7.6× | 84 % |
 
-* **Significantly better than the paper's setting** (−0.16 pp [−0.33, −0.03] in gap and a higher speed-up), but
+* **Significantly better than the paper's setting** (−0.16 pp [−0.33, −0.02] in gap and a higher speed-up), but
   **level with the paper's calibration run on our probabilities** (−0.03 pp [−0.15, +0.06]): the gain comes from
   our model and scores, not from the modified tuning.
 * Putting the LP-relaxation guard inside the tuning check is degenerate (fixes 99.8 % and relies on the guard).
@@ -640,7 +640,7 @@ paper; 48 h took 6–15+ min per MILP with HiGHS, so the first 24 h were used (f
 | Learning to Fix, kNN, ε = 1 % (paper's setting) | 96.7 % | 0.55 % | 25.5× / 5.8× |
 | ours: guarded error-cost rule, 98 % | 100 % | 0.195 % | 12.4× / 8.2× |
 | ours: guarded error-cost rule, 95 % | 100 % | 0.043 % | 8.5× |
-| ours: learned end-to-end (5 LPs) | 96.7 % | 0.65 % | 23.5× |
+| ours: learned end-to-end (5 LPs) | 96.7 % | 0.65 % | 23.6× |
 | no learning: round the LP relaxation, repair, 5 LPs | 100 % | 0.33 % | 24.0× |
 
 * **The paper's regime reproduces here** for Learning to Fix (0.55 % at 25.5×), but its mean speed-up rests on four
@@ -648,7 +648,7 @@ paper; 48 h took 6–15+ min per MILP with HiGHS, so the first 24 h were used (f
 * On the instances both solve, **our 98 % rule is 0.35 pp more accurate [−0.70, −0.12]**, faster by median and by
   ratio of mean times, and never infeasible (the adequacy guard prevents the "needed unit fixed off" failures);
   by the paper's mean speed-up Learning to Fix is about twice as fast.
-* **The strongest fast result needs no learning**: the LP relaxation is within 0.03 % of the optimum, so the MILP is
+* **The strongest fast result needs no learning**: the LP relaxation is within 0.03 % of the optimum at the median (mean 0.08 %, max 0.41 %), so the MILP is
   slow because it is large, not because commitments are hard to predict.
 
 ### X8. Learning to Fix on the 24-hour benchmark
@@ -688,7 +688,7 @@ core-hours). 40 test instances, paper metrics (speed-ups corrected for machine l
    a median 28 s; fixing then saves ~2×. Reduced MILPs with a looser gap or a time limit, and warm-starting the full
    MILP with the learned schedule, are the natural next tests.
 2. **Larger systems with a network and a weak LP relaxation.** PGLib California (§6 X7, 610 units) is large but
-   copper plate, and its LP relaxation is within 0.03 % of the optimum, so rounding without learning already gives
+   copper plate, and its LP relaxation is within 0.03 % of the optimum at the median, so rounding without learning already gives
    0.33 % at 24×. Learning should matter most where the relaxation is weak: network-constrained cases with
    hundreds of units (RACLearn's 6,708-bus case, the EPRI competition systems), and the full 48-hour PGLib horizon
    with a faster MILP solver (6–15+ min per instance with HiGHS here).
