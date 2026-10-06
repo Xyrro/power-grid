@@ -34,10 +34,11 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
    up/down-aware block adequacy repair lets one LP serve ~95 % of B2 instances; self-training with reduced MILPs
    gives near-optimal labels at 37 % of the MILP-label cost; a fixing rule learned from LP-priced errors reaches
    0.28 % mean gap at 3.2× (RACLearn: 12.4 %). Constrained (Lagrangian) fine-tuning alone did not beat REINFORCE.
-11. **Best pipelines (§6)**: end-to-end, 93.3 % served at 1.04 % median gap with ~6 LPs and no MILP; with a reduced
-   MILP, 0.59 % at 5.3× and 0.72 % at 7.0×. A reconstruction of Learning to Fix loses to our rules at every
-   speed-up on B2, and its 0.48 % at 20.8× does not reproduce. On a 24-hour benchmark the MILP finds a 0.5 %-good
-   schedule in a median 28 s, so fixing is only ~2× faster to equal quality.
+11. **Best pipelines and Learning to Fix (§6)**: end-to-end, 93.3 % served at 1.04 % median gap with ~6 LPs and no
+   MILP; with a reduced MILP, 0.59 % at 8.0× and 0.84 % at 12.6× (paper metrics). Learning to Fix implemented from
+   the paper reproduces its quality (0.40 % vs 0.48 %) but not its speed-up (4.7× vs 20.8×) on our 12-hour UC; on our
+   GNN probabilities it is level with our best rules (0.28 % at 5.2×; 0.85 % at 13.5×) — we do not beat it, our
+   models make it better. On 24 hours the MILP finds a 0.5 %-good schedule in a median 28 s.
 
 ## 1. The framework and the benchmarks
 
@@ -527,30 +528,39 @@ Write-ups: [`methods/combo.md`](methods/combo.md), [`methods/ltf.md`](methods/lt
 On the original test set the combined rule at 98 % gives 0.86 % at 10.4× — the only sub-1 % rule at ≥ 10× there.
 The combined fixing pipeline does not beat its parts at lower speed-ups.
 
-### X3. Learning to Fix, reconstructed
+### X3. Learning to Fix, implemented from the paper
 
-> **Superseded.** The full paper was obtained afterwards: its thresholds are tuned with *all* fixings of a validation
-> instance checked jointly (logic-based Benders decomposition), not generator by generator as reconstructed here, so the
-> failure mode below does not apply to the published method. A faithful implementation is in progress (`methods/ltfx.md`).
+Implemented as published ([`methods/ltfx.md`](methods/ltfx.md)): kNN (k = 50, inverse-distance probabilities,
+Table II features) and generator-specific grey zones tuned by the paper's logic-based Benders decomposition, so
+that **every** validation instance, with all its fixings applied jointly, keeps a reduced-UC solution within ε of
+C*. Tuned on 180 validation instances (60 + 120 newly generated; the paper used ~524), 4.0 core-hours for 8 runs.
+Deviation: relaxation MILPs capped at 6 s, so cuts are less minimal and thresholds somewhat more conservative.
+The same tuning was applied to our GNN probabilities (as the paper does with CatBoost).
 
-The full text (arXiv 2609.39396) could not be retrieved (academic hosts are blocked in this environment); the
-reconstruction uses the published facts: a kNN classifier, generator-specific confidence thresholds from the cost
-impact of fixing errors, a 1 % validation cost tolerance (reported 20.8× at 0.48 % gap, 99.81 % feasible). Fixing
-impact was priced with dispatch LPs; assumptions are listed in `methods/ltf.md`.
+Paper metrics on the first 60 fresh 12-hour test instances (gap to the full MILP's dual bound, mean of per-instance
+speed-ups, statistics over feasible instances; full MILP 0.12 % / 19.6 s):
 
-| best mean gap at speed-up ≥ (fresh set, 60 instances) | 2× | 3× | 5× | 10× | 20× |
-|---|---|---|---|---|---|
-| Learning to Fix, kNN as published (tolerance 1–2 %) | 37.7 % | 500 % | 500 % | – | – |
-| Learning to Fix thresholds on our REINFORCE probabilities | 0.55 % | 0.55 % | 0.80 % | – | – |
-| RACLearn | 12.4 % | 49.2 % | 49.2 % | – | – |
-| **ours, best rule** | **0.29 %** | **0.29 %** | **0.72 %** | **3.61 %** | **3.61 %** |
+| rule | feasible | gap mean / max | speed-up mean / max | fixed |
+|---|---|---|---|---|
+| kNN, constant [0.01, 0.99] | 100 % | 0.94 % / 48 % | 2.3× / 28× | 71 % |
+| kNN, Learning to Fix ε = 1 % | 100 % | 0.40 % / 3.6 % | 4.7× / 79× | 68 % |
+| kNN, Learning to Fix ε = 5 % | 100 % | 1.12 % / 5.9 % | 8.3× / 98× | 76 % |
+| **our BCE GNN + Learning to Fix ε = 1 %** | 98.3 % | **0.28 %** / 2.4 % | **5.2×** / 28× | 84 % |
+| our self-trained GNN + Learning to Fix ε = 10 % | 96.7 % | 0.85 % / 5.1 % | 13.5× / 62× | 85 % |
+| ours: error-cost + adequacy guard, 90 % | 100 % | 0.42 % / 4.3 % | 4.2× / 17× | 90 % |
+| ours: combined pipeline, 98 % | 100 % | 0.82 % / 6.3 % | 13.6× / 65× | 92 % |
 
-* Ours wins at every speed-up on both test sets. The per-generator calibration misses errors that are harmless
-  one generator at a time but remove the reserve together (failing instances carry ~11 wrong OFF fixes vs 3.5).
-* The calibration is the useful part, not the kNN: on our REINFORCE probabilities it is competitive (0.55 % at
-  4.7×), within 0.07–0.12 pp of our rules on the fresh set (not significant); on the original set every Learning to
-  Fix point is significantly worse.
-* The paper's 0.48 % at 20.8× does not reproduce on B2.
+* **The paper's quality reproduces, its speed-up does not**: ε = 1 % gives 0.40 % (paper 0.48 %) but 4.7× (paper
+  20.8×), fixing 68 % of decisions (paper 79 %). On a 12-hour network-constrained UC whose MILP takes ~20 s, 20× is
+  out of reach for every method tested.
+* **The joint check removes the failure of our snippet-based reconstruction** (§6 earlier version): on the same
+  test instances 0 instances above 10 % gap instead of 10, and 0.27 % instead of 37.7 % mean gap (our convention).
+* **Against our rules it is level, not beaten.** Learning to Fix on our BCE GNN is the most accurate rule near 5×
+  (0.28 % vs our 0.42 % at 4.2×; in our convention the paired difference is not significant), and at ~13.5× it is
+  level with our combined pipeline (0.85 % vs 0.82 %). Our rules reach higher speed-ups only with larger gaps
+  (REINFORCE ranking: 3.4 % at 33×).
+* **What our work adds to it**: better probabilities. The same calibration on our GNN (LP-relaxation features)
+  beats it on the paper's kNN at every tolerance tested, and the label-free / self-trained models need no MILP labels.
 
 ### X4. A 24-hour benchmark (uc24)
 
@@ -569,6 +579,29 @@ limit. **Training used no full MILP** (0.8 core-hours vs ~13 for MILP labels). 4
 * **The full MILP finds a schedule within 0.5 % of its final one after a median of 28 s**; the rest of its time
   proves the bound. Against *time to the same quality*, fixing is only ~2× faster. Speed-ups against the full
   solve time — the usual way they are reported — overstate the gain for operations that accept a 0.5 % gap.
+
+### X5. All results under the paper's metrics
+
+Re-scored from the per-instance records ([`methods/papereval.md`](methods/papereval.md)): gap to the full MILP's dual
+bound, mean of per-instance speed-ups, feasible instances only, runtimes including inference and guard LPs (the
+earlier 12-hour runs had not timed the LP relaxation used as model input, 0.26 s; adding it halves the fastest rule's
+speed-up and barely moves the others).
+
+| benchmark / method | gap mean | speed-up mean | fixed |
+|---|---|---|---|
+| paper, Learning to Fix ε = 1 % (its system) | 0.48 % | 20.8× | 79 % |
+| 12 h fresh: error-cost + both guards, 95 % | 0.59 % | 8.0× | 93 % |
+| 12 h fresh: combined pipeline, 98 % | 0.84 % | 12.6× | 92 % |
+| 12 h fresh: REINFORCE ranking, 95 % | 3.37 % | 32.5× | 95 % |
+| 12 h original: error-cost + both guards | 0.63 % | 10.4× | 92 % |
+| 24 h: guarded rule, 95 % target | 0.67 % | 11.6× | 85 % |
+| 12 h fresh: paper's cost-ranked kNN (k = 50) | 12.0 % | 5.4× | 100 % |
+
+The paper's own baselines are 1.7–4.6× worse in gap and mostly 1.3–2.6× slower on our 12-hour benchmark than on
+its system (same fixed shares): our benchmark is harder for fixing and its fast MILP caps speed-ups. Relative to those
+baselines our rules improve at least as much as the paper's method does. Not comparable: system (Irish copper plate,
+72 h vs RTS-GMLC DC network, 12/24 h), solver (Gurobi, 8 CPUs vs single-thread HiGHS on a shared machine), MILP
+tolerance, and sample sizes (~525 validation / 525 test vs our 60–180 / 40–120).
 
 ## 7. Recommendations for the framework, box by box
 
