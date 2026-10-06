@@ -104,7 +104,7 @@ def fix_to_masks(fix, T, G):
     return off, on
 
 
-def guard_fix(m, sysm, sc: UCScenario, fix, use_adequacy=True, use_lp=True, use_conflict=False):
+def guard_fix(m, sysm, sc: UCScenario, fix, use_adequacy=True, use_lp=True, use_conflict=False, conflict_first=False):
     """guard chain of the guard-aware Learning to Fix: adequacy guard -> LP-relaxation guard (lp_guard_soft)
     [-> min up/down conflict release, off by default: in the tuning it would release whole generator rows of an
     over-fixed threshold pair and let it pass with a small fixed share; conflicts are left to the LtF cuts, as in
@@ -113,11 +113,13 @@ def guard_fix(m, sysm, sc: UCScenario, fix, use_adequacy=True, use_lp=True, use_
     t0 = time.time()
     r_ad = r_lp = r_c = 0
     lp_s, lp_inf = 0.0, False
+    if conflict_first and fix:                     # test-time variant: conflicts released first, so that the LP
+        fix, r_c = release_conflicting_rows(fix, sysm, sc.u0)    # guard always sees a feasible relaxation
     if use_adequacy and fix:
         fix, r_ad = adequacy_guard(fix, sc.load, sc.avail, sc.sr, sysm)
     if use_lp and fix:
         fix, r_lp, lp_s, lp_inf = lp_guard_soft(m, sysm, sc, fix)
-    if use_conflict and fix:
+    if use_conflict and not conflict_first and fix:
         fix, r_c = release_conflicting_rows(fix, sysm, sc.u0)
     return fix, dict(released_adequacy=r_ad, released_lp=r_lp, released_conflict=r_c, guard_s=time.time() - t0,
                      guard_lp_s=lp_s, lp_infeasible=lp_inf)

@@ -78,6 +78,8 @@ def _job(job):
             fix, ginfo = guard_fix(m, s, sc, fix)
         elif kind == "ltf_guard_cr":                   # + min up/down conflict release (test-time safety net)
             fix, ginfo = guard_fix(m, s, sc, fix, use_conflict=True)
+        elif kind == "ltf_guard_crf":                  # conflict release first, then the guards (test time)
+            fix, ginfo = guard_fix(m, s, sc, fix, conflict_first=True)
         elif kind == "ltf_cr":
             fix, r_c = release_conflicting_rows(fix, s, u0)
             ginfo = dict(released_conflict=r_c)
@@ -102,14 +104,16 @@ def thresholds(tags):
     cheap = json.load(open(os.path.join(OUT, "uc24ltf_cheap_thresholds.json"))) \
         if os.path.exists(os.path.join(OUT, "uc24ltf_cheap_thresholds.json")) else {}
     for tg0 in tags:
-        cr = tg0.endswith("+cr")
-        tg = tg0[:-3] if cr else tg0
+        crf = tg0.endswith("+crf")
+        cr = tg0.endswith("+cr") or crf
+        tg = tg0[:-4] if crf else (tg0[:-3] if cr else tg0)
         f = os.path.join(OUT, f"uc24ltf_tune_{tg}.json")
         if os.path.exists(f):
             r = json.load(open(f))
             nm = f"LtF{'+guards' if r['guarded'] else ''} {r['model']} eps={r['eps'] * 100:g}%" + \
-                 (" + conflict release" if cr else "") + ("" if r["converged"] else " (not converged)")
-            kind = ("ltf_guard" if r["guarded"] else "ltf") + ("_cr" if cr else "")
+                 (" + conflict release first" if crf else (" + conflict release" if cr else "")) + \
+                 ("" if r["converged"] else " (not converged)")
+            kind = ("ltf_guard" if r["guarded"] else "ltf") + ("_crf" if crf else ("_cr" if cr else ""))
             th[tg0] = (nm, r["model"], np.array(r["lo"]), np.array(r["hi"]), kind)
         elif tg in cheap:
             model, k2 = tg.split("_", 1)
