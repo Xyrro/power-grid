@@ -5,3 +5,4 @@ results/**/*.pt
 *.log
 results/uc12/fixpolicy_probs.npz
 results/uc12/ltf_probs.npz
+results/uc12/ltfx_probs.npz
