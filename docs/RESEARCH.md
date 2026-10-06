@@ -687,9 +687,12 @@ core-hours). 40 test instances, paper metrics (speed-ups corrected for machine l
 1. **Report time-to-quality, not only time-to-proof.** On 24 hours the full MILP finds a 0.5 %-good schedule in
    a median 28 s; fixing then saves ~2×. Reduced MILPs with a looser gap or a time limit, and warm-starting the full
    MILP with the learned schedule, are the natural next tests.
-2. **Larger systems** where even finding a good incumbent is slow (thousands of buses, hundreds of units) — the
-   regime of RACLearn's 6,708-bus case and the EPRI competition.
-3. **Learning to Fix from its full text** (blocked here); the reconstruction's impact measure may differ.
+2. **Larger systems with a network and a weak LP relaxation.** PGLib California (§6 X7, 610 units) is large but
+   copper plate, and its LP relaxation is within 0.03 % of the optimum, so rounding without learning already gives
+   0.33 % at 24×. Learning should matter most where the relaxation is weak: network-constrained cases with
+   hundreds of units (RACLearn's 6,708-bus case, the EPRI competition systems), and the full 48-hour PGLib horizon
+   with a faster MILP solver (6–15+ min per instance with HiGHS here).
+3. **Learning to Fix from its full text**: done (§6 X3, X5–X8); the snippet reconstruction (§5) is superseded.
 4. **Seed the data side too**: the 3-seed spread in §6 varies training only, not the label pool, the error-cost
    labels or the label-free start.
 5. **Contingencies / topology change**: the setting where a GNN should beat an MLP.
