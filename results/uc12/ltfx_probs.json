@@ -1,0 +1,49 @@
+{
+ "max_abs_diff_vs_ltf_probs_bce_va": 0.0,
+ "max_abs_diff_vs_ltf_probs_bce_tf": 0.0,
+ "max_abs_diff_vs_ltf_probs_st_va": 0.0,
+ "max_abs_diff_vs_ltf_probs_st_tf": 0.0,
+ "max_abs_diff_vs_ltf_probs_rl_va": 0.0,
+ "max_abs_diff_vs_ltf_probs_rl_tf": 0.0,
+ "knn_va": {
+  "logloss": 0.09048807799401562,
+  "wrong_at_0.5_per_inst": 31.716666666666665,
+  "share_exact_0_or_1": 0.6518645357686453
+ },
+ "bce_va": {
+  "logloss": 0.0548170957243294,
+  "wrong_at_0.5_per_inst": 14.833333333333334,
+  "share_exact_0_or_1": 0.0
+ },
+ "st_va": {
+  "logloss": 0.07051287310715844,
+  "wrong_at_0.5_per_inst": 17.366666666666667,
+  "share_exact_0_or_1": 0.0
+ },
+ "rl_va": {
+  "logloss": 0.10627766056857223,
+  "wrong_at_0.5_per_inst": 30.983333333333334,
+  "share_exact_0_or_1": 0.0
+ },
+ "knn_vx": {
+  "logloss": 0.09438261757620216,
+  "wrong_at_0.5_per_inst": 34.49166666666667,
+  "share_exact_0_or_1": 0.655365296803653
+ },
+ "bce_vx": {
+  "logloss": 0.056194313372650434,
+  "wrong_at_0.5_per_inst": 14.833333333333334,
+  "share_exact_0_or_1": 0.0
+ },
+ "st_vx": {
+  "logloss": 0.06412069521170163,
+  "wrong_at_0.5_per_inst": 15.258333333333333,
+  "share_exact_0_or_1": 0.0
+ },
+ "rl_vx": {
+  "logloss": 0.10241103028085269,
+  "wrong_at_0.5_per_inst": 30.208333333333332,
+  "share_exact_0_or_1": 0.0
+ },
+ "wall_s": 5.116891622543335
+}
