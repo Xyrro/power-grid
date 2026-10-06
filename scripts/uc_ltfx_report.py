@@ -47,7 +47,8 @@ def summarize(path, d):
         feas = np.array([r["feasible"] for r in R])
         cost = np.array([r["obj"] for r in R])
         t_m = np.array([r["time"] + r["pre_s"] + r["relax_s"] + r["guard_s"] for r in R])
-        gap_db = (cost - DB) / cost * 100
+        with np.errstate(invalid="ignore", divide="ignore"):
+            gap_db = (cost - DB) / cost * 100
         sp = t_full / t_m
         # our convention (fallback to the full MILP when infeasible)
         c_fb = np.array([r["obj"] if r["feasible"] else r["fb_obj"] for r in R])

@@ -42,6 +42,7 @@ def old_masks(theta, p):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--joint_check_old", type=int, default=0)
+    ap.add_argument("--only_joint", action="store_true", help="only the joint check of the earlier thresholds")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     sysm = load_rts_gmlc()
@@ -51,10 +52,14 @@ if __name__ == "__main__":
     vx = load(os.path.join(ROOT, "val_extra.npz"))
     vd = {k: np.concatenate([va[k], vx[k]]) for k in ("u", "u0", "load", "avail", "sr", "obj")}
     P = np.load(os.path.join(OUT, "ltfx_probs.npz"))
-    recs = [json.loads(line) for line in open(os.path.join(OUT, "ltfx_eval_test_fresh.jsonl"))]
+    path_out = os.path.join(OUT, "ltfx_diag.json")
+    prev = json.load(open(path_out)) if os.path.exists(path_out) else {}
+    recs = [] if a.only_joint else [json.loads(line) for line in open(os.path.join(OUT, "ltfx_eval_test_fresh.jsonl"))]
     gap = {(r["rule"], r["i"]): ((r["obj"] if r["feasible"] else r["fb_obj"]) - tf["obj"][r["i"]]) / tf["obj"][r["i"]] * 100
            for r in recs}
     out = {"test_fresh": {}, "val": {}}
+    if "joint_check_of_earlier_knn_tau1" in prev:
+        out["joint_check_of_earlier_knn_tau1"] = prev["joint_check_of_earlier_knn_tau1"]
     rules = sorted({r for r, _ in gap if " ltf " in r})
     tune = {f"{json.load(open(f))['model']} ltf eps={json.load(open(f))['eps'] * 100:g}%": json.load(open(f))
             for f in [os.path.join(OUT, x) for x in os.listdir(OUT) if x.startswith("ltfx_tune_") and x.endswith(".json")]}
@@ -86,7 +91,7 @@ if __name__ == "__main__":
         print(f"| {rule} | {len(bad)} ({f(bad, 'wrong_off'):.1f} / {f(bad, 'wrong_on'):.1f}) | {len(good)} ({f(good, 'wrong_off'):.1f} / "
               f"{f(good, 'wrong_on'):.1f}) | {f(rows, 'wrong_off'):.1f} / {f(rows, 'wrong_on'):.1f} | {f(vrows, 'wrong_off'):.1f} / "
               f"{f(vrows, 'wrong_on'):.1f} |")
-    old = json.load(open(os.path.join(OUT, "ltf_diag_fresh.json")))
+    old = {} if a.only_joint else json.load(open(os.path.join(OUT, "ltf_diag_fresh.json")))
     for rule, rows in old.items():
         if not rule.startswith("ltf:"):
             continue
@@ -96,6 +101,23 @@ if __name__ == "__main__":
         print(f"| earlier reconstruction {rule} | {len(bad)} ({f(bad, 'wrong_off'):.1f} / {f(bad, 'wrong_on'):.1f}) | {len(good)} "
               f"({f(good, 'wrong_off'):.1f} / {f(good, 'wrong_on'):.1f}) | {f(rows, 'wrong_off'):.1f} / {f(rows, 'wrong_on'):.1f} | – |")
         out["test_fresh"]["earlier " + rule] = rows
+    # paired: faithful eps = 1 % vs the earlier reconstruction (same instances, same reference objective)
+    pairs = {"knn ltf eps=1%": "ltf:knn:budget:comp:0.01", "rl ltf eps=1%": "ltf:rl:budget:comp:0.01"}
+    out["paired_vs_earlier"] = {}
+    for new_r, old_r in pairs.items():
+        if new_r not in out["test_fresh"] or old_r not in old:
+            continue
+        gn = {r["i"]: r["gap"] for r in out["test_fresh"][new_r]}
+        go = {r["i"]: r["gap"] for r in old[old_r]}
+        com = sorted(set(gn) & set(go))
+        dlt = np.array([gn[i] - go[i] for i in com])
+        rng = np.random.default_rng(0)
+        bs = rng.choice(dlt, (2000, len(dlt))).mean(1)
+        res = dict(n=len(com), faithful_mean=float(np.mean([gn[i] for i in com])), earlier_mean=float(np.mean([go[i] for i in com])),
+                   diff_mean=float(dlt.mean()), ci=[float(np.percentile(bs, 2.5)), float(np.percentile(bs, 97.5))],
+                   faithful_gt10=int(sum(gn[i] > 10 for i in com)), earlier_gt10=int(sum(go[i] > 10 for i in com)))
+        out["paired_vs_earlier"][new_r] = res
+        print(f"paired {new_r} vs earlier {old_r}: {res}")
     if a.joint_check_old:
         th = np.array(json.load(open(os.path.join(OUT, "ltf_thresholds.json")))["knn"]["budget:comp:0.01"]["theta"])
         pold = np.load(os.path.join(OUT, "ltf_probs.npz"))["knn_va"]
@@ -113,4 +135,7 @@ if __name__ == "__main__":
               f"instances violate; wrong OFF per violating instance "
               f"{np.mean([r['wrong_off'] for r in res if not r['ok']]) if n_bad else float('nan'):.1f}, per passing "
               f"{np.mean([r['wrong_off'] for r in res if r['ok']]):.1f}")
-    json.dump(out, open(os.path.join(OUT, "ltfx_diag.json"), "w"), indent=1, default=float)
+    if a.only_joint:
+        prev.update({k: v for k, v in out.items() if k == "joint_check_of_earlier_knn_tau1"})
+        out = prev
+    json.dump(out, open(path_out, "w"), indent=1, default=float)
