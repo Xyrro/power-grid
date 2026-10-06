@@ -78,6 +78,34 @@ def fmt(x, p=2):
     return "–" if x is None or (isinstance(x, float) and not np.isfinite(x)) else f"{x:.{p}f}"
 
 
+def tuning_details():
+    """per-run tuning statistics for docs/methods/ltfx.md (iterations, failing instances, relaxation outcomes)"""
+    import collections
+    rows = []
+    P = np.load(os.path.join(OUT, "ltfx_probs.npz"))
+    from otsl.ltfx import fix_masks
+    for f in sorted(glob.glob(os.path.join(OUT, "ltfx_tune_*.json"))):
+        r = json.load(open(f))
+        h = r["history"]
+        lo, hi = np.array(r["lo"]), np.array(r["hi"])
+        off, on = fix_masks(P[f"{r['model']}_tf"][:60], lo, hi)
+        rel = [y for x in h for y in x.get("relax", [])]
+        st = collections.Counter(y["status"] for y in rel)
+        chk = collections.Counter(x.get("check_status") for x in h if "failed" in x)
+        rows.append(dict(run=f"{r['model']} eps={r['eps'] * 100:g}%", converged=r["converged"], iters=r["n_iter"],
+                         failing_instances=len({x["failed"] for x in h if "failed" in x}),
+                         check_fail_status=dict(chk), relax_status=dict(st), alternatives_per_cut=float(np.mean([len(x["release_sizes"]) for x in h if "release_sizes" in x])),
+                         release_size_mean=float(np.mean([s for x in h for s in x.get("release_sizes", [])])),
+                         val_fixed=r["val_fixed_share"] * 100, test_fixed=float((off | on).mean() * 100),
+                         test_fixed_off=float(off.mean() * 100), test_fixed_on=float(on.mean() * 100),
+                         collapsed=int(((hi - lo) < 1e-6).sum()), width_median=float(np.median(hi - lo)),
+                         wall_h=r["wall_s"] / 3600, cpu_h=r["cpu_s"] / 3600, verify_max_pct=r["verify_max"] * 100,
+                         t_check_h=r["stats"]["t_check"] / 3600, t_relax_h=r["stats"]["t_relax"] / 3600,
+                         t_master_s=r["stats"]["t_master"], n_check=r["stats"]["n_check_solves"], n_cached=r["stats"]["n_check_cached"],
+                         n_relax=r["stats"]["n_relax"]))
+    return rows
+
+
 ORDER = ["full MILP", "knn tau=0.5", "knn const 0.1", "knn const 0.05", "knn const 0.01", "knn worst",
          "knn ltf eps=10%", "knn ltf eps=5%", "knn ltf eps=1%", "st const 0.1", "st const 0.05", "st const 0.01", "st worst",
          "st ltf eps=10%", "st ltf eps=5%", "st ltf eps=1%", "rl ltf eps=1%", "bce ltf eps=1%",
@@ -89,8 +117,12 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="test_fresh")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--details", action="store_true", help="print per-run tuning statistics only")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
+    if a.details:
+        print(json.dumps(tuning_details(), indent=1))
+        sys.exit(0)
     d = load(os.path.join(ROOT, f"{a.split}.npz"))
     rows, common, t_full = summarize(os.path.join(OUT, f"ltfx_eval_{a.split}{a.tag}.jsonl"), d)
     tune = {}
@@ -150,3 +182,4 @@ if __name__ == "__main__":
     with open(os.path.join(OUT, f"ltfx_results{a.tag}.md"), "w") as f:
         f.write("\n".join(L) + "\n")
     print("\n".join(L))
+
