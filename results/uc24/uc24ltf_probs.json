@@ -1,0 +1,22 @@
+{
+ "val_file": "/tmp/claude-0/-home-user-power-grid/d75770fa-9915-5dd2-8fd1-673039ae5372/scratchpad/uc24ltf_val_smoke.npz",
+ "n_val": 5,
+ "max_abs_diff_vs_b3_probs_test_bce": 0.0,
+ "bce_va": {
+  "logloss": 0.06557156633437379,
+  "wrong_at_0.5_per_inst": 25.6,
+  "share_exact_0_or_1": 0.0,
+  "share_in_[0.01,0.99]": 0.9850456621004566,
+  "fixed_share_worst": 0.9323059360730593
+ },
+ "rl_va": {
+  "logloss": 0.11088323087034005,
+  "wrong_at_0.5_per_inst": 71.0,
+  "share_exact_0_or_1": 0.0,
+  "share_in_[0.01,0.99]": 0.9960045662100456,
+  "fixed_share_worst": 0.9272831050228311
+ },
+ "gnn_choice": "bce",
+ "gnn_choice_rule": "lower validation log-loss against the canonical validation MILP schedules (clip 1e-3)",
+ "wall_s": 1.3390638828277588
+}
