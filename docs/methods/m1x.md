@@ -23,10 +23,15 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
   (log `data/generated/uc12_m1x/queue_phase34.log`).
 - 19:40 run A (guard-aware LtF on error-cost scores of the 5-member GNN ensemble, 500 MILP labels) converged:
   81.4 % fixed on validation after guards (reference hybrid 83.1 %).
-- 19:51 selection: winner pol_n2000_gnnt (temporal GNN, 500 MILP + 1,500 polished); training seeds 1–4, then run B,
-  then the test evaluation (first 60, then 60–119) and the report.
-- To resume after a restart: rerun `scripts/uc_m1x_queue.sh phase1` if it had not finished, then
-  `scripts/uc_m1x_queue2.sh phase23` (finished steps are skipped or cheap; an interrupted tuning run restarts from scratch).
+- 19:51 selection: winner pol_n2000_gnnt (temporal GNN, 500 MILP + 1,500 polished). 19:55 phase 3 replaced by
+  `scripts/uc_m1x_queue2.sh phase3b4` (log `data/generated/uc12_m1x/queue_phase3b4.log`): seeds 1–4, ensemble, run B on
+  error-cost scores ("he") and on the probabilities themselves ("hg", added because the error-cost model was trained on
+  the plain GNN's errors), then the test.
+- 21:26 B-he converged: 84.6 % fixed on validation; 22:03 B-hg converged: 88.5 % (selected by the paper's criterion).
+- 22:03 test evaluation started (test_fresh 0–59, then 60–119), five rules per instance back to back with the full MILP.
+- To resume after a restart: `scripts/uc_m1x_queue2.sh phase4` (the evaluation skips finished instances; every tuning
+  run is done). Earlier phases: `scripts/uc_m1x_queue.sh phase1`, `scripts/uc_m1x_queue2.sh phase2`, `phase3b`
+  (finished steps are skipped or cheap).
 
 ## Summary
 
@@ -78,7 +83,17 @@ LP-relaxation guard; gap to the stored validation MILP).
 harm ensemble `combo_harm_s0.pt` on features of the new probabilities (no retraining of the harm model), the score
 transform of `otsl.hybrid.harm_to_score` (μ, σ of log h over the first 180 validation instances), guard-aware tuning
 (`otsl.hybrid.HybridTuner`, adequacy + min up/down rows in the check, ε = 1 %, Q = 20, K_max = 10, relaxation MILPs 6 s)
-on the same 360 validation instances.
+on the same 360 validation instances ("he"). The same tuning on the probabilities themselves ("hg", the other family of
+the hybrid study) was added for the selected model, because the error-cost model was trained on the plain GNN's errors.
+
+**6. Selection (validation only).** `scripts/uc_m1x_select.py`, written before the polished-label, temporal-GNN and MLP
+results: a candidate (seed 0) replaces the default family (GNN on 500 MILP labels) only if its share fixable at 99.9 %
+precision exceeds the default's 5-seed mean by more than the default's seed range and its log-loss is not above the
+default's mean; the best such candidate gets 5 seeds and run B. Run A (the 5-seed default ensemble) isolates the
+ensemble. After phase 2 showed that both more polished data and the temporal head pass the bar, their combination
+(temporal GNN on 2,000 instances) was added as a candidate before any downstream run (`--extended`); it won. Between
+B-he and B-hg the paper's criterion decides (larger guarded validation fixed share). The test set was read only by the
+final evaluation.
 
 ## Setup
 
@@ -167,6 +182,26 @@ make together (shared label noise and shared inputs), so their disagreement is l
 * On the guarded 95 % rule (fixed target, harm model trained on the BCE GNN's errors) the temporal head's better
   probabilities do not show up as a lower gap (median 0.215 % vs 0.044 %; mean level): the error-cost model was
   trained on the plain GNN's out-of-fold errors and is applied to a different model's probabilities without retraining.
+
+### Downstream on validation: Learning to Fix tuning (guard-aware, ε = 1 %, 360 instances)
+
+| run | probabilities | score | val fixed after guards (before) | OFF / ON | iterations | core-h |
+|---|---|---|---|---|---|---|
+| reference hybrid (`he_bce_s0_e1_n360`) | single GNN, 500 MILP labels | error cost | 83.07 % (83.77 %) | 68.8 / 14.2 | 57 + 6 (180 then 360 warm) | 0.88 |
+| A `he_milp500_ens5` | 5 × GNN, 500 MILP labels | error cost | 81.43 % (82.12 %) | 67.2 / 14.2 | 70 | 0.76 |
+| B-he `he_pol_n2000_gnnt_ens5` | 5 × temporal GNN, 500 MILP + 1,500 polished | error cost | 84.57 % (85.00 %) | 70.1 / 14.5 | 65 | 0.82 |
+| **B-hg `hg_pol_n2000_gnnt_ens5`** | same | probability | **88.48 %** (88.61 %) | – | 66 | 0.61 |
+
+* **The ensemble alone does not fix more** under the joint ε-tuning (81.4 % vs 83.1 %), although it is better on every
+  pooled probability metric. The tuned share is set by the worst validation instances per generator (one generator-wide
+  threshold must keep every one of the 360 instances within ε), and the ensemble does not remove those few confident
+  errors; the 1.6 pp difference is within the seed-to-seed spread of the tuning itself (hybrid study: 83.7 % vs 81.1 %
+  for two BCE seeds on 180 instances).
+* **The better model does**: the temporal-GNN ensemble on 2,000 instances fixes 88.5 % with the same validated
+  guarantee when the thresholds are tuned on its probabilities (+5.4 pp over the reference, i.e. a third fewer free
+  decisions: 11.5 % instead of 16.9 %), and 84.6 % through the error-cost transform. The error-cost model
+  (`combo_harm_s0.pt`) was trained on the plain GNN's out-of-fold errors; on a different, better-calibrated model it
+  costs fixings instead of adding them. The paper's criterion (larger validation fixed share) selects **B-hg**.
 
 ## Verdict
 

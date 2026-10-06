@@ -115,6 +115,26 @@ def test_section(lines, res):
     lines.append(table(["rule", "feasible %", "gap mean % [95 % CI]", "gap median %", "gap max %", "runtime s",
                         "speed-up mean [95 % CI]", "speed-up median", "speed-up (ratio of means)", "fixed % (pre-guard)",
                         "served %", "# > 1 % (dataset ref.)"], rows))
+    # pairing check against the hybrid study's own test run (same instances, other core and load)
+    hp = os.path.join(RES, "hybrid_eval_test_fresh.jsonl")
+    if os.path.exists(hp):
+        old = {(r["rule"], r["i"]): r for r in map(json.loads, open(hp))}
+        new = {(r["rule"], r["i"]): r for r in map(json.loads, open(path))}
+        tf = [(new[("full MILP", i)]["time"], old[("full MILP", i)]["time"]) for i in common if ("full MILP", i) in old]
+        ro = [(new[(REF, i)]["obj"], old[(REF, i)]["obj"]) for i in common if (REF, i) in old and (REF, i) in new]
+        if tf:
+            r_t = np.array([a / b for a, b in tf])
+            same = np.mean([abs(a - b) <= 1e-6 * abs(b) for a, b in ro]) * 100 if ro else float("nan")
+            res["test"]["timing_check"] = dict(n=len(tf), full_time_here=float(np.mean([a for a, _ in tf])),
+                                               full_time_hybrid_study=float(np.mean([b for _, b in tf])),
+                                               ratio_median=float(np.median(r_t)), ratio_mean=float(r_t.mean()),
+                                               within_10pct=float(np.mean(np.abs(r_t - 1) <= 0.1) * 100),
+                                               ref_rule_same_objective_pct=float(same))
+            lines.append(f"\nTiming check against the hybrid study's test run on the same {len(tf)} instances: full MILP "
+                         f"{np.mean([a for a, _ in tf]):.1f} s here vs {np.mean([b for _, b in tf]):.1f} s there (per-instance "
+                         f"ratio median {np.median(r_t):.2f}, {np.mean(np.abs(r_t - 1) <= 0.1) * 100:.0f} % within 10 %); "
+                         f"the re-run reference rule reaches the same objective on {same:.0f} % of them. All speed-ups below are "
+                         f"paired against the full MILP solved here, on the same core, back to back.\n")
     if REF not in X:
         return
     lines.append(f"\nPaired against the reference hybrid ({REF}, re-run in the same worker); instance bootstrap 95 % CI. "

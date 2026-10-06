@@ -610,7 +610,7 @@
   "kind": "gnnt",
   "seed": 1,
   "epochs": 40,
-  "train_s": null,
+  "train_s": 668.8715164661407,
   "data_s": 1.9187097549438477,
   "infer_s_per_inst": 0.0038580490483178034,
   "params": 179533,
