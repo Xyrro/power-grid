@@ -1,0 +1,1338 @@
+{
+ "n_checks": 148,
+ "n_mismatch": 4,
+ "rows": [
+  {
+   "loc": "TL;DR 2",
+   "what": "B1 hours with an exactly tied optimum, %",
+   "claimed": "34",
+   "recomputed": "33.6",
+   "src": "results/uc1/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 2",
+   "what": "B1 labels changed by canonical order, %",
+   "claimed": "21",
+   "recomputed": "21.4",
+   "src": "results/uc1/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 2",
+   "what": "B2 labels changed by canonical order, %",
+   "claimed": "62.5",
+   "recomputed": "62.5",
+   "src": "results/uc12/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 3",
+   "what": "B1 one-shot served, range over the four imitation Model 1s, %",
+   "claimed": "59\u201374",
+   "recomputed": "59.4\u201374",
+   "src": "results/uc1/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 3",
+   "what": "B2 one-shot served, range over the four imitation Model 1s, %",
+   "claimed": "10\u201317",
+   "recomputed": "8.333\u201316.67",
+   "src": "results/uc12/uc_model1_results.md",
+   "status": "MISMATCH",
+   "note": "the GNN + symmetry + canonical labels variant serves 8.3 % (V2 table); the B1 range includes the same variant"
+  },
+  {
+   "loc": "TL;DR 3",
+   "what": "B1 MILP served (dispatch LP of the stored MILP schedules), %",
+   "claimed": "98.7",
+   "recomputed": "98.7",
+   "src": "data/generated/uc1/test.npz",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 3",
+   "what": "B2 MILP served (dispatch LP of the stored MILP schedules), %",
+   "claimed": "92.5",
+   "recomputed": "92.5",
+   "src": "data/generated/uc12/test.npz",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 4",
+   "what": "B1 REINFORCE one-shot served, %",
+   "claimed": "93.9",
+   "recomputed": "93.9",
+   "src": "results/uc1/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 4",
+   "what": "B2 REINFORCE one-shot served, %",
+   "claimed": "80.8",
+   "recomputed": "80.83",
+   "src": "results/uc12/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 4",
+   "what": "B1 REINFORCE + screening served, %",
+   "claimed": "97.4",
+   "recomputed": "97.4",
+   "src": "results/uc1/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 4",
+   "what": "B2 REINFORCE + screening served, %",
+   "claimed": "87.5",
+   "recomputed": "87.5",
+   "src": "results/uc12/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 5",
+   "what": "B1 label cost ratio MILP / LP relaxation",
+   "claimed": "18",
+   "recomputed": "18.21",
+   "src": "results/uc1/uc_label_free_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 5",
+   "what": "B2 label cost ratio MILP / LP relaxation",
+   "claimed": "87",
+   "recomputed": "87.43",
+   "src": "results/uc12/uc_label_free_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 5",
+   "what": "B1 label-free + REINFORCE one-shot served, %",
+   "claimed": "94.1",
+   "recomputed": "94.1",
+   "src": "results/uc1/uc_label_free_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 5",
+   "what": "B2 label-free + REINFORCE one-shot served, %",
+   "claimed": "84.2",
+   "recomputed": "84.17",
+   "src": "results/uc12/uc_label_free_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 6",
+   "what": "units committed through the direct (PG, VA) Model 2, range",
+   "claimed": "18\u201327",
+   "recomputed": "17.89\u201326.54",
+   "src": "results/uc1/uc_model2_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 6",
+   "what": "units committed by plain imitation",
+   "claimed": "15",
+   "recomputed": "14.93",
+   "src": "results/uc1/uc_model2_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 7",
+   "what": "physics decoder fully feasible, range %",
+   "claimed": "70\u201374",
+   "recomputed": "69.67\u201374.08",
+   "src": "results/uc1/uc_model2_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 7",
+   "what": "direct (PG, VA) fully feasible, %",
+   "claimed": "0",
+   "recomputed": "0",
+   "src": "results/uc1/uc_model2_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B1 RACLearn 90 % speed-up",
+   "claimed": "4",
+   "recomputed": "4.239",
+   "src": "results/uc1/uc_fixing_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B2 RACLearn 80 % speed-up (28.3 s / 14.8 s)",
+   "claimed": "1.9",
+   "recomputed": "1.914",
+   "src": "results/uc12/uc_fixing_core_results.md + uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B2 90 %, OFF x 10 + adequacy guard, mean gap %",
+   "claimed": "0.41",
+   "recomputed": "0.413",
+   "src": "results/uc12/uc_fixing_core_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B2 90 %, RACLearn, mean gap %",
+   "claimed": "1.38",
+   "recomputed": "1.384",
+   "src": "results/uc12/uc_fixing_core_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B2 90 %, OFF x 10 + adequacy guard, speed-up",
+   "claimed": "4.7",
+   "recomputed": "4.748",
+   "src": "results/uc12/uc_fixing_core_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B1 95 %, REINFORCE ranking, mean gap %",
+   "claimed": "1.3",
+   "recomputed": "1.321",
+   "src": "results/uc1/uc_fixing_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B1 95 %, RACLearn, mean gap %",
+   "claimed": "18",
+   "recomputed": "18.12",
+   "src": "results/uc1/uc_fixing_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B2 95 %, REINFORCE ranking, mean gap %",
+   "claimed": "5.5",
+   "recomputed": "5.501",
+   "src": "results/uc12/uc_fixing_core_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B2 95 %, RACLearn, mean gap %",
+   "claimed": "38.5",
+   "recomputed": "38.51",
+   "src": "results/uc12/uc_fixing_core_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 8",
+   "what": "B2 95 %, REINFORCE ranking, speed-up",
+   "claimed": "27",
+   "recomputed": "27.18",
+   "src": "results/uc12/uc_fixing_core_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 9",
+   "what": "B2 REINFORCE extra cost on served instances, range %",
+   "claimed": "4.7\u20139.1",
+   "recomputed": "4.666\u20139.074",
+   "src": "results/uc12/uc_model1_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 10",
+   "what": "block repair, one LP, served % (fresh, 3 seeds)",
+   "claimed": "95",
+   "recomputed": "95",
+   "src": "results/uc12/combo_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 10",
+   "what": "self-training label cost, % of MILP labels",
+   "claimed": "37",
+   "recomputed": "36.7",
+   "src": "results/uc12/selftrain_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 10",
+   "what": "error-cost ranking 90 %: mean gap %",
+   "claimed": "0.28",
+   "recomputed": "0.28",
+   "src": "results/uc12/combo_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 10",
+   "what": "error-cost ranking 90 %: speed-up",
+   "claimed": "3.2",
+   "recomputed": "3.2",
+   "src": "results/uc12/combo_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 10",
+   "what": "RACLearn 90 %: mean gap %",
+   "claimed": "12.4",
+   "recomputed": "12.43",
+   "src": "results/uc12/combo_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "end-to-end + screening: served %",
+   "claimed": "93.3",
+   "recomputed": "93.3",
+   "src": "results/uc12/combo_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "end-to-end + screening: median gap %",
+   "claimed": "1.04",
+   "recomputed": "1.04",
+   "src": "results/uc12/combo_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "end-to-end + screening: LPs",
+   "claimed": "6",
+   "recomputed": "5.8",
+   "src": "results/uc12/combo_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: error-cost + both guards, 95 %: gap mean %",
+   "claimed": "0.59",
+   "recomputed": "0.5867",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: error-cost + both guards, 95 %: speed-up mean",
+   "claimed": "8.0",
+   "recomputed": "8.041",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: error-cost + both guards, 95 %: fixed %",
+   "claimed": "93",
+   "recomputed": "92.85",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: combined pipeline, 98 %: gap mean %",
+   "claimed": "0.84",
+   "recomputed": "0.8379",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: combined pipeline, 98 %: speed-up mean",
+   "claimed": "12.6",
+   "recomputed": "12.59",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: combined pipeline, 98 %: fixed %",
+   "claimed": "92",
+   "recomputed": "92.45",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: REINFORCE ranking, 95 %: gap mean %",
+   "claimed": "3.37",
+   "recomputed": "3.368",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: REINFORCE ranking, 95 %: speed-up mean",
+   "claimed": "32.5",
+   "recomputed": "32.53",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: REINFORCE ranking, 95 %: fixed %",
+   "claimed": "95",
+   "recomputed": "94.98",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h original: error-cost + both guards: gap mean %",
+   "claimed": "0.63",
+   "recomputed": "0.6272",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h original: error-cost + both guards: speed-up mean",
+   "claimed": "10.4",
+   "recomputed": "10.39",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h original: error-cost + both guards: fixed %",
+   "claimed": "92",
+   "recomputed": "91.95",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "24 h: guarded rule, 95 % target: gap mean %",
+   "claimed": "0.67",
+   "recomputed": "0.6695",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "24 h: guarded rule, 95 % target: speed-up mean",
+   "claimed": "11.6",
+   "recomputed": "11.55",
+   "src": "results/papereval_results.json",
+   "status": "MISMATCH",
+   "note": "11.6\u00d7 is the load-corrected re-run of uc24ltf (11.61\u00d7); the papereval record cited by X5 gives 11.55\u00d7 (\u2192 11.5\u00d7, as in methods/papereval.md)"
+  },
+  {
+   "loc": "X5",
+   "what": "24 h: guarded rule, 95 % target: fixed %",
+   "claimed": "85",
+   "recomputed": "85.44",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: paper's cost-ranked kNN: gap mean %",
+   "claimed": "12.0",
+   "recomputed": "12.02",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: paper's cost-ranked kNN: speed-up mean",
+   "claimed": "5.4",
+   "recomputed": "5.391",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5",
+   "what": "12 h fresh: paper's cost-ranked kNN: fixed %",
+   "claimed": "100",
+   "recomputed": "100",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "error-cost ranking + adequacy + LP guard, 95 % target: gap mean % (paper metrics)",
+   "claimed": "0.59",
+   "recomputed": "0.5867",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "combined: self-trained p + error cost + both guards, 98 % target: gap mean % (paper metrics)",
+   "claimed": "0.84",
+   "recomputed": "0.8379",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "error-cost + both guards 95 %: speed-up",
+   "claimed": "8.0",
+   "recomputed": "8.041",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "combined 98 %: speed-up",
+   "claimed": "12.6",
+   "recomputed": "12.59",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X5 text",
+   "what": "gap ratio ours / paper, constant thresholds + cost-ranked kNN",
+   "claimed": "1.7\u20134.6",
+   "recomputed": "1.663\u20134.576",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": "hard threshold 0.5: ratio 0.80 (better here than in the paper), not covered by the sentence"
+  },
+  {
+   "loc": "X5 text",
+   "what": "slow-down paper / ours, same baselines",
+   "claimed": "1.3\u20132.6",
+   "recomputed": "1.323\u20132.595",
+   "src": "results/papereval_results.json",
+   "status": "ok",
+   "note": "hard threshold: 4.2\u00d7 ('mostly')"
+  },
+  {
+   "loc": "X6",
+   "what": "faithful LtF kNN eps = 1 %: gap %",
+   "claimed": "0.40",
+   "recomputed": "0.4049",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "faithful LtF kNN eps = 1 %: speed-up",
+   "claimed": "4.6",
+   "recomputed": "4.637",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "faithful LtF kNN eps = 1 %: fixed %",
+   "claimed": "68",
+   "recomputed": "67.64",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "faithful LtF BCE eps = 1 %: gap %",
+   "claimed": "0.28",
+   "recomputed": "0.2777",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "faithful LtF BCE eps = 1 %: speed-up",
+   "claimed": "5.2",
+   "recomputed": "5.178",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "faithful LtF BCE eps = 1 %: fixed %",
+   "claimed": "84",
+   "recomputed": "83.64",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid, 360 val: gap %",
+   "claimed": "0.24",
+   "recomputed": "0.2419",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid, 360 val: speed-up",
+   "claimed": "5.2",
+   "recomputed": "5.176",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid, 360 val: fixed %",
+   "claimed": "86",
+   "recomputed": "85.61",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid, other seed, 180 val: gap %",
+   "claimed": "0.23",
+   "recomputed": "0.2298",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid, other seed, 180 val: speed-up",
+   "claimed": "7.6",
+   "recomputed": "7.566",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid, other seed, 180 val: fixed %",
+   "claimed": "84",
+   "recomputed": "83.73",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid 360: max gap %",
+   "claimed": "1.78",
+   "recomputed": "1.775",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid \u2212 LtF-kNN, gap pp",
+   "claimed": "-0.16",
+   "recomputed": "-0.1631",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid \u2212 LtF-kNN, CI low",
+   "claimed": "-0.33",
+   "recomputed": "-0.3328",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid \u2212 LtF-kNN, CI high",
+   "claimed": "-0.03",
+   "recomputed": "-0.02458",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "MISMATCH",
+   "note": "also in methods/hybrid.md"
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid \u2212 LtF-BCE, gap pp",
+   "claimed": "-0.03",
+   "recomputed": "-0.03365",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "hybrid \u2212 LtF-BCE, CI",
+   "claimed": "-0.15\u20130.06",
+   "recomputed": "-0.1468\u20130.05906",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "worst test gap, 180 val (seed 0) %",
+   "claimed": "3.14",
+   "recomputed": "3.142",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6",
+   "what": "LP guard in the check: fixed before the guards %",
+   "claimed": "99.8",
+   "recomputed": "99.83",
+   "src": "results/uc12/hybrid_pilot_allguards_6inst.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 12",
+   "what": "12 h: hybrid gap vs LtF-kNN gap %",
+   "claimed": "0.24",
+   "recomputed": "0.2419",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 12",
+   "what": "12 h: LtF-kNN gap %",
+   "claimed": "0.40",
+   "recomputed": "0.4049",
+   "src": "results/uc12/hybrid_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6 (per-instance)",
+   "what": "hybrid 360: gap %",
+   "claimed": "0.24",
+   "recomputed": "0.2419",
+   "src": "results/uc12/hybrid_eval_test_fresh.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6 (per-instance)",
+   "what": "hybrid 360: speed-up",
+   "claimed": "5.2",
+   "recomputed": "5.176",
+   "src": "results/uc12/hybrid_eval_test_fresh.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6 (per-instance)",
+   "what": "LtF kNN: gap %",
+   "claimed": "0.40",
+   "recomputed": "0.4049",
+   "src": "results/uc12/hybrid_eval_test_fresh.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6 (per-instance)",
+   "what": "LtF kNN: speed-up",
+   "claimed": "4.6",
+   "recomputed": "4.637",
+   "src": "results/uc12/hybrid_eval_test_fresh.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6 (per-instance)",
+   "what": "LtF BCE: gap %",
+   "claimed": "0.28",
+   "recomputed": "0.2777",
+   "src": "results/uc12/hybrid_eval_test_fresh.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X6 (per-instance)",
+   "what": "LtF BCE: speed-up",
+   "claimed": "5.2",
+   "recomputed": "5.178",
+   "src": "results/uc12/hybrid_eval_test_fresh.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "LtF kNN eps = 1 %: feasible %",
+   "claimed": "96.7",
+   "recomputed": "96.67",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "LtF kNN eps = 1 %: gap %",
+   "claimed": "0.55",
+   "recomputed": "0.5502",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "LtF kNN eps = 1 %: speed-up mean",
+   "claimed": "25.5",
+   "recomputed": "25.54",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "LtF kNN eps = 1 %: speed-up median",
+   "claimed": "5.8",
+   "recomputed": "5.822",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 98 %: feasible %",
+   "claimed": "100",
+   "recomputed": "100",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 98 %: gap %",
+   "claimed": "0.195",
+   "recomputed": "0.195",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 98 %: speed-up mean",
+   "claimed": "12.4",
+   "recomputed": "12.4",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 98 %: speed-up median",
+   "claimed": "8.2",
+   "recomputed": "8.187",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 95 %: feasible %",
+   "claimed": "100",
+   "recomputed": "100",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 95 %: gap %",
+   "claimed": "0.043",
+   "recomputed": "0.04318",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 95 %: speed-up mean",
+   "claimed": "8.5",
+   "recomputed": "8.509",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "learned end-to-end (5 LPs): feasible %",
+   "claimed": "96.7",
+   "recomputed": "96.67",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "learned end-to-end (5 LPs): gap %",
+   "claimed": "0.65",
+   "recomputed": "0.654",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "learned end-to-end (5 LPs): speed-up mean",
+   "claimed": "23.5",
+   "recomputed": "23.59",
+   "src": "results/pglib/pglib_results.json",
+   "status": "MISMATCH",
+   "note": "the label-free source gives 23.59\u00d7 (self-trained 23.43\u00d7, REINFORCE 23.68\u00d7); methods/pglib.md's table says 23.6\u00d7"
+  },
+  {
+   "loc": "X7",
+   "what": "no learning: LP rounding + repair + 5 LPs: feasible %",
+   "claimed": "100",
+   "recomputed": "100",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "no learning: LP rounding + repair + 5 LPs: gap %",
+   "claimed": "0.33",
+   "recomputed": "0.3287",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "no learning: LP rounding + repair + 5 LPs: speed-up mean",
+   "claimed": "24.0",
+   "recomputed": "24.04",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 98 % \u2212 LtF-kNN, gap pp",
+   "claimed": "-0.35",
+   "recomputed": "-0.3496",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "ours 98 % \u2212 LtF-kNN, CI",
+   "claimed": "-0.70\u2013-0.12",
+   "recomputed": "-0.6953\u2013-0.1169",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 12",
+   "what": "PGLib LtF-kNN: gap %",
+   "claimed": "0.55",
+   "recomputed": "0.5502",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 12",
+   "what": "PGLib ours: gap %",
+   "claimed": "0.195",
+   "recomputed": "0.195",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 12",
+   "what": "PGLib LP rounding: speed-up",
+   "claimed": "24",
+   "recomputed": "24.04",
+   "src": "results/pglib/pglib_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "LtF-kNN: the four largest per-instance speed-ups, range",
+   "claimed": "74\u2013210",
+   "recomputed": "74.11\u2013210.4",
+   "src": "results/pglib/pglib_eval_test_{a,b}.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "LtF-kNN: median speed-up (per-instance)",
+   "claimed": "5.8",
+   "recomputed": "5.822",
+   "src": "results/pglib/pglib_eval_test_{a,b}.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X7",
+   "what": "LP relaxation below the MILP optimum, median over val %",
+   "claimed": "0.03",
+   "recomputed": "0.02876",
+   "src": "data/generated/pglib_ca/val.npz",
+   "status": "ok",
+   "note": "'within 0.03 %' is the median; val mean 0.079 %, max 0.41 %; test median 0.038 %, mean 0.059 %, max 0.41 %"
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 1 %: feasible %",
+   "claimed": "100",
+   "recomputed": "100",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 1 %: gap %",
+   "claimed": "0.60",
+   "recomputed": "0.6045",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 1 %: speed-up",
+   "claimed": "7.1",
+   "recomputed": "7.103",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 1 %: load-corrected speed-up",
+   "claimed": "5.6",
+   "recomputed": "5.553",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 1 %: time-to-quality speed-up",
+   "claimed": "1.3",
+   "recomputed": "1.341",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 5 %: feasible %",
+   "claimed": "92.5",
+   "recomputed": "92.5",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 5 %: gap %",
+   "claimed": "2.14",
+   "recomputed": "2.143",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 5 %: speed-up",
+   "claimed": "25.5",
+   "recomputed": "25.52",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 5 %: load-corrected speed-up",
+   "claimed": "20",
+   "recomputed": "19.95",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "LtF kNN eps = 5 %: time-to-quality speed-up",
+   "claimed": "0.9",
+   "recomputed": "0.9104",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours guarded 95 %: feasible %",
+   "claimed": "100",
+   "recomputed": "100",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours guarded 95 %: gap %",
+   "claimed": "0.67",
+   "recomputed": "0.6695",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours guarded 95 %: speed-up",
+   "claimed": "14.8",
+   "recomputed": "14.85",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours guarded 95 %: load-corrected speed-up",
+   "claimed": "11.6",
+   "recomputed": "11.61",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours guarded 95 %: time-to-quality speed-up",
+   "claimed": "2.6",
+   "recomputed": "2.593",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours REINFORCE 90 %: feasible %",
+   "claimed": "100",
+   "recomputed": "100",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours REINFORCE 90 %: gap %",
+   "claimed": "3.06",
+   "recomputed": "3.064",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours REINFORCE 90 %: speed-up",
+   "claimed": "36.6",
+   "recomputed": "36.64",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "ours REINFORCE 90 %: time-to-quality speed-up",
+   "claimed": "2.8",
+   "recomputed": "2.751",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "guarded 95 % \u2212 LtF-kNN, gap pp",
+   "claimed": "0.06",
+   "recomputed": "0.06492",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8",
+   "what": "guarded 95 % \u2212 LtF-kNN, CI",
+   "claimed": "-0.14\u20130.26",
+   "recomputed": "-0.1379\u20130.2621",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 12",
+   "what": "24 h: speed ratio guarded / LtF-kNN (load-corrected)",
+   "claimed": "2",
+   "recomputed": "2.091",
+   "src": "results/uc24/uc24ltf_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8 (per-instance)",
+   "what": "LtF kNN eps = 1 %: gap %",
+   "claimed": "0.60",
+   "recomputed": "0.6045",
+   "src": "results/uc24/uc24ltf_eval_test.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8 (per-instance)",
+   "what": "LtF kNN eps = 1 %: speed-up",
+   "claimed": "7.1",
+   "recomputed": "7.103",
+   "src": "results/uc24/uc24ltf_eval_test.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8 (per-instance)",
+   "what": "ours guarded 95 %: gap %",
+   "claimed": "0.67",
+   "recomputed": "0.6695",
+   "src": "results/uc24/uc24ltf_eval_test.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "X8 (per-instance)",
+   "what": "ours guarded 95 %: speed-up",
+   "claimed": "14.8",
+   "recomputed": "14.85",
+   "src": "results/uc24/uc24ltf_eval_test.jsonl",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "24 h: full MILP within 0.5 % of its final cost, median s",
+   "claimed": "28",
+   "recomputed": "28.4",
+   "src": "results/uc24/b3_results.md",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "LtF kNN eps = 1 %: gap to DB %",
+   "claimed": "0.40",
+   "recomputed": "0.4046",
+   "src": "results/uc12/ltfx_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "LtF kNN eps = 1 %: speed-up",
+   "claimed": "4.7",
+   "recomputed": "4.685",
+   "src": "results/uc12/ltfx_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "LtF BCE eps = 1 %: gap %",
+   "claimed": "0.28",
+   "recomputed": "0.2773",
+   "src": "results/uc12/ltfx_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "LtF BCE eps = 1 %: speed-up",
+   "claimed": "5.2",
+   "recomputed": "5.187",
+   "src": "results/uc12/ltfx_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "LtF self-trained eps = 10 %: gap %",
+   "claimed": "0.85",
+   "recomputed": "0.8456",
+   "src": "results/uc12/ltfx_results.json",
+   "status": "ok",
+   "note": ""
+  },
+  {
+   "loc": "TL;DR 11",
+   "what": "LtF self-trained eps = 10 %: speed-up",
+   "claimed": "13.5",
+   "recomputed": "13.5",
+   "src": "results/uc12/ltfx_results.json",
+   "status": "ok",
+   "note": ""
+  }
+ ]
+}
