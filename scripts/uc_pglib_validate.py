@@ -63,11 +63,12 @@ def solve_ref(m, gap=1e-6, tl=600.0, relax=False, fix_u=None, names=None):
     opt = Highs()
     opt.config.time_limit = tl
     opt.config.mip_gap = gap
-    opt.config.load_solution = True
+    opt.config.load_solution = False
     opt.highs_options = {"threads": 1}
     t0 = time.time()
     res = opt.solve(m)
-    return float(pe.value(m.obj)), time.time() - t0, str(res.termination_condition), \
+    obj = res.best_feasible_objective
+    return (float(obj) if obj is not None else np.inf), time.time() - t0, str(res.termination_condition), \
         (float(res.best_objective_bound) if res.best_objective_bound is not None else np.nan)
 
 
@@ -91,13 +92,17 @@ if __name__ == "__main__":
         v, dt, st, _ = solve_ref(ref, relax=True)
         row = dict(file=f, T=T, ours=rel.obj, ours_s=rel.time, ref=v, ref_s=dt, ref_status=st,
                    rel_diff=(rel.obj - v) / abs(v), ours_slack=rel.shed + rel.short)
-        # 2. a heuristic commitment (rounded relaxation, min up/down repaired) priced by both models
-        u = repair_min_updown((rel.u > 0.5).astype(np.int8), sc.u0, s.min_up, s.min_dn)
-        lp = m.solve_dispatch(sc, u)
+        # 2. a heuristic commitment (relaxation rounded at the largest threshold whose schedule needs no slack, min
+        # up/down repaired) priced by both models; the reference model has hard balance / reserve constraints
+        for th in (0.5, 0.2, 0.05, 1e-3, 1e-6):
+            u = repair_min_updown((rel.u > th).astype(np.int8), sc.u0, s.min_up, s.min_dn)
+            lp = m.solve_dispatch(sc, u)
+            if lp.shed + lp.short < 1e-6:
+                break
         ref2, _ = build_reference(path)
         fix = {(s.names_all[g], t + 1): int(u[t, k]) for k, g in enumerate(s.free) for t in range(T)}
         v2, dt2, st2, _ = solve_ref(ref2, gap=1e-9, tl=a.tl, fix_u=fix)
-        row2 = dict(file=f, T=T, ours_dispatch=lp.obj, ours_slack=lp.shed + lp.short, ref_fixed_u=v2, ref_status=st2,
+        row2 = dict(file=f, T=T, threshold=th, ours_dispatch=lp.obj, ours_slack=lp.shed + lp.short, ref_fixed_u=v2, ref_status=st2,
                     rel_diff=(lp.obj - v2) / abs(v2) if np.isfinite(v2) else None)
         print("LP", row, "\nFIXED", row2, flush=True)
         out["lp"].append(row)

@@ -375,10 +375,17 @@ def fixeval_job(job):
         sol = m.solve_milp(sc, time_limit=tl, mip_gap=gap, incumbents=True)
         out["__full__"] = dict(obj=sol["obj"], bound=sol["bound"], gap=sol["gap"], time=sol["time"],
                                status=sol["status"], inc=sol["inc"], shed=sol["shed"], short=sol["short"])
-    for name, fix_arr, extra in specs:
-        sol = m.solve_milp(sc, time_limit=tl, mip_gap=gap, z_fix=_as_fix(fix_arr) or None, incumbents=False)
+    for name, fix_arr, extra, lpg in specs:
+        fix = _as_fix(fix_arr)
+        n_pre, lpg_s, rel_lp = len(fix), 0.0, 0
+        if lpg and fix:                       # LP-relaxation guard (its LPs are timed and added to the method)
+            t0 = time.time()
+            fix, rel_lp, _ = lp_guard(m, _W["s"], sc, fix)
+            lpg_s = time.time() - t0
+        sol = m.solve_milp(sc, time_limit=tl, mip_gap=gap, z_fix=fix or None, incumbents=False)
         out[name] = dict(obj=sol["obj"], bound=sol["bound"], gap=sol["gap"], time=sol["time"], status=sol["status"],
-                         shed=sol["shed"], short=sol["short"], n_fixed=int(len(fix_arr)), extra_s=float(extra),
+                         shed=sol["shed"], short=sol["short"], n_fixed_final=int(len(fix)), n_fixed_pre=n_pre,
+                         released_lp=int(rel_lp), lpg_s=float(lpg_s), extra_s=float(extra),
                          feasible=sol["u"] is not None)
     out["__loadavg__"] = os.getloadavg()[0]
     return i, out

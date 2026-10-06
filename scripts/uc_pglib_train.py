@@ -184,11 +184,24 @@ if __name__ == "__main__":
         log(f"harm model saved ({t_h:.0f}s labels)")
 
     elif a.stage == "probs":
-        from otsl.pglib_ml import KNNProb  # noqa: F401
+        # probabilities of every model and of the paper's kNN on val / test, with per-instance inference times;
+        # validation criterion for the probability source of Learning to Fix on our model: error rate of the 95 %
+        # most confident decisions against the (aligned) validation MILP schedules
+        from otsl.fixpolicy import align_to_prediction
+        from otsl.pglib_ml import KNNProb
         out = {}
-        splits = [("va", strip(load_npz(os.path.join(ROOT, "val.npz"))))]
+        val_full = load_npz(os.path.join(ROOT, "val.npz"))
+        splits = [("va", strip(val_full))]
         if os.path.exists(os.path.join(ROOT, "test.npz")):
             splits.append(("te", strip(load_npz(os.path.join(ROOT, "test.npz")))))
+        L = np.load(os.path.join(ROOT, "st_labels.npz"))
+        kl = subset(tr, L["idx"])
+        knn = KNNProb(sysm, kl, L["u"], k=50)
+        for split, d in splits:
+            t0 = time.time()
+            out[f"knn_{split}"] = knn.predict(d)
+            out[f"knn_{split}_s"] = np.array((time.time() - t0) / len(d["load"]))
+        crit = {}
         for name in ("m1_lf", "m1_rl", "m1_st"):
             if not os.path.exists(os.path.join(OUT, f"pglib_{name}.pt")):
                 continue
@@ -197,5 +210,25 @@ if __name__ == "__main__":
                 t0 = time.time()
                 out[f"{name}_{split}"] = m1.predict(d, bs=1)
                 out[f"{name}_{split}_s"] = np.array((time.time() - t0) / len(d["load"]))
+        for name in ("knn", "m1_lf", "m1_rl", "m1_st"):
+            if f"{name}_va" not in out:
+                continue
+            p = out[f"{name}_va"]
+            errs = []
+            for i in range(len(p)):
+                yhat = (p[i] > 0.5).astype(np.int8)
+                ua = align_to_prediction(sysm, val_full["u"][i], yhat, val_full["u0"][i])
+                conf = np.abs(p[i] - 0.5)
+                k = int(round(0.95 * conf.size))
+                top = np.argsort(-conf.reshape(-1), kind="stable")[:k]
+                errs.append(float((yhat.reshape(-1)[top] != ua.reshape(-1)[top]).mean()))
+                if i == 0:
+                    pass
+            crit[name] = dict(err95=float(np.mean(errs)),
+                              acc=float(np.mean([((p[i] > 0.5) == align_to_prediction(sysm, val_full["u"][i], (p[i] > 0.5).astype(np.int8),
+                                                                                       val_full["u0"][i])).mean() for i in range(len(p))])))
+        best = min((v["err95"], k) for k, v in crit.items() if k != "knn")[1]
+        update_stats(val_criterion=crit, val_selected_source=best)
         np.savez_compressed(os.path.join(OUT, "pglib_probs.npz"), **out)
+        log(f"val criterion {crit} -> selected {best}")
         log("saved probabilities " + ", ".join(k for k in out if not k.endswith("_s")))

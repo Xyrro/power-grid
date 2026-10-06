@@ -23,7 +23,7 @@ from otsl.combo import adequacy_guard, harm_from_file  # noqa: E402
 from otsl.fixpolicy import FixFeaturizer, fix_from_ranking, release_conflicting_rows  # noqa: E402
 from otsl.ltfx import fix_dict  # noqa: E402
 from otsl.pglib import load_bases, load_npz, rep_block, rep_minud, subset  # noqa: E402
-from otsl.pglib_ml import KNNProb, SolverPool, dispatch_job, fix_array, fixeval_job, inst_arrays  # noqa: E402
+from otsl.pglib_ml import SolverPool, dispatch_job, fix_array, fixeval_job, inst_arrays  # noqa: E402
 
 ROOT, OUT = "data/generated/pglib_ca", "results/pglib"
 E2E_TH = (0.001, 0.05, 0.2, 0.5, 0.8)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     ap.add_argument("--tl", type=float, default=900.0)
     ap.add_argument("--gap", type=float, default=1e-3)
     ap.add_argument("--workers", type=int, default=2)
-    ap.add_argument("--src", default="st", help="probability source of the combined pipeline / LtF on our model")
+    ap.add_argument("--src", default="st", help="probability source of Learning to Fix on our model (val-selected)")
     ap.add_argument("--ltf", default="knn_1,knn_5,{src}_1")
     ap.add_argument("--rules", default="all")
     a = ap.parse_args()
@@ -65,11 +65,9 @@ if __name__ == "__main__":
     P = np.load(os.path.join(OUT, "pglib_probs.npz"))
     probs = {k: P[f"m1_{k}_{sp}"][idx] for k in ("lf", "rl", "st") if f"m1_{k}_{sp}" in P.files}
     t_fwd = {k: float(P[f"m1_{k}_{sp}_s"]) for k in probs}
-    # kNN (paper's classifier) on the labelled set
-    kl = load_npz(os.path.join(ROOT, "knn.npz"))
-    knn = KNNProb(sysm, kl, kl["u"], k=50)
-    p_knn, t_knn = timed(knn.predict, d)
-    t_knn /= n
+    # kNN (paper's classifier, k = 50, Table II features) on the self-training labelled set: probabilities and
+    # per-instance search time from the probs stage of uc_pglib_train.py
+    p_knn, t_knn = P[f"knn_{sp}"][idx], float(P[f"knn_{sp}_s"])
     # Learning to Fix thresholds
     ltf = {}
     for tg in a.ltf.format(src=a.src).split(","):
@@ -115,12 +113,12 @@ if __name__ == "__main__":
             yhat = (p > 0.5).astype(int)
             add(f"{src}_rac_95", fix_from_ranking(np.minimum(p, 1 - p), yhat, 0.95), ex, rows=False)
         # ours: error-cost ranking + guards (probabilities of --src)
-        if harm is not None:
-            p = probs[a.src][k]
+        if harm is not None:                  # the harm model was trained on the self-trained model's probabilities
+            p = probs["st"][k]
             yhat = (p > 0.5).astype(int)
             (X, t_f) = timed(ff, p, d, k)
             hs, t_s = timed(harm.score, X)
-            ex = t_rel + t_fwd[a.src] + t_f + t_s
+            ex = t_rel + t_fwd["st"] + t_f + t_s
             for ratio, lpg in ((0.90, False), (0.95, True), (0.98, True)):
                 t0 = time.time()
                 fix = fix_from_ranking(hs, yhat, ratio)
@@ -157,7 +155,7 @@ if __name__ == "__main__":
         e2e[i] = r
     print(f"end-to-end LPs done ({time.time() - t0:.0f}s)", flush=True)
     done = 0
-    for i, res in pool.pool.imap_unordered(_fx := fixeval_job, jobs, chunksize=1):
+    for i, res in pool.pool.imap_unordered(fixeval_job, jobs, chunksize=1):
         k = int(np.where(idx == i)[0][0])
         names, ex = e2e_meta[i]
         rec = dict(i=i, split=a.split, t_full=float(d["time"][k]), bound=float(d["bound"][k]), obj=float(d["obj"][k]),
@@ -169,7 +167,8 @@ if __name__ == "__main__":
             if name.startswith("__"):
                 rec[name.strip("_")] = r
                 continue
-            r.update(meta[i][name])
+            r["extra"] = meta[i][name]["extra"]
+            r["n_fixed"] = r["n_fixed_final"]
             rec["rules"][name] = r
         for (s, th), (c, sh, so, dt), e in zip(names, e2e[i], ex):
             rec["e2e"].append(dict(src=s, th=th, cost=c, shed=sh, short=so, lp_s=dt, extra=e))
