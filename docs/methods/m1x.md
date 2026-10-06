@@ -14,7 +14,9 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
 - Pilot for the polishing setting done (`data/generated/uc12_m1x/pilot.json`): confidence ranking, 90 %, LP guard,
   5 s chosen (median label gap 0.10 %, all served, 4.9 s per label).
 - 15:14 3,500 extra scenarios generated (`extra_0..13.npz`, 34 min); reference metrics written (`results/uc12/m1x_train.json`).
-- 15:34 label-free curve done (500–4000); teacher polishing of 1,500 extra instances running (4.8 s per label).
+- 15:34 label-free curve done (500–4000); 17:33 teacher polishing of 1,500 extra instances done (4.7 s per label,
+  2.0 core-h); 17:40 polished curve done (1000, 2000). The polished curve stops at 2,000 instances: 2,000 more labels
+  would cost another ~2.6 core-h (scaled back for the 8–10 h budget); the label-free curve goes to 4,000.
 - Phases 2–4 (`scripts/uc_m1x_queue2.sh phase23`, log `data/generated/uc12_m1x/queue_phase2.log`) start automatically
   after phase 1: BCE seeds 0/3/4 at 500 MILP labels, 5-member ensemble, temporal GNN and MLP at 500, guarded-rule
   validation check of all sources (phase 2); validation-only selection (`scripts/uc_m1x_select.py`, rule written before

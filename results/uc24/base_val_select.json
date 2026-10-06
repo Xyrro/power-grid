@@ -1,0 +1,79 @@
+{
+ "none": {
+  "selected_tol": 1e-06,
+  "rows": [
+   {
+    "tol": 1e-06,
+    "rule": "lpint_1e-06_none",
+    "n": 40,
+    "n_infeasible": 0,
+    "gap_mean": 0.7942408675977801,
+    "gap_max": 4.544216310649634,
+    "fixed": 98.01369863013699,
+    "time_mean": 16.61824988722801
+   },
+   {
+    "tol": 0.05,
+    "rule": "lpint_0.05_none",
+    "n": 40,
+    "n_infeasible": 0,
+    "gap_mean": 0.8504351345117568,
+    "gap_max": 4.544216310638373,
+    "fixed": 98.31478310502283,
+    "time_mean": 12.933709686994552
+   },
+   {
+    "tol": 0.2,
+    "rule": "lpint_0.2_none",
+    "n": 40,
+    "n_infeasible": 0,
+    "gap_mean": 2.6845784435777547,
+    "gap_max": 23.456471865770936,
+    "fixed": 98.90553652968038,
+    "time_mean": 6.5277801096439365
+   }
+  ]
+ },
+ "guards": {
+  "selected_tol": 0.2,
+  "rows": [
+   {
+    "tol": 1e-06,
+    "rule": "lpint_1e-06_guards",
+    "n": 40,
+    "n_infeasible": 0,
+    "gap_mean": 0.7944611008396474,
+    "gap_max": 4.544216310649634,
+    "fixed": 97.89383561643835,
+    "time_mean": 16.35837612748146
+   },
+   {
+    "tol": 0.05,
+    "rule": "lpint_0.05_guards",
+    "n": 40,
+    "n_infeasible": 0,
+    "gap_mean": 0.7594250904209444,
+    "gap_max": 4.544216310638373,
+    "fixed": 97.42437214611871,
+    "time_mean": 14.110377252101898
+   },
+   {
+    "tol": 0.2,
+    "rule": "lpint_0.2_guards",
+    "n": 40,
+    "n_infeasible": 0,
+    "gap_mean": 0.5785744785904634,
+    "gap_max": 4.544216310634668,
+    "fixed": 91.75513698630137,
+    "time_mean": 13.506977778673171
+   }
+  ]
+ },
+ "lpround": {
+  "gap_mean": 1.589341585608347,
+  "gap_median": 0.9100253684748159,
+  "served": 92.5
+ },
+ "rule": "per guard setting: fewest infeasible reduced MILPs, then the lowest mean gap to C* over feasible instances; ties within 0.02 pp -> larger fixed share",
+ "n_val": 40
+}

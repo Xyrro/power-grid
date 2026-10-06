@@ -17,11 +17,15 @@ phase2() {
 }
 
 phase3() {
-  # validation-only selection (rule in scripts/uc_m1x_select.py), then the downstream tuning runs
+  # validation-only selection (rule in scripts/uc_m1x_select.py, written before the phase-2 results), run A, then the
+  # temporal GNN on 2,000 polished instances (added after phase 2: data and the temporal head both passed the bar),
+  # the selection again with that candidate, 4 more seeds of the winner, run B
   step $PY scripts/uc_m1x_select.py
+  step $PY scripts/uc_m1x_tune.py --job he_milp500_ens5:harm:milp500_gnn_ens5:0.01:adeq+rows --budget_min 150
+  step $PY scripts/uc_m1x_train.py --label pol --n 2000 --kind gnnt --seed 0
+  step $PY scripts/uc_m1x_select.py --extended
   B=$(python3 -c "import json; print(json.load(open('results/uc12/m1x_select.json'))['run_B'])")
   W=$(python3 -c "import json; print(json.load(open('results/uc12/m1x_select.json'))['winner'] or '')")
-  step $PY scripts/uc_m1x_tune.py --job he_milp500_ens5:harm:milp500_gnn_ens5:0.01:adeq+rows --budget_min 150
   if [ -n "$W" ]; then
     LAB=$(echo $W | cut -d_ -f1); N=$(echo $W | cut -d_ -f2 | tr -d n); K=$(echo $W | cut -d_ -f3)
     for s in 1 2 3 4; do step $PY scripts/uc_m1x_train.py --label $LAB --n $N --kind $K --seed $s; done
@@ -45,6 +49,7 @@ phase4() {
 }
 
 phase23() { phase2; phase3; phase4; }
+phase34() { phase3; phase4; }
 
 "$@"
 echo "[$(date +%H:%M:%S)] queue2 $* done"

@@ -17,7 +17,7 @@ Polishing pilot (24 training instances, out-of-fold BCE probabilities as the tea
 
 Extra scenarios: 3500 (training days, sampler of `otsl.ucdata.generate`, seed 111); LP relaxation 0.41 s, relaxation + label-free label + its dispatch LP 0.59 s per instance (0.57 core-h).
 
-Teacher-polished labels (750 instances, {"ratio": 0.9, "rank": "conf", "tl": 5.0, "lp": true}): 4.74 s per label (0.99 core-h), reduced MILP hit the limit on 72 %, label from the reduced MILP on 91 % (else the label-free label), served (no shedding / shortfall) 94 %, cost vs the label-free label median -9.63 % (mean -21.80 %), 1.27 % of unit-hours changed; the label differs from the teacher's rounded prediction on 1.43 % of unit-hours.
+Teacher-polished labels (1500 instances, {"ratio": 0.9, "rank": "conf", "tl": 5.0, "lp": true}): 4.73 s per label (1.97 core-h), reduced MILP hit the limit on 70 %, label from the reduced MILP on 89 % (else the label-free label), served (no shedding / shortfall) 94 %, cost vs the label-free label median -8.60 % (mean -21.36 %), 1.23 % of unit-hours changed; the label differs from the teacher's rounded prediction on 1.37 % of unit-hours.
 
 ## Validation: probability quality (360 instances: val + val_extra + val_extra2)
 
@@ -25,19 +25,28 @@ Against MILP labels aligned to the prediction inside identical-unit groups; *fix
 
 | source | labels | n train | model | epochs | train min | log-loss | Brier | AUC | calib. err. | wrong / inst. | fixable @99 % | fixable @99.9 % | guarded 95 %: gap mean / median / # > 1 % / fixed % / s |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| ref_bce_s0 | milp | 500 | ref | – | – | 0.0568 | 0.0139 | 0.9947 | 0.0027 | 14.8 | 0.977 | 0.490 | – |
+| ref_bce_s0 | milp | 500 | ref | – | – | 0.0568 | 0.0139 | 0.9947 | 0.0027 | 14.8 | 0.977 | 0.490 | 0.649 / 0.044 / 14 / 92.5 / 5.31 |
 | ref_bce_s1 | milp | 500 | ref | – | – | 0.0590 | 0.0144 | 0.9947 | 0.0045 | 15.5 | 0.975 | 0.564 | – |
 | ref_bce_s2 | milp | 500 | ref | – | – | 0.0576 | 0.0140 | 0.9945 | 0.0043 | 14.8 | 0.976 | 0.531 | – |
 | ref_st_s0 | st_s0 | 500 | ref | – | – | 0.0642 | 0.0146 | 0.9895 | 0.0036 | 14.8 | 0.971 | 0.067 | – |
 | ref_knn | knn | 500 | ref | – | – | 0.1025 | 0.0289 | 0.9892 | 0.0088 | 34.7 | 0.899 | 0.022 | – |
-| ref_bce_ens3 | milp | 500 | ref | – | – | 0.0553 | 0.0134 | 0.9954 | 0.0059 | 14.0 | 0.980 | 0.642 | – |
-| lf_n500_gnn_s0 | lf | 500 | gnn | 80 | 2.3 | 0.0655 | 0.0139 | 0.9877 | 0.0058 | 13.4 | 0.972 | 0.058 | – |
-| lf_n1000_gnn_s0 | lf | 1000 | gnn | 60 | 3.3 | 0.0656 | 0.0137 | 0.9888 | 0.0062 | 13.2 | 0.973 | 0.068 | – |
-| lf_n2000_gnn_s0 | lf | 2000 | gnn | 40 | 4.4 | 0.0652 | 0.0136 | 0.9894 | 0.0058 | 13.2 | 0.973 | 0.072 | – |
-| lf_n4000_gnn_s0 | lf | 4000 | gnn | 30 | 6.5 | 0.0653 | 0.0134 | 0.9892 | 0.0063 | 12.9 | 0.976 | 0.089 | – |
+| ref_bce_ens3 | milp | 500 | ref | – | – | 0.0553 | 0.0134 | 0.9954 | 0.0059 | 14.0 | 0.980 | 0.642 | 0.634 / 0.055 / 14 / 93.4 / 5.21 |
+| lf_n500_gnn_s0 | lf | 500 | gnn | 80 | 2.3 | 0.0655 | 0.0139 | 0.9877 | 0.0058 | 13.4 | 0.972 | 0.058 | 0.923 / 0.526 / 17 / 92.1 / 5.80 |
+| lf_n1000_gnn_s0 | lf | 1000 | gnn | 60 | 3.3 | 0.0656 | 0.0137 | 0.9888 | 0.0062 | 13.2 | 0.973 | 0.068 | 0.895 / 0.539 / 18 / 92.8 / 4.48 |
+| lf_n2000_gnn_s0 | lf | 2000 | gnn | 40 | 4.4 | 0.0652 | 0.0136 | 0.9894 | 0.0058 | 13.2 | 0.973 | 0.072 | 0.917 / 0.524 / 20 / 93.0 / 4.71 |
+| lf_n4000_gnn_s0 | lf | 4000 | gnn | 30 | 6.5 | 0.0653 | 0.0134 | 0.9892 | 0.0063 | 12.9 | 0.976 | 0.089 | 0.785 / 0.494 / 16 / 92.2 / 4.96 |
+| pol_n1000_gnn_s0 | pol | 1000 | gnn | 60 | 3.3 | 0.0532 | 0.0133 | 0.9957 | 0.0016 | 14.2 | 0.980 | 0.651 | 0.648 / 0.104 / 13 / 94.0 / 5.56 |
+| pol_n2000_gnn_s0 | pol | 2000 | gnn | 40 | 4.4 | 0.0502 | 0.0123 | 0.9961 | 0.0030 | 13.1 | 0.985 | 0.687 | 0.624 / 0.127 / 13 / 94.2 / 5.36 |
+| pol_n500_gnn_s0 | pol | 500 | gnn | 80 | 2.3 | 0.0568 | 0.0139 | 0.9947 | 0.0027 | 14.8 | 0.977 | 0.490 | – |
+| pol_n500_gnn_s3 | pol | 500 | gnn | 80 | 2.2 | 0.0572 | 0.0141 | 0.9949 | 0.0025 | 15.1 | 0.976 | 0.585 | – |
+| pol_n500_gnn_s4 | pol | 500 | gnn | 80 | 2.3 | 0.0563 | 0.0139 | 0.9947 | 0.0024 | 14.9 | 0.977 | 0.530 | – |
+| milp500_gnn_ens5 | milp | 500 | ens:ref_bce_s0,ref_bce_s1,ref_bce_s2,pol_n500_gnn_s3,pol_n500_gnn_s4 | – | – | 0.0543 | 0.0132 | 0.9956 | 0.0056 | 13.8 | 0.981 | 0.658 | 0.638 / 0.044 / 14 / 93.7 / 5.55 |
+| pol_n500_gnnt_s0 | pol | 500 | gnnt | 80 | 5.8 | 0.0503 | 0.0128 | 0.9964 | 0.0037 | 13.8 | 0.983 | 0.749 | 0.705 / 0.215 / 14 / 93.7 / 5.21 |
+| pol_n500_mlp_s0 | pol | 500 | mlp | 80 | 0.5 | 0.0641 | 0.0177 | 0.9947 | 0.0029 | 20.2 | 0.957 | 0.748 | 0.890 / 0.377 / 18 / 90.5 / 7.37 |
 
 Ensemble disagreement as an extra filter (rank by |p̄ − 0.5| − k·std over members):
 
 | ensemble | fixable @99 % (k = 0 / 1 / 2) | fixable @99.9 % (k = 0 / 1 / 2) |
 |---|---|---|
 | ref_bce_ens3 | 0.980 / 0.979 / 0.979 | 0.642 / 0.640 / 0.618 |
+| milp500_gnn_ens5 | 0.981 / 0.980 / 0.980 | 0.658 / 0.660 / 0.658 |

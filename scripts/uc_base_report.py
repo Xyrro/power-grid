@@ -29,9 +29,9 @@ from otsl.base import boot_ci, incumbent_at, paired, time_to_gap  # noqa: E402
 
 CFG = {"uc12": dict(T=12, test="data/generated/uc12/test_fresh.npz", val=["data/generated/uc12/val.npz",
                                                                             "data/generated/uc12/val_extra.npz"],
-                    refs=["hybrid (he_bce_s0_e1_n360)", "LtF kNN eps=1%"], tl=60.0),
+                    refs=["hybrid (he_bce_s0_e1_n360)", "LtF kNN eps=1%", "full gap=1%"], tl=60.0),
        "uc24": dict(T=24, test="data/generated/uc24/test.npz", val=["data/generated/uc24/uc24ltf_val.npz"],
-                    refs=["LtF kNN eps=1%", "ours: guarded 95% (imitation GNN)"], tl=300.0)}
+                    refs=["LtF kNN eps=1%", "ours: guarded 95% (imitation GNN)", "full gap=1%"], tl=300.0)}
 G = 73
 GAPS = ("full gap=0.25%", "full gap=0.5%", "full gap=1%")
 
@@ -109,6 +109,7 @@ def row_stats(name, P, t_full):
     out.update(gap_mean=float(g.mean()), gap_ci=boot_ci(g), gap_median=float(np.median(g)), gap_max=float(g.max()),
                time_mean=float(tm.mean()), speedup_mean=float(sp.mean()), speedup_ci=boot_ci(sp),
                speedup_median=float(np.median(sp)), speedup_ratio_of_means=float(tf.mean() / tm.mean()),
+               speedup_geomean=float(np.exp(np.log(sp).mean())),
                fixed_mean=float(np.nanmean(P["fixed"][f]) * 100), served=float(P["served"][f].mean() * 100))
     return out
 
@@ -138,6 +139,63 @@ def same_budget(P, full_inc, full_t, db):
         out.update(ttq_speedup_median=float(np.median(ttq[f] / P["tm"][f])),
                    ttq_reached=float(np.mean([np.isfinite(time_to_reach(full_inc[k], P["cost"][k])) for k in np.where(f)[0]]) * 100))
     return out, g_full
+
+
+STORED = {"uc12": [("ours: combined st+error-cost+adequacy+LP guard 98%", "ours: combined pipeline 98% (stored)"),
+                   ("faithful LtF self-trained eps=10%", "LtF self-trained GNN eps=10% (stored)")],
+          "uc24": [("old: 95%|rl", "ours: REINFORCE ranking 95% (stored re-run)")]}
+
+
+def stored_fast_rules(bench, idx, db, d):
+    """the faster learned rules of the reference runs, from their stored records (not re-timed here): per-instance gap
+    to the same DB (objectives are deterministic) and the speed-up of their own run (uc24: load-corrected, x 0.78)"""
+    out = {}
+    if bench == "uc12":
+        by = {}
+        for r in jl("results/uc12/hybrid_eval_test_fresh.jsonl"):
+            by.setdefault(r["rule"], {})[r["i"]] = r
+        tf = np.array([by["full MILP"][i]["time"] for i in idx])
+        for key, nm in STORED[bench]:
+            R = [by[key][i] for i in idx]
+            feas = np.array([r["feasible"] for r in R])
+            c = np.array([r["obj"] if r["feasible"] else np.nan for r in R], float)
+            tm = np.array([r["time"] + r["pre_s"] + r["relax_s"] + r["guard_s"] for r in R])
+            out[nm] = dict(feas=feas, gap=(c - db) / c * 100, sp=np.where(feas, tf / tm, np.nan),
+                           fixed=np.array([r["fixed_share"] for r in R]) * 100)
+    else:
+        ev = {r["i"]: r for r in jl("results/uc24/uc24ltf_eval_test.jsonl")}
+        fac = json.load(open("results/uc24/uc24ltf_results.json"))["b2b"]["load_factor_median"]
+        for key, nm in STORED[bench]:
+            R = [ev[i][key] for i in idx]
+            feas = np.array([r["feasible"] for r in R])
+            c = np.array([r["obj"] if r["feasible"] else np.nan for r in R], float)
+            tm = np.array([r["pre_s"] + r["t_guard"] + r["t_milp"] + ev[i]["t_rel"] for r, i in zip(R, idx)])
+            out[nm] = dict(feas=feas, gap=(c - db) / c * 100, sp=np.where(feas, d["time"][idx] * fac / tm, np.nan),
+                           fixed=np.array([r["n_fixed"] for r in R]) / (24 * G) * 100)
+    return out
+
+
+def stored_e2e(bench, idx, db):
+    """the best learned end-to-end pipelines (no MILP) of the earlier studies, per-instance cost from their stored
+    arrays: uc12 combined (Lagrangian + KL) + screening over 7 thresholds, block repair (3 seeds, gap averaged per
+    instance); uc24 REINFORCE + screening (7 thresholds + 8 samples). Returns {name: dict(gap, served)}."""
+    out = {}
+    if bench == "uc12":
+        arr = np.load("results/uc12/combo_e2e_test_fresh_arrays.npz")
+        gaps, srv = [], []
+        for sd in (0, 1, 2):
+            stack = np.stack([arr[f"lag_s{sd}__block__{th}"] for th in (0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)])   # [7, 4, n]
+            b = np.argmin(stack[:, 0, :], 0)
+            c, sh, so = (stack[b, j, np.arange(stack.shape[2])][idx] for j in range(3))
+            gaps.append((c - db) / c * 100)
+            srv.append((sh < 1e-6) & (so < 1e-6))
+        out["learned end-to-end: combined + screening, 5.8 LPs (stored, 3 seeds)"] = dict(gap=np.mean(gaps, 0), served=np.mean(srv, 0))
+    else:
+        o = json.load(open("results/papereval_overhead.json"))["uc24"]
+        c, sh, so = (np.array(o[k])[idx] for k in ("cost_screen", "shed_screen", "short_screen"))
+        out["learned end-to-end: REINFORCE + screening, 15 candidates (stored)"] = dict(gap=(c - db) / c * 100,
+                                                                                        served=(sh < 1e-6) & (so < 1e-6))
+    return out
 
 
 def fmt(v, nd=2, sign=False):
@@ -232,6 +290,21 @@ def main(bench, ev="", sel_path="", tune_path="", out_dir=""):
     res["ltf_lp_tuning"].update(lo_zero=int(np.sum(np.array(tune["lo"]) <= 1e-9)), hi_one=int(np.sum(np.array(tune["hi"]) >= 1 - 1e-9)),
                                 collapsed=int(np.sum(np.isclose(tune["lo"], tune["hi"]))))
     res["rows"] = rows
+    st = stored_fast_rules(bench, idx, db, d)
+    srows = []
+    for nm, x in st.items():
+        f = x["feas"]
+        cmp = {b: paired(P[b]["gap"], x["gap"]) for b in names if recs[0]["runs"][b].get("kind") in ("base", "e2e")}
+        srows.append(dict(method=nm, feasible=float(f.mean() * 100), gap_mean=float(np.nanmean(x["gap"][f])), gap_ci=boot_ci(x["gap"][f]),
+                          speedup_mean=float(np.nanmean(x["sp"][f])), speedup_median=float(np.nanmedian(x["sp"][f])),
+                          fixed_mean=float(np.mean(x["fixed"][f])), baseline_minus_rule=cmp))
+    res["stored_fast_rules"] = srows
+    e2e = []
+    for nm, x in stored_e2e(bench, idx, db).items():
+        e2e.append(dict(method=nm, gap_mean=float(x["gap"].mean()), gap_ci=boot_ci(x["gap"]), gap_median=float(np.median(x["gap"])),
+                        served=float(np.mean(x["served"]) * 100),
+                        lpround_minus_learned=paired(P["LP rounding + repair + LPs"]["gap"], x["gap"])))
+    res["stored_e2e"] = e2e
     res["per_instance"] = {nm: dict(gap=P[nm]["gap"].tolist(), time=P[nm]["tm"].tolist(), feasible=P[nm]["feas"].tolist(),
                                     full_gap_same_budget=gfull[nm].tolist() if nm in gfull else None) for nm in names}
     res["per_instance"]["full"] = dict(gap=full["gap"].tolist(), time=t_full.tolist(), db_ref=db.tolist())
@@ -268,20 +341,34 @@ def write_md(bench, res, out_dir):
                  + (f"{v['gap_to_db_mean']:.3f} / {v['gap_to_db_median']:.3f}" if "gap_to_db_mean" in v else "–")
                  + f" | {v['integral_share']:.1f} | {v['rounded_agrees']:.2f} | {v['integral_agrees']:.2f} | {v['wrong_integral_per_instance']:.1f} |")
     L += ["", "## Paper metrics (gap to the reference dual bound; feasible instances; speed-up against the re-timed full MILP)", "",
-          "| method | feasible % | gap mean % [95 % CI] | median | max | speed-up mean [95 % CI] | median | ratio of means | fixed % | served % |",
-          "|---|---|---|---|---|---|---|---|---|---|"]
+          "| method | feasible % | gap mean % [95 % CI] | median | max | speed-up mean [95 % CI] | median | geometric mean | ratio of means | fixed % | served % |",
+          "|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in res["rows"]:
         if "gap_mean" not in r:
-            L.append(f"| {r['method']} | {r['feasible']:.1f} | – | – | – | – | – | – | – | – |")
+            L.append(f"| {r['method']} | {r['feasible']:.1f} | – | – | – | – | – | – | – | – | – |")
             continue
         L.append(f"| {r['method']} | {r['feasible']:.1f} | {fmt(r['gap_mean'])} {ci(r['gap_ci'])} | {fmt(r['gap_median'])} | {fmt(r['gap_max'])} | "
-                 f"{fmt(r['speedup_mean'], 1)} {ci(r['speedup_ci'], 1)} | {fmt(r['speedup_median'], 1)} | {fmt(r['speedup_ratio_of_means'], 1)} | "
+                 f"{fmt(r['speedup_mean'], 1)} {ci(r['speedup_ci'], 1)} | {fmt(r['speedup_median'], 1)} | {fmt(r['speedup_geomean'], 1)} | {fmt(r['speedup_ratio_of_means'], 1)} | "
                  f"{fmt(r.get('fixed_mean'), 1)} | {fmt(r.get('served'), 1)} |")
     L += ["", "## Paired comparisons (method − reference; instances feasible for both; bootstrap 95 % CI)", "",
           "| method | reference | n | Δ gap, pp [CI] | Δ log speed-up [CI] (> 0: method faster) |", "|---|---|---|---|---|"]
     for p in res["paired"]:
         L.append(f"| {p['method']} | {p['ref']} | {p['n_both']} | {fmt(p['d_gap']['diff'], 2, True)} {ci(p['d_gap']['ci'], 2, True)} | "
                  f"{fmt(p['d_log_speedup']['diff'], 2, True)} {ci(p['d_log_speedup']['ci'], 2, True)} |")
+    L += ["", "## Faster learned rules from the stored reference runs (not re-timed; gaps to the same DB)", "",
+          "Objectives are deterministic, so the gap comparison is exact; the speed-ups are those of the stored run"
+          + (" (load-corrected as in uc24ltf)" if bench == "uc24" else "") + " and only indicative here.", "",
+          "| learned rule | feasible % | gap mean % [CI] | speed-up mean (median), stored | fixed % | Δ gap, no-learning baseline − rule, pp [CI] |",
+          "|---|---|---|---|---|---|"]
+    for r in res["stored_fast_rules"]:
+        cm = "; ".join(f"{b}: {fmt(v['diff'], 2, True)} {ci(v['ci'], 2, True)}" for b, v in r["baseline_minus_rule"].items())
+        L.append(f"| {r['method']} | {r['feasible']:.1f} | {fmt(r['gap_mean'])} {ci(r['gap_ci'])} | {fmt(r['speedup_mean'], 1)} "
+                 f"({fmt(r['speedup_median'], 1)}) | {fmt(r['fixed_mean'], 1)} | {cm} |")
+    for r in res["stored_e2e"]:
+        p = r["lpround_minus_learned"]
+        L.append(f"\nEnd-to-end without a MILP: {r['method']}: gap {fmt(r['gap_mean'])} % {ci(r['gap_ci'])} (median "
+                 f"{fmt(r['gap_median'])} %), served {r['served']:.1f} %; no-learning LP rounding + repair + LPs − learned: "
+                 f"{fmt(p['diff'], 2, True)} pp {ci(p['ci'], 2, True)} (n = {p['n']}).")
     L += ["", "## Same budget: the full MILP stopped at each method's per-instance time (its incumbent log)", "",
           "| method | full MILP has a solution % | method gap % | full MILP gap at the same time % (where it has one) | Δ method − full, pp [CI] (n) | method better / full better / full has none | time-to-quality speed-up (median) |",
           "|---|---|---|---|---|---|---|"]

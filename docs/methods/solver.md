@@ -154,6 +154,18 @@ LP-integral reference. 12 instances only, because one instance with all variants
   MILP 36.0 / 33.5 s, hybrid 23.4 / 20.8 s, error-cost 90 % 13.0 / 11.0 s, combined 98 % 8.0 / 5.8 s (no gain).
 * Every polish / anytime run is reported along its whole τ curve as well; headline points are the τ above.
 
+**uc24.** Base rule for the core / polish / warm-start variants: the label-free guarded rule at 95 % target
+(`95%|bce_g` of [`b3.md`](b3.md): imitation-GNN confidence ranking, adequacy guard, LP-relaxation guard, min up/down
+conflict release); reference LtF-kNN at ε = 1 % ([`uc24ltf.md`](uc24ltf.md)). There is no error-cost model on uc24
+(it needs MILP-priced errors), so trust-region sets are ranked by the imitation GNN's error probability and pass
+through the guarded rule's guard chain. Validation: instances 30–35 of `uc24ltf_val` (six of the 10 validation instances
+added for Learning to Fix; instances 0–5 were used to select the guarded rule), with the stored full MILP of that file
+as the reference (highspy, one thread, 300 s, the same solver path; not re-solved, to save ≈ 2 min of solver time per
+instance). Local branching and warm-full-MILP polish were not carried to uc24: on uc12 validation they were dominated
+by RINS / gradient release, and on 24 hours a full-size polish step costs at least one full-size root solve. Nor
+was core + band: on uc12 validation it matched the hybrid's gap (0.174 / 0.170 % vs 0.170 %) at a lower speed-up
+(3.3–3.5× vs 3.7×).
+
 ## Results
 
 (pending)
@@ -164,4 +176,23 @@ LP-integral reference. 12 instances only, because one instance with all variants
 
 ## Caveats
 
-(pending)
+* **Another HiGHS build than the stored uc12 references.** The earlier uc12 studies solved through scipy's HiGHS; here
+  everything runs through highspy 1.15 with one thread on one pinned core. The re-run references reproduce their
+  stored objectives (identical solutions on the instances compared), but solve times are longer: on the first test
+  instances the full MILP took a median 1.7× its earlier back-to-back time and the reduced MILPs 1.3–1.6×. Speed-ups
+  here are paired and internally consistent, but not interchangeable with the published ones (they are slightly
+  higher for fixing rules, because the full MILP slowed down more than the reduced ones).
+* **Shared machine.** Three other agents' jobs ran on the other cores (load average 4–5); one process ran on core 0 at
+  a time. Back-to-back pairing removes the drift between runs, not the noise within one.
+* **Post-hoc time limits.** Results at τ are read from one run's incumbent trace. HiGHS is deterministic, so a run with
+  limit τ follows the same path, but its timing can differ slightly (timer checks, final clean-up).
+* **Small validation sets.** 12 uc12 and 6 uc24 validation instances (one instance with every variant costs ≈ 5 min
+  on uc12 and more on uc24). Parameters were chosen coarsely (two values each); a finer search could move individual
+  points, but the structural results (no proof speed-up from trust regions or warm starts) did not depend on them.
+* **The hybrid's thresholds were tuned on all 360 uc12 validation instances**, including the 12 used here, so its
+  validation gaps are in-sample; this affects the selection of polish parameters only.
+* **One seed** for every model (BCE GNN seed 0, harm ensemble seed 0, self-trained GNN seed 0, uc24 imitation GNN).
+* **Trust-region scope.** Predict-and-Search was evaluated as published (one deviation budget over the most confident
+  decisions, full model otherwise), not with its learned contrastive model (ConPaS); the ranking is our error cost
+  (uc12) or error probability (uc24). With a commercial solver whose root processing is cheaper relative to the tree
+  the balance could differ.

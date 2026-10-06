@@ -78,6 +78,78 @@ Fair solver budgets:
 
 ## 4. Results
 
+### 4.1 Validation
+
+* **LP-integral tolerance** (12 h, 60 `val` instances; 24 h, 40 `uc24ltf_val`): the tolerance barely changes what is
+  fixed (98.2 → 98.9 % of the decisions from tol 1e-6 to 0.2 on 12 h) and no reduced MILP was infeasible. 12 h:
+  1e-6 without guards (1.36 % mean gap to C\*, max 10.1 %), 0.05 with guards (1.23 %, max 7.6 %). Already on validation
+  this rule is ~1 % worse than the MILP: 20 of the 60 instances are above 1 %, 37 above 0.5 %. On the integral entries
+  the relaxation disagrees with the (symmetry-aligned) MILP schedule on 6.0 OFF and 3.3 ON decisions per instance;
+  the gap correlates with the wrong OFF fixes (r = 0.33) and with the instance's LP-relaxation gap (r = 0.42), not with
+  adequacy, so the guards (built against shortfall) release almost nothing.
+* **Learning-free Learning to Fix** (12 h, 180 instances): converged in 30 iterations (23 min), every validation
+  instance within ε (witness max 0.996 %), but at **55.2 % fixed** against 66.7 % for the paper's kNN and 83.6 % for our
+  BCE GNN under the same tuning. The LP values are 98 % exactly 0 or 1, so a cut that must release one wrong integral
+  value of a unit (π = 0 or 1) can only do it by freeing *all* of that unit's integral values on that side: 32 units
+  end with τ̲ = 0 (never fixed OFF) and 27 with τ̄ = 1 (never fixed ON). The relaxation carries no confidence within
+  its integral values, which is exactly what the calibration needs.
+
+### 4.2 12 hours (first 60 of `test_fresh`)
+
+Full MILP re-timed on this core: 26.3 s mean (stored back-to-back run 20.3 s; median ratio 1.41, the same factor for
+every re-run rule, 1.36–1.39), 12 % at the 60 s limit. The re-run references reproduce their stored objectives
+(95–100 % of instances identical; the rest are time-limited solves) and **their published paper metrics**: LtF-kNN
+0.41 % at 4.6× (published 0.40 % at 4.6×), LtF-BCE 0.28 % at 5.4× (5.2×), hybrid 0.24 % at 5.2× (5.2×), error-cost
+90 % 0.42 % at 4.2× (4.2×). LP relaxation: 0.47 % below the MILP objective on average (median 0.19 %, max 3.8 %;
+validation 0.78 / 0.33 %), 0.33 % below the reference dual bound; 98.3 % of its values integral, 7.3 of them wrong per
+instance. PGLib California: median 0.03 %, 99 % integral.
+
+Paper metrics (gap to the reference dual bound, feasible instances; speed-up = re-timed T_MILP / T_method, mean
+[95 % CI], median, geometric mean; full table in [`results/uc12/base_results.md`](../../results/uc12/base_results.md)):
+
+| method | feasible | gap mean [CI] | gap median | speed-up mean [CI] | median | geo. mean | fixed |
+|---|---|---|---|---|---|---|---|
+| full MILP, 0.1 % (reference) | 100 % | 0.16 % | 0.09 % | 1.0× | 1.0× | 1.0× | 0 % |
+| full MILP, 0.25 % gap | 100 % | 0.15 % [0.09, 0.24] | 0.10 % | 1.7× [1.3, 2.3] | 1.1× | 1.4× | 0 % |
+| full MILP, 0.5 % gap | 100 % | 0.20 % [0.12, 0.30] | 0.10 % | 2.8× [1.8, 4.3] | 1.3× | 1.8× | 0 % |
+| **full MILP, 1 % gap** | 100 % | **0.21 % [0.14, 0.30]** | 0.10 % | **4.0× [2.6, 5.8]** | 1.6× | 2.3× | 0 % |
+| LtF kNN ε = 1 % (paper's setting) | 100 % | 0.41 % [0.28, 0.56] | 0.23 % | 4.6× [2.5, 7.8] | 1.6× | 2.1× | 68 % |
+| LtF on our BCE GNN ε = 1 % | 98.3 % | 0.28 % [0.17, 0.40] | 0.10 % | 5.4× [3.9, 7.3] | 2.5× | 3.6× | 84 % |
+| hybrid (guard-aware LtF on error-cost scores) | 100 % | 0.24 % [0.17, 0.33] | 0.12 % | 5.2× [3.6, 7.3] | 2.2× | 2.9× | 86 % |
+| ours: error-cost + adequacy, 90 % | 100 % | 0.42 % [0.25, 0.63] | 0.10 % | 4.2× [3.4, 5.0] | 2.9× | 3.3× | 90 % |
+| *no learning*: LP-integral fixing (tol 1e-6) | 100 % | 1.06 % [0.80, 1.36] | 0.81 % | 12.9× [10.1, 16.3] | 9.9× | 9.2× | 98 % |
+| *no learning*: LP-integral (tol 0.05) + guards | 100 % | 1.10 % [0.81, 1.41] | 0.81 % | 11.0× [9.2, 12.9] | 9.0× | 8.5× | 98 % |
+| *no learning*: LtF on the LP relaxation, ε = 1 % | 100 % | **0.23 % [0.15, 0.34]** | 0.09 % | 2.0× [1.7, 2.5] | 1.5× | 1.7× | 55 % |
+| *no learning*: LP rounding + repair + 5 LPs (no MILP) | 100 % | 1.59 % [1.07, 2.19] | 0.85 % | 27.6× [23.1, 32.1] | 28.8× | 19.2× | – |
+
+Paired (method − reference, instances feasible for both; Δ log speed-up > 0: method faster):
+
+| method | vs hybrid: Δ gap pp / Δ log speed-up | vs LtF-kNN | vs full MILP at 1 % gap |
+|---|---|---|---|
+| full MILP, 1 % gap | −0.03 [−0.11, +0.04] / −0.24 [−0.51, +0.03] | **−0.20 [−0.37, −0.06]** / +0.09 [−0.26, +0.45] | – |
+| hybrid | – | **−0.16 [−0.33, −0.02]** / **+0.33 [+0.01, +0.62]** | +0.03 [−0.04, +0.11] / +0.24 [−0.03, +0.51] |
+| LtF on our BCE GNN | +0.03 [−0.06, +0.14] / +0.19 [−0.03, +0.40] | −0.13 [−0.30, +0.02] / **+0.52 [+0.25, +0.79]** | +0.07 [−0.03, +0.19] / **+0.44 [+0.16, +0.73]** |
+| LtF on the LP relaxation | −0.02 [−0.10, +0.09] / **−0.56 [−0.79, −0.33]** | **−0.18 [−0.34, −0.02]** / −0.23 [−0.51, +0.03] | +0.02 [−0.07, +0.14] / **−0.32 [−0.57, −0.08]** |
+| LP-integral (tol 1e-6) | **+0.82 [+0.55, +1.09]** / **+1.15 [+0.87, +1.42]** | **+0.65 [+0.39, +0.92]** / **+1.48 [+1.17, +1.76]** | **+0.85 [+0.61, +1.10]** / **+1.39 [+1.14, +1.61]** |
+| LP rounding + 5 LPs | **+1.34 [+0.83, +1.94]** / **+1.89 [+1.52, +2.25]** | **+1.18 [+0.69, +1.76]** / **+2.22 [+1.85, +2.57]** | – |
+
+At the speed of the no-learning fixing rule (~13×), the learned rules of the stored reference runs (same instances,
+same DB; objectives are deterministic, speed-ups from their own run) are only slightly more accurate: combined
+pipeline 98 % 0.82 % at 13.8× and LtF on the self-trained GNN at ε = 10 % 0.85 % at 13.6×; LP-integral − these:
++0.24 [−0.04, +0.52] and +0.18 [−0.09, +0.46] pp (with guards +0.28 [+0.01, +0.56]). Without a MILP, the no-learning LP
+rounding (1.59 %, median 0.85 %, 96.7 % served) is *better* than the best learned end-to-end pipeline of the earlier
+study on the same 60 instances (combined + screening, 3 seeds: 2.64 %, median 1.02 %, 91.7 % served; −1.05 pp
+[−2.60, +0.03]).
+
+**Same budget.** Stopped after exactly each method's time, the full MILP has no solution yet on 7–30 % of the
+instances (the 12-hour MILP finds its good incumbent at the end of the root) and, where it has one, it is 5–13 % worse
+on average; every method beats it (hybrid: 0.24 % vs 8.5 %, method better on 29, full better on 15, full without a
+solution on 14 of 60). Time to the same quality (median): hybrid 1.7×, LtF-BCE 2.1×, LtF-kNN 1.35×, LtF on the LP
+relaxation 1.2×, LP-integral 4.8×, LP rounding 10×. **The fair cheap alternative is the loose gap, not the time
+limit**: a 1 % gap stops the full MILP after the root at a median 1.6× (mean 4.0×) and still delivers 0.21 %.
+
+### 4.3 24 hours
+
 *(pending)*
 
 ## 5. Verdict
@@ -86,7 +158,23 @@ Fair solver budgets:
 
 ## 6. Caveats
 
-*(pending)*
+* **One core of a shared machine.** Four agents ran on the four cores (1-minute load ≈ 4.3); this study used core 1
+  only and nothing else ran on it during the test passes. Every comparison is paired within an instance; the stored
+  reference runs were slower by a constant factor (1.36–1.41 on 12 h for the full MILP and every re-run rule), so the
+  re-timed speed-ups match the published ones.
+* **Solver time** is `Highs.run()`. The stored 12-hour times came from `scipy.optimize.milp`, which also counts ~0.3–0.5 s
+  of model set-up per call; excluding it here affects the full MILP and every method alike.
+* **Reference dual bound** = the stored reference run's bound (the same DB as the published tables), not this run's;
+  on time-limited instances the two differ slightly (`timing.own_db_minus_ref_db_mean_pct` in the JSON).
+* **Same budget** uses the incumbent log of the re-timed 0.1 % run instead of separate time-limited re-solves (HiGHS
+  is deterministic; a run stopped at time t has the incumbent the log shows at t, up to timing noise).
+* **Loose-gap runs** keep the reference time limit (60 s / 300 s) and one thread; HiGHS prunes with the gap, so a
+  loose-gap run follows a different search than the 0.1 % run after the root.
+* **Small samples**: 60 (12 h) and 20 (24 h, half of the test set, chosen as the first 20 before any run) test
+  instances; validation 60 / 180 (12 h) and 40 (24 h); one seed for every learned reference rule here.
+* **Learning-free LtF** inherits the compute caps of the faithful runs (relaxation MILPs 6 s / 8 s, K_max = 10), so its
+  thresholds are as conservative as theirs.
+* **Inference times** of the GNN-based reference rules are the stored per-instance values (milliseconds), not re-timed.
 
 ## 7. Test suite
 
