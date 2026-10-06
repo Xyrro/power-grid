@@ -39,6 +39,11 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
    the paper reproduces its quality (0.40 % vs 0.48 %) but not its speed-up (4.7× vs 20.8×) on our 12-hour UC; on our
    GNN probabilities it is level with our best rules (0.28 % at 5.2×; 0.85 % at 13.5×) — we do not beat it, our
    models make it better. On 24 hours the MILP finds a 0.5 %-good schedule in a median 28 s.
+12. **Head-to-head with Learning to Fix on three systems (§6 X6–X8)**: on 12 h our hybrid (the paper's tuning on our
+   error-cost scores) is significantly better than the paper's setting (0.24 % vs 0.40 % at ~5×) and level with the
+   paper's tuning on our probabilities; on 24 h our guarded rule matches its gap at ~2× its speed; on a 610-unit PGLib
+   system the paper's regime reproduces (0.55 % at 25.5× mean, 5.8× median), our rule is more accurate (0.195 % at
+   12.4× mean, 8.2× median) and never infeasible, and rounding the LP relaxation (no learning) gives 0.33 % at 24×.
 
 ## 1. The framework and the benchmarks
 
@@ -603,6 +608,65 @@ its system (same fixed shares): our benchmark is harder for fixing and its fast 
 baselines our rules improve at least as much as the paper's method does. Not comparable: system (Irish copper plate,
 72 h vs RTS-GMLC DC network, 12/24 h), solver (Gurobi, 8 CPUs vs single-thread HiGHS on a shared machine), MILP
 tolerance, and sample sizes (~525 validation / 525 test vs our 60–180 / 40–120).
+
+### X6. Hybrid: Learning to Fix's tuning on our scores (12 hours)
+
+[`methods/hybrid.md`](methods/hybrid.md). The paper's joint ε-tuning applied to our learned error-cost scores
+(BCE GNN), with the adequacy and min up/down guards inside the tuning check; 360 validation instances (180 more
+generated). First 60 fresh test instances, paper metrics:
+
+| rule | gap to dual bound | speed-up | fixed |
+|---|---|---|---|
+| faithful LtF, kNN, ε = 1 % (paper's setting) | 0.40 % | 4.6× | 68 % |
+| faithful LtF on our BCE GNN, ε = 1 % | 0.28 % | 5.2× | 84 % |
+| **hybrid: guard-aware LtF on our error-cost scores, ε = 1 %** | **0.24 %** (max 1.78 %) | 5.2× | 86 % |
+| hybrid, other seed (180 validation instances) | 0.23 % | 7.6× | 84 % |
+
+* **Significantly better than the paper's setting** (−0.16 pp [−0.33, −0.03] in gap and a higher speed-up), but
+  **level with the paper's calibration run on our probabilities** (−0.03 pp [−0.15, +0.06]): the gain comes from
+  our model and scores, not from the modified tuning.
+* Putting the LP-relaxation guard inside the tuning check is degenerate (fixes 99.8 % and relies on the guard).
+* 360 instead of 180 validation instances lowered the worst test gap from 3.14 % to 1.78 %.
+
+### X7. A large public system: PGLib-UC California (610 units)
+
+[`methods/pglib.md`](methods/pglib.md). The PGLib-UC reference MILP (Knueven, Ostrowski & Watson) implemented and
+checked against the reference Pyomo model (LP relaxations and priced schedules agree to 1e-14). Copper plate like the
+paper; 48 h took 6–15+ min per MILP with HiGHS, so the first 24 h were used (full MILP 19–565 s, mean 100 s).
+160 training instances without MILPs, 30 validation and 30 test instances with MILPs; kNN labels from self-training.
+
+| rule (30 test instances, paper metrics) | feasible | gap | speed-up mean / median |
+|---|---|---|---|
+| Learning to Fix, kNN, ε = 1 % (paper's setting) | 96.7 % | 0.55 % | 25.5× / 5.8× |
+| ours: guarded error-cost rule, 98 % | 100 % | 0.195 % | 12.4× / 8.2× |
+| ours: guarded error-cost rule, 95 % | 100 % | 0.043 % | 8.5× |
+| ours: learned end-to-end (5 LPs) | 96.7 % | 0.65 % | 23.5× |
+| no learning: round the LP relaxation, repair, 5 LPs | 100 % | 0.33 % | 24.0× |
+
+* **The paper's regime reproduces here** for Learning to Fix (0.55 % at 25.5×), but its mean speed-up rests on four
+  instances at 74–210× (median 5.8×).
+* On the instances both solve, **our 98 % rule is 0.35 pp more accurate [−0.70, −0.12]**, faster by median and by
+  ratio of mean times, and never infeasible (the adequacy guard prevents the "needed unit fixed off" failures);
+  by the paper's mean speed-up Learning to Fix is about twice as fast.
+* **The strongest fast result needs no learning**: the LP relaxation is within 0.03 % of the optimum, so the MILP is
+  slow because it is large, not because commitments are hard to predict.
+
+### X8. Learning to Fix on the 24-hour benchmark
+
+[`methods/uc24ltf.md`](methods/uc24ltf.md). 40 validation MILPs and 120 labelled training instances added (5.7 solver
+core-hours). 40 test instances, paper metrics (speed-ups corrected for machine load in brackets):
+
+| rule | feasible | gap | speed-up | time-to-quality |
+|---|---|---|---|---|
+| Learning to Fix, kNN, ε = 1 % | 100 % | 0.60 % | 7.1× [5.6×] | 1.3× |
+| Learning to Fix, kNN, ε = 5 % | 92.5 % | 2.14 % | 25.5× [20×] | 0.9× |
+| ours: guarded rule, 95 % target | 100 % | 0.67 % | 14.8× [11.6×] | 2.6× |
+| ours: REINFORCE ranking, 90 % | 100 % | 3.06 % | 36.6× | 2.8× |
+
+* Our label-free guarded rule is **level in gap with Learning to Fix at ε = 1 % (+0.06 pp [−0.14, +0.26]) at about
+  twice its speed**. GNN-based tuning did not converge within the budget (min up/down conflicts).
+* Measured as time to the same cost, every fixing method gains only 1–3× on 24 hours; at ε = 5 % the full MILP's own
+  incumbent reaches Learning to Fix's cost before it finishes.
 
 ## 7. Recommendations for the framework, box by box
 
