@@ -9,3 +9,4 @@ results/uc12/ltfx_probs.npz
 results/uc12/hybrid_probs.npz
 results/uc24/uc24ltf_probs.npz
 results/**/*.out
+results/**/*_probs.npz
