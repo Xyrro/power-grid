@@ -529,6 +529,10 @@ The combined fixing pipeline does not beat its parts at lower speed-ups.
 
 ### X3. Learning to Fix, reconstructed
 
+> **Superseded.** The full paper was obtained afterwards: its thresholds are tuned with *all* fixings of a validation
+> instance checked jointly (logic-based Benders decomposition), not generator by generator as reconstructed here, so the
+> failure mode below does not apply to the published method. A faithful implementation is in progress (`methods/ltfx.md`).
+
 The full text (arXiv 2609.39396) could not be retrieved (academic hosts are blocked in this environment); the
 reconstruction uses the published facts: a kNN classifier, generator-specific confidence thresholds from the cost
 impact of fixing errors, a 1 % validation cost tolerance (reported 20.8× at 0.48 % gap, 99.81 % feasible). Fixing
