@@ -171,6 +171,26 @@ by RINS / gradient release, and on 24 hours a full-size polish step costs at lea
 was core + band: on uc12 validation it matched the hybrid's gap (0.174 / 0.170 % vs 0.170 %) at a lower speed-up
 (3.3–3.5× vs 3.7×).
 
+| validation (6 `uc24ltf_val` instances; stored full MILP 105 s mean) | gap mean % | speed-up mean |
+|---|---|---|
+| guarded 95 % rule (hard fixing) | 0.798 | 8.07 |
+| … + decoded start | 0.805 | 7.82 |
+| … + RINS, τ = 5 / 10 / 20 / 60 s | 0.753 / 0.725 / 0.610 / 0.593 | 5.47 / 4.33 / 3.55 / 3.43 |
+| … + gradient release m = 100, τ = 20 / 60 s | 0.742 / 0.742 | 3.39 / 2.11 |
+| … + gradient release m = 250, τ = 20 / 60 s | 0.615 / 0.490 | 3.16 / 1.97 |
+| (q0, q1) = (0.97, 0.9) set hard-fixed | 1.173 | 12.77 |
+| Predict-and-Search on that set, Δ = 20 (150 s limit); cut at 30 / 60 s | 0.142; 7.92 / 0.235 | 0.89; 3.26 / 1.70 |
+| full MILP cut at 30 / 60 s (stored incumbent log) | 0.281 / 0.181 | 3.50 / 1.83 |
+
+**uc24 selection (fixed 20:40, before the test run).** Same rules as on uc12: RINS at the smallest τ within 0.02 pp
+of its best validation gap (τ = 20 s); gradient release at its lowest validation gap (m = 250, τ = 60 s);
+Predict-and-Search with (0.97, 0.9), Δ = 20 and its 150 s limit; warm starts without parameters. Test pass A (all 40
+instances, `results/uc24/solver_test.jsonl`): full MILP (300 s), LtF-kNN ε = 1 %, guarded 95 %, LP-integral fixing,
+guarded 95 % + decoded start, + RINS (60 s limit, headline τ = 20 s), + gradient release m = 250 (60 s, headline
+τ = 60 s). Pass B (first 12 instances only, for compute; `results/uc24/solver_test_b.jsonl`): full MILP + decoded
+start (300 s), full MILP from the guarded rule's solution (300 s), the (0.97, 0.9) set hard-fixed, and
+Predict-and-Search.
+
 ## Results
 
 ### uc12: first 60 instances of `test_fresh` (paired, one core)
@@ -282,7 +302,22 @@ What the numbers say (uc12):
 
 ## Verdict
 
-(pending)
+**uc12 (60 test instances, paired, paper metrics).**
+
+* **Against the hybrid: no solver-side variant beats it at equal speed-up.** The only significant improvement of its
+  gap comes from RINS polish (−0.043 pp [−0.076, −0.015] in 0.75 s), which moves along the frontier rather than past
+  it (5.7× → 4.0×). Trust regions match its gap only at full-MILP speed (−0.013 pp [−0.107, +0.099], log speed-up
+  −1.00 [−1.28, −0.72]); soft-fixing the band beyond the hybrid's fixings costs gap and gains nothing
+  (+0.049 pp [+0.008, +0.108]); warm starts change neither its gap nor its proof time.
+* **Against Learning to Fix as published (kNN, ε = 1 %): beaten on both axes.** Hybrid + RINS has a lower gap
+  (−0.204 pp [−0.370, −0.065]) at a speed-up that is not lower (+0.21 log [−0.07, +0.48]; 4.0× vs 3.6× mean); the
+  hybrid cut at 10 s is level in gap (−0.09 pp [−0.28, +0.08]) and 2.2× faster (+0.81 log [+0.53, +1.08]). (The hybrid
+  alone already beats it: −0.161 pp [−0.333, −0.013], +0.40 log [+0.10, +0.70], reproducing [`hybrid.md`](hybrid.md).)
+* **What closes the gap to exact solving is cheap polishing in a reduced space, not trust regions or warm starts.**
+  Every neighbourhood that keeps the full-size model (trust region, local branching, warm-started full MILP) pays the
+  full-size root again; on this benchmark that root *is* the solve. RINS around the LP relaxation, a reduced MILP of
+  ≈ 2 % free decisions, adds 0.7–1.4 s and recovers a quarter to a third of the distance to the best schedules
+  found here (fix-then-prove, 0.133 %): hybrid 0.263 → 0.220 %, combined 98 % 0.840 → 0.655 %.
 
 ## Caveats
 

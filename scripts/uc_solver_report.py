@@ -170,14 +170,14 @@ def paired(recs, v, w, tau_v=None, tau_w=None, T=12):
 
 def fmt_row(s):
     t = "" if s["tau"] is None else f" @ τ = {s['tau']:g} s"
-    return (f"| {s['variant']}{t} | {s['feasible_%']:.0f} | {s['gap_mean_%']:.3f} [{s['gap_ci'][0]:.2f}, {s['gap_ci'][1]:.2f}] "
+    return (f"| {s['variant']}{t} | {s['n']} | {s['feasible_%']:.0f} | {s['gap_mean_%']:.3f} [{s['gap_ci'][0]:.2f}, {s['gap_ci'][1]:.2f}] "
             f"| {s['gap_median_%']:.3f} | {s['gap_max_%']:.2f} | {s['speedup_mean']:.2f} | {s['speedup_median']:.2f} "
             f"| {s['ratio_of_mean_times']:.2f} | {s['time_mean_s']:.1f} | "
             + (f"{s['fixed_%']:.0f}" if np.isfinite(s['fixed_%']) else "–") + " |")
 
 
-HEADER = ("| variant | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | "
-          "ratio of mean times | time mean s | fixed % |\n|---|---|---|---|---|---|---|---|---|---|")
+HEADER = ("| variant | n | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | "
+          "ratio of mean times | time mean s | fixed % |\n|---|---|---|---|---|---|---|---|---|---|---|")
 
 
 

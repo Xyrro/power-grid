@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 from otsl.combo import adequacy_guard, block_decode, harm_from_file, harm_scores, rule_fixings  # noqa: E402
 from otsl.fixpolicy import FixFeaturizer, lp_guard, release_conflicting_rows  # noqa: E402
-from otsl.hybrid import apply_guards, harm_to_score  # noqa: E402
+from otsl.hybrid import harm_to_score  # noqa: E402
 from otsl.ltfx import KNNProb, fix_dict  # noqa: E402
 from otsl.solver import (dispatch_x, flip_savings, gradient_release, local_branching_row, masks_from_fix,  # noqa: E402
                          pick_confident, schedule_for_fixings, solve_uc_hs, trust_region_row)
@@ -73,6 +73,9 @@ VARIANT_SETS = {
     # uc24 validation (uc24ltf_val; the dataset's full MILP is the reference, not re-solved)
     "val24": ["fullstored", "ref:g95", "warmred:g95", "rins:g95:60", "grad:g95:100:60", "grad:g95:250:60",
               "hard:0.97:0.9", "pas:0.97:0.9:20:150"],
+    # uc24 test, pass A (all 40 instances) and pass B (first 12; expensive full-size variants), fixed on validation
+    "test24a": ["full", "ref:ltf_knn", "ref:g95", "lpfix", "warmred:g95", "rins:g95:60", "grad:g95:250:60"],
+    "test24b": ["warmfull:dec", "ftp:g95", "hard:0.97:0.9", "pas:0.97:0.9:20:150"],
 }
 
 

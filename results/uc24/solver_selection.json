@@ -1,0 +1,51 @@
+{
+ "bench": "uc24",
+ "title": "24-hour UC (uc24 test, 40 instances; pass B rows on the first 12): solver-side alternatives",
+ "runs": ["results/uc24/solver_test_b.jsonl", "results/uc24/solver_test.jsonl"],
+ "out_prefix": "results/uc24/solver_results",
+ "stored": "data/generated/uc24/test.npz",
+ "refs": {
+  "faithful LtF, kNN, eps = 1 % (paper's setting)": "ref:ltf_knn",
+  "ours: guarded rule, 95 % target": "ref:g95",
+  "no learning: fix the LP-integral decisions": "lpfix"
+ },
+ "refs_short": {"faithful LtF, kNN, eps = 1 % (paper's setting)": "LtF-kNN 1 %",
+                "ours: guarded rule, 95 % target": "guarded 95 %",
+                "no learning: fix the LP-integral decisions": "LP-integral fix"},
+ "families": [
+  {"name": "1. Trust region (first 12 instances)", "rows": [
+    {"label": "Predict-and-Search, (q0, q1) = (0.97, 0.9), Delta = 20, 150 s limit", "short": "PaS", "variant": "pas:0.97:0.9:20:150"},
+    {"label": "same set hard-fixed", "short": "hard, same set", "variant": "hard:0.97:0.9"}]},
+  {"name": "2. Warm starts", "rows": [
+    {"label": "guarded 95 % reduced MILP, decoded start, to proof", "short": "guarded + start", "variant": "warmred:g95", "plot": false},
+    {"label": "full MILP, decoded start, to proof (first 12)", "short": "warm full", "variant": "warmfull:dec", "plot": false},
+    {"label": "fix, then prove: full MILP from the guarded rule's solution (first 12)", "short": "fix-then-prove", "variant": "ftp:g95"}]},
+  {"name": "3. Fix and polish (headline tau chosen on validation)", "rows": [
+    {"label": "guarded 95 % + RINS, tau = 20 s", "short": "guarded+RINS", "variant": "rins:g95:60", "tau": 20},
+    {"label": "guarded 95 % + gradient release m = 250, tau = 60 s", "short": "guarded+grad", "variant": "grad:g95:250:60", "tau": 60}]}
+ ],
+ "warm": [
+  ["full MILP: decoded start vs cold (first 12)", "warmfull:dec", "full"],
+  ["guarded 95 % reduced MILP: decoded start vs cold", "warmred:g95", "ref:g95"],
+  ["full MILP: guarded rule's solution as start (incl. its time) vs cold (first 12)", "ftp:g95", "full"]
+ ],
+ "polish": [
+  {"label": "guarded 95 % + RINS", "base": "ref:g95", "variant": "rins:g95:60", "taus": [5, 10, 20, 30, 60], "tau_sel": 20},
+  {"label": "guarded 95 % + gradient release m = 250", "base": "ref:g95", "variant": "grad:g95:250:60", "taus": [5, 10, 20, 30, 60], "tau_sel": 60},
+  {"label": "guarded 95 % + full MILP from its solution (first 12)", "base": "ref:g95", "variant": "ftp:g95", "taus": [10, 20, 30, 60, 120], "tau_sel": null}
+ ],
+ "comparators": ["ref:g95", "ref:ltf_knn"],
+ "pairs": [
+  ["PaS vs hard fixing of the same set", "pas:0.97:0.9:20:150", null, "hard:0.97:0.9", null],
+  ["fix-then-prove vs cold full MILP", "ftp:g95", null, "full", null],
+  ["guarded + RINS @20 s vs LtF-kNN", "rins:g95:60", 20, "ref:ltf_knn", null]
+ ],
+ "curves": [
+  {"label": "full MILP, cold", "variant": "full", "taus": [20, 30, 45, 60, 90, 120, 180, 300], "family": "full"},
+  {"label": "full MILP, decoded start", "variant": "warmfull:dec", "taus": [10, 20, 30, 45, 60, 90, 120, 180, 300]},
+  {"label": "PaS", "variant": "pas:0.97:0.9:20:150", "taus": [30, 45, 60, 90, 120, 150]},
+  {"label": "guarded + RINS", "variant": "rins:g95:60", "taus": [5, 10, 20, 30, 60]},
+  {"label": "guarded, time limit", "variant": "ref:g95", "taus": [5, 10, 20, 30, 60, 120], "family": "ref"}
+ ],
+ "ylim": [0.05, 10.0]
+}

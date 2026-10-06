@@ -8,48 +8,48 @@ Re-timing: the full MILP here takes 26.6 s on average against 25.2 s in the stor
 
 ## Hard-fixing references, re-run in the same process
 
-| variant | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | ratio of mean times | time mean s | fixed % |
-|---|---|---|---|---|---|---|---|---|---|
-| faithful LtF, kNN, eps = 1 % (paper's setting) (`ref:ltf_knn`) | 100 | 0.424 [0.30, 0.58] | 0.243 | 3.59 | 3.58 | 1.66 | 1.44 | 18.4 | 68 |
-| faithful LtF, BCE GNN, eps = 1 % (`ref:ltf_bce`) | 98 | 0.298 [0.19, 0.43] | 0.097 | 2.41 | 5.39 | 2.50 | 2.38 | 11.1 | 84 |
-| hybrid (guard-aware LtF on error-cost scores, 360 val) (`ref:hybrid`) | 100 | 0.263 [0.19, 0.35] | 0.130 | 1.80 | 5.74 | 2.23 | 1.85 | 14.4 | 86 |
-| ours: error-cost + adequacy guard, 90 % (`ref:ec90`) | 100 | 0.441 [0.25, 0.67] | 0.100 | 4.36 | 4.62 | 3.16 | 3.15 | 8.4 | 90 |
-| ours: combined pipeline, 98 % (`ref:comb98`) | 100 | 0.840 [0.57, 1.15] | 0.342 | 6.28 | 13.52 | 7.94 | 7.54 | 3.5 | 92 |
-| no learning: fix the LP-integral decisions (`lpfix`) | 100 | 1.080 [0.80, 1.39] | 0.814 | 6.74 | 12.44 | 10.04 | 10.09 | 2.6 | 98 |
+| variant | n | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | ratio of mean times | time mean s | fixed % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| faithful LtF, kNN, eps = 1 % (paper's setting) (`ref:ltf_knn`) | 60 | 100 | 0.424 [0.30, 0.58] | 0.243 | 3.59 | 3.58 | 1.66 | 1.44 | 18.4 | 68 |
+| faithful LtF, BCE GNN, eps = 1 % (`ref:ltf_bce`) | 60 | 98 | 0.298 [0.19, 0.43] | 0.097 | 2.41 | 5.39 | 2.50 | 2.38 | 11.1 | 84 |
+| hybrid (guard-aware LtF on error-cost scores, 360 val) (`ref:hybrid`) | 60 | 100 | 0.263 [0.19, 0.35] | 0.130 | 1.80 | 5.74 | 2.23 | 1.85 | 14.4 | 86 |
+| ours: error-cost + adequacy guard, 90 % (`ref:ec90`) | 60 | 100 | 0.441 [0.25, 0.67] | 0.100 | 4.36 | 4.62 | 3.16 | 3.15 | 8.4 | 90 |
+| ours: combined pipeline, 98 % (`ref:comb98`) | 60 | 100 | 0.840 [0.57, 1.15] | 0.342 | 6.28 | 13.52 | 7.94 | 7.54 | 3.5 | 92 |
+| no learning: fix the LP-integral decisions (`lpfix`) | 60 | 100 | 1.080 [0.80, 1.39] | 0.814 | 6.74 | 12.44 | 10.04 | 10.09 | 2.6 | 98 |
 
 ## 1. Trust region (Predict-and-Search) vs hard fixing at the same k
 
-| variant | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | ratio of mean times | time mean s | fixed % |
-|---|---|---|---|---|---|---|---|---|---|
-| Predict-and-Search, (q0, q1) = (0.97, 0.9), Delta = 10, 30 s limit (`pas:0.97:0.9:10:30`) | 100 | 0.250 [0.14, 0.39] | 0.094 | 3.03 | 1.28 | 1.16 | 1.32 | 20.1 | – |
-| same set hard-fixed (`hard:0.97:0.9`) | 100 | 3.552 [1.19, 6.55] | 0.199 | 68.96 | 12.60 | 5.69 | 6.77 | 3.9 | 95 |
-| hybrid fixings hard + trust region over the rest of the set, Delta = 10 (`core:hybrid:0.97:0.9:10`) | 100 | 0.312 [0.20, 0.45] | 0.128 | 3.22 | 5.25 | 2.23 | 1.89 | 14.1 | 86 |
+| variant | n | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | ratio of mean times | time mean s | fixed % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Predict-and-Search, (q0, q1) = (0.97, 0.9), Delta = 10, 30 s limit (`pas:0.97:0.9:10:30`) | 60 | 100 | 0.250 [0.14, 0.39] | 0.094 | 3.03 | 1.28 | 1.16 | 1.32 | 20.1 | – |
+| same set hard-fixed (`hard:0.97:0.9`) | 60 | 100 | 3.552 [1.19, 6.55] | 0.199 | 68.96 | 12.60 | 5.69 | 6.77 | 3.9 | 95 |
+| hybrid fixings hard + trust region over the rest of the set, Delta = 10 (`core:hybrid:0.97:0.9:10`) | 60 | 100 | 0.312 [0.20, 0.45] | 0.128 | 3.22 | 5.25 | 2.23 | 1.89 | 14.1 | 86 |
 
 ## 2. Warm starts (to proof, and cut at the validation-chosen tau)
 
-| variant | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | ratio of mean times | time mean s | fixed % |
-|---|---|---|---|---|---|---|---|---|---|
-| full MILP, decoded start, to proof (`warmfull:dec`) | 100 | 0.154 [0.08, 0.26] | 0.081 | 2.65 | 1.17 | 0.99 | 1.03 | 25.8 | – |
-| full MILP, decoded start, cut at 20 s (`warmfull:dec`) @ τ = 20 s | 100 | 0.257 [0.13, 0.42] | 0.085 | 3.05 | 1.69 | 1.38 | 1.75 | 15.2 | – |
-| full MILP, cold, cut at 20 s (`full`) @ τ = 20 s | 100 | 0.339 [0.15, 0.59] | 0.096 | 5.85 | 1.56 | 1.08 | 1.72 | 15.4 | – |
-| hybrid reduced MILP, decoded start, to proof (`warmred:hybrid`) | 100 | 0.268 [0.19, 0.36] | 0.131 | 1.82 | 5.73 | 2.20 | 1.92 | 13.9 | 86 |
-| hybrid reduced MILP, decoded start, cut at 10 s (`warmred:hybrid`) @ τ = 10 s | 100 | 0.478 [0.25, 0.84] | 0.145 | 9.45 | 6.74 | 3.99 | 4.32 | 6.2 | 86 |
-| hybrid reduced MILP, cold, cut at 10 s (`ref:hybrid`) @ τ = 10 s | 100 | 0.333 [0.22, 0.47] | 0.145 | 3.15 | 6.75 | 3.94 | 4.33 | 6.1 | 86 |
-| error-cost 90 % reduced MILP, decoded start, to proof (`warmred:ec90`) | 100 | 0.441 [0.26, 0.67] | 0.100 | 4.36 | 4.35 | 3.13 | 3.12 | 8.5 | 90 |
-| error-cost 90 % reduced MILP, decoded start, cut at 10 s (`warmred:ec90`) @ τ = 10 s | 100 | 0.459 [0.27, 0.69] | 0.110 | 4.36 | 4.83 | 3.75 | 4.19 | 6.4 | 90 |
-| error-cost 90 % reduced MILP, cold, cut at 10 s (`ref:ec90`) @ τ = 10 s | 100 | 0.450 [0.26, 0.68] | 0.102 | 4.36 | 5.05 | 3.80 | 4.18 | 6.4 | 90 |
-| combined 98 % reduced MILP, decoded start, to proof (`warmred:comb98`) | 100 | 0.841 [0.57, 1.16] | 0.342 | 6.28 | 12.71 | 7.53 | 7.58 | 3.5 | 92 |
-| fix, then prove: full MILP from the hybrid's solution (60 s) (`ftp:hybrid`) | 100 | 0.133 [0.08, 0.19] | 0.084 | 1.42 | 1.26 | 0.74 | 0.68 | 39.3 | – |
+| variant | n | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | ratio of mean times | time mean s | fixed % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| full MILP, decoded start, to proof (`warmfull:dec`) | 60 | 100 | 0.154 [0.08, 0.26] | 0.081 | 2.65 | 1.17 | 0.99 | 1.03 | 25.8 | – |
+| full MILP, decoded start, cut at 20 s (`warmfull:dec`) @ τ = 20 s | 60 | 100 | 0.257 [0.13, 0.42] | 0.085 | 3.05 | 1.69 | 1.38 | 1.75 | 15.2 | – |
+| full MILP, cold, cut at 20 s (`full`) @ τ = 20 s | 60 | 100 | 0.339 [0.15, 0.59] | 0.096 | 5.85 | 1.56 | 1.08 | 1.72 | 15.4 | – |
+| hybrid reduced MILP, decoded start, to proof (`warmred:hybrid`) | 60 | 100 | 0.268 [0.19, 0.36] | 0.131 | 1.82 | 5.73 | 2.20 | 1.92 | 13.9 | 86 |
+| hybrid reduced MILP, decoded start, cut at 10 s (`warmred:hybrid`) @ τ = 10 s | 60 | 100 | 0.478 [0.25, 0.84] | 0.145 | 9.45 | 6.74 | 3.99 | 4.32 | 6.2 | 86 |
+| hybrid reduced MILP, cold, cut at 10 s (`ref:hybrid`) @ τ = 10 s | 60 | 100 | 0.333 [0.22, 0.47] | 0.145 | 3.15 | 6.75 | 3.94 | 4.33 | 6.1 | 86 |
+| error-cost 90 % reduced MILP, decoded start, to proof (`warmred:ec90`) | 60 | 100 | 0.441 [0.26, 0.67] | 0.100 | 4.36 | 4.35 | 3.13 | 3.12 | 8.5 | 90 |
+| error-cost 90 % reduced MILP, decoded start, cut at 10 s (`warmred:ec90`) @ τ = 10 s | 60 | 100 | 0.459 [0.27, 0.69] | 0.110 | 4.36 | 4.83 | 3.75 | 4.19 | 6.4 | 90 |
+| error-cost 90 % reduced MILP, cold, cut at 10 s (`ref:ec90`) @ τ = 10 s | 60 | 100 | 0.450 [0.26, 0.68] | 0.102 | 4.36 | 5.05 | 3.80 | 4.18 | 6.4 | 90 |
+| combined 98 % reduced MILP, decoded start, to proof (`warmred:comb98`) | 60 | 100 | 0.841 [0.57, 1.16] | 0.342 | 6.28 | 12.71 | 7.53 | 7.58 | 3.5 | 92 |
+| fix, then prove: full MILP from the hybrid's solution (60 s) (`ftp:hybrid`) | 60 | 100 | 0.133 [0.08, 0.19] | 0.084 | 1.42 | 1.26 | 0.74 | 0.68 | 39.3 | – |
 
 ## 3. Fix and polish (headline tau chosen on validation)
 
-| variant | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | ratio of mean times | time mean s | fixed % |
-|---|---|---|---|---|---|---|---|---|---|
-| hybrid + RINS, tau = 1 s (`rins:hybrid:10`) @ τ = 1 s | 100 | 0.220 [0.15, 0.30] | 0.104 | 1.80 | 3.96 | 1.99 | 1.76 | 15.1 | 98 |
-| hybrid + local branching r = 10, tau = 10 s (`lb:hybrid:10:10`) @ τ = 10 s | 100 | 0.219 [0.15, 0.30] | 0.099 | 1.80 | 1.56 | 1.18 | 1.22 | 21.9 | – |
-| combined 98 % + RINS, tau = 3 s (`rins:comb98:10`) @ τ = 3 s | 100 | 0.655 [0.46, 0.86] | 0.306 | 3.11 | 7.25 | 5.64 | 5.40 | 4.9 | 98 |
-| combined 98 % + gradient release m = 60, tau = 10 s (`grad:comb98:60:10`) @ τ = 10 s | 100 | 0.585 [0.41, 0.78] | 0.289 | 2.61 | 4.76 | 3.29 | 3.43 | 7.8 | 85 |
-| combined 98 % + local branching r = 10, tau = 10 s (`lb:comb98:10:10`) @ τ = 10 s | 100 | 0.680 [0.47, 0.92] | 0.277 | 4.28 | 2.44 | 2.11 | 2.39 | 11.2 | – |
+| variant | n | feasible % | gap to DB mean % [95 % CI] | median % | max % | speed-up mean | median | ratio of mean times | time mean s | fixed % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| hybrid + RINS, tau = 1 s (`rins:hybrid:10`) @ τ = 1 s | 60 | 100 | 0.220 [0.15, 0.30] | 0.104 | 1.80 | 3.96 | 1.99 | 1.76 | 15.1 | 98 |
+| hybrid + local branching r = 10, tau = 10 s (`lb:hybrid:10:10`) @ τ = 10 s | 60 | 100 | 0.219 [0.15, 0.30] | 0.099 | 1.80 | 1.56 | 1.18 | 1.22 | 21.9 | – |
+| combined 98 % + RINS, tau = 3 s (`rins:comb98:10`) @ τ = 3 s | 60 | 100 | 0.655 [0.46, 0.86] | 0.306 | 3.11 | 7.25 | 5.64 | 5.40 | 4.9 | 98 |
+| combined 98 % + gradient release m = 60, tau = 10 s (`grad:comb98:60:10`) @ τ = 10 s | 60 | 100 | 0.585 [0.41, 0.78] | 0.289 | 2.61 | 4.76 | 3.29 | 3.43 | 7.8 | 85 |
+| combined 98 % + local branching r = 10, tau = 10 s (`lb:comb98:10:10`) @ τ = 10 s | 60 | 100 | 0.680 [0.47, 0.92] | 0.277 | 4.28 | 2.44 | 2.11 | 2.39 | 11.2 | – |
 
 ## Paired differences (variant − comparator; gap in pp, log speed-up; instances feasible for both)
 
