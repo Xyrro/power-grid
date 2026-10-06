@@ -96,14 +96,31 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="test")
     a = ap.parse_args()
-    recs = [json.loads(x) for x in open(os.path.join(OUT, f"pglib_eval_{a.split}.jsonl"))]
-    recs.sort(key=lambda r: r["i"])
+    by_i = {}
+    for f in sorted(os.listdir(OUT)):                 # merge evaluation passes (pglib_eval_<split><tag>.jsonl)
+        if f.startswith(f"pglib_eval_{a.split}") and f.endswith(".jsonl"):
+            for x in open(os.path.join(OUT, f)):
+                r = json.loads(x)
+                if r["i"] not in by_i:
+                    by_i[r["i"]] = r
+                else:
+                    q = by_i[r["i"]]
+                    q["rules"].update(r["rules"])
+                    if r["e2e"] and not q["e2e"]:
+                        q["e2e"] = r["e2e"]
+                    if "full" in r and "full" not in q:
+                        q["full"] = r["full"]
+    recs = sorted(by_i.values(), key=lambda r: r["i"])
+    common = set.intersection(*[set(r["rules"]) for r in recs])
+    for r in recs:
+        r["rules"] = {k: v for k, v in r["rules"].items() if k in common}
     n = len(recs)
     T, G = 24, None
     db = np.array([r["bound"] for r in recs])
     t_full = np.array([r["t_full"] for r in recs])
     ref = np.array([r["obj"] for r in recs])
-    names = list(recs[0]["rules"].keys())
+    order = list(NAMES)
+    names = sorted(recs[0]["rules"].keys(), key=lambda k: order.index(k) if k in order else 99)
     G = 410
     out = dict(n=n, rows=[], e2e=[], b2b={}, paired={})
     # full MILP row
@@ -128,7 +145,7 @@ if __name__ == "__main__":
                        n_limit=int(sum(recs[k]["rules"][nm]["status"] != "Optimal" for k in f)))
         out["rows"].append(row)
     # end-to-end rows (no MILP)
-    srcs = sorted({e["src"] for e in recs[0]["e2e"]})
+    srcs = sorted({e["src"] for e in recs[0]["e2e"]}) if all(r["e2e"] for r in recs) else []
     for s in srcs:
         for mode in ("th0.5", "screen"):
             rs, ttq = [], []

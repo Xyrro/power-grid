@@ -53,6 +53,9 @@ if __name__ == "__main__":
     ap.add_argument("--src", default="st", help="probability source of Learning to Fix on our model (val-selected)")
     ap.add_argument("--ltf", default="knn_1,knn_5,{src}_1")
     ap.add_argument("--rules", default="all")
+    ap.add_argument("--skip", default="", help="comma-separated rule names to leave out")
+    ap.add_argument("--tag", default="")
+    ap.add_argument("--no_e2e", type=int, default=0)
     a = ap.parse_args()
     torch.set_num_threads(1)
     sysm, _ = load_bases(a.T)
@@ -127,6 +130,8 @@ if __name__ == "__main__":
         if a.rules != "all":
             keep = a.rules.split(",")
             specs = [s for s in specs if s[0] in keep]
+        if a.skip:
+            specs = [s for s in specs if s[0] not in a.skip.split(",")]
         meta[i] = {s[0]: dict(n_fixed=int(len(s[1])), extra=s[2]) for s in specs}
         jobs.append((i, inst_arrays(d, k), specs, a.tl, a.gap, k < a.b2b))
 
@@ -147,12 +152,13 @@ if __name__ == "__main__":
         e2e_jobs.append((i, inst_arrays(d, k), us))
         e2e_meta[i] = (names, ex)
 
-    out_path = os.path.join(OUT, f"pglib_eval_{a.split}.jsonl")
+    out_path = os.path.join(OUT, f"pglib_eval_{a.split}{a.tag}.jsonl")
     pool = SolverPool(dict(T=T), a.workers)
     t0 = time.time()
     e2e = {}
-    for i, r in pool.run(dispatch_job, e2e_jobs):
-        e2e[i] = r
+    if not a.no_e2e:
+        for i, r in pool.run(dispatch_job, e2e_jobs):
+            e2e[i] = r
     print(f"end-to-end LPs done ({time.time() - t0:.0f}s)", flush=True)
     done = 0
     for i, res in pool.pool.imap_unordered(fixeval_job, jobs, chunksize=1):
@@ -170,7 +176,7 @@ if __name__ == "__main__":
             r["extra"] = meta[i][name]["extra"]
             r["n_fixed"] = r["n_fixed_final"]
             rec["rules"][name] = r
-        for (s, th), (c, sh, so, dt), e in zip(names, e2e[i], ex):
+        for (s, th), (c, sh, so, dt), e in zip(names, e2e.get(i, []), ex):
             rec["e2e"].append(dict(src=s, th=th, cost=c, shed=sh, short=so, lp_s=dt, extra=e))
         with open(out_path, "a") as fh:
             fh.write(json.dumps(rec, default=float) + "\n")
