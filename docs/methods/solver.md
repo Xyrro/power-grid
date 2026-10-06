@@ -10,6 +10,11 @@ trust region; complete starts; local branching; gradient release), [`scripts/uc_
 
 (kept current; newest first)
 
+* 2026-10-06 20:15 — **uc12 test done** (60 instances, `results/uc12/solver_test_fresh.jsonl`; report
+  `results/uc12/solver_results.{md,json}` + Pareto figure, rebuilt with
+  `python3 scripts/uc_solver_report.py --spec results/uc12/solver_selection.json`). uc24 validation running
+  (`results/uc24/solver_val.jsonl`, instances 30–35 of `uc24ltf_val`). Next: uc24 selection (written here before the
+  test), uc24 test (`results/uc24/solver_test.jsonl`), then, if time allows, test_fresh 60–119 with the headline variants.
 * 2026-10-06 16:25 — uc12 validation done (12 `val` instances, 3 passes: `results/uc12/solver_val{,_b,_c}.jsonl`).
   **Test selection fixed (below, "uc12 selection") before any test instance was read.** Next: test_fresh 0–59
   (`results/uc12/solver_test_fresh.jsonl`, resumable), then uc24 validation (10 `uc24ltf_val` instances) and test.
@@ -168,7 +173,112 @@ was core + band: on uc12 validation it matched the hybrid's gap (0.174 / 0.170 %
 
 ## Results
 
-(pending)
+### uc12: first 60 instances of `test_fresh` (paired, one core)
+
+Full tables: [`results/uc12/solver_results.md`](../../results/uc12/solver_results.md) (+ `.json`, Pareto figure
+`solver_results_pareto.png`), raw records `results/uc12/solver_test_fresh.jsonl`. Full MILP (cold, same process):
+26.6 s mean, 7 of 60 at the 60 s limit, 0.221 % mean gap to its own bound (max 4.3 %). Paper metrics: gap to the full
+MILP's dual bound over feasible instances; speed-up = mean (median) of per-instance ratios incl. every overhead.
+
+| method | feasible % | gap mean % [95 % CI] | gap max % | speed-up mean (median) | fixed % |
+|---|---|---|---|---|---|
+| *references, re-run in the same process* | | | | | |
+| faithful LtF, kNN, ε = 1 % (paper's setting) | 100 | 0.424 [0.30, 0.58] | 3.59 | 3.58 (1.66) | 68 |
+| faithful LtF, BCE GNN, ε = 1 % | 98.3 | 0.298 [0.19, 0.43] | 2.41 | 5.39 (2.50) | 84 |
+| **hybrid** (guard-aware LtF on error-cost scores) | 100 | **0.263** [0.19, 0.35] | 1.80 | **5.74** (2.23) | 86 |
+| ours: error-cost + adequacy guard, 90 % | 100 | 0.441 [0.25, 0.67] | 4.36 | 4.62 (3.16) | 90 |
+| ours: combined pipeline, 98 % | 100 | 0.840 [0.57, 1.15] | 6.28 | 13.52 (7.94) | 92 |
+| no learning: fix the LP-integral decisions | 100 | 1.080 [0.80, 1.39] | 6.74 | 12.44 (10.04) | 98 |
+| *1. trust region* | | | | | |
+| Predict-and-Search, (q0, q1) = (0.97, 0.9), Δ = 10, 30 s limit | 100 | 0.250 [0.14, 0.39] | 3.03 | 1.28 (1.16) | 0 (95 in the row) |
+| the same set hard-fixed | 100 | 3.552 [1.19, 6.55] | 68.96 | 12.60 (5.69) | 95 |
+| hybrid fixings hard + trust region over the rest of the set, Δ = 10 | 100 | 0.312 [0.20, 0.45] | 3.22 | 5.25 (2.23) | 86 |
+| *2. warm starts* | | | | | |
+| full MILP, decoded start, to proof | 100 | 0.154 [0.08, 0.26] | 2.65 | 1.17 (0.99) | – |
+| full MILP, decoded start / cold, both cut at 20 s | 100 | 0.257 / 0.339 | 3.05 / 5.85 | 1.69 / 1.56 | – |
+| hybrid reduced MILP, decoded start, to proof | 100 | 0.268 | 1.82 | 5.73 (2.20) | 86 |
+| hybrid reduced MILP, decoded start / cold, both cut at 10 s | 100 | 0.478 / 0.333 | 9.45 / 3.15 | 6.74 / 6.75 | 86 |
+| fix, then prove: full MILP from the hybrid's solution (60 s) | 100 | 0.133 [0.08, 0.19] | 1.42 | 1.26 (0.74) | – |
+| *3. fix and polish (τ chosen on validation)* | | | | | |
+| hybrid + RINS, τ = 1 s | 100 | 0.220 [0.15, 0.30] | 1.80 | 3.96 (1.99) | 98 in the polish |
+| hybrid + local branching r = 10, τ = 10 s | 100 | 0.219 | 1.80 | 1.56 (1.18) | – |
+| combined 98 % + RINS, τ = 3 s | 100 | 0.655 [0.46, 0.86] | 3.11 | 7.25 (5.64) | 98 in the polish |
+| combined 98 % + gradient release m = 60, τ = 10 s | 100 | 0.585 [0.41, 0.78] | 2.61 | 4.76 (3.29) | 85 in the polish |
+| combined 98 % + local branching r = 10, τ = 10 s | 100 | 0.680 | 4.28 | 2.44 (2.11) | – |
+
+Paired against the hybrid and against LtF-kNN (variant − comparator; gap in pp, log of the per-instance speed-up;
+instance bootstrap, 60 instances):
+
+| variant | vs hybrid: Δ gap pp [CI] | Δ log speed-up [CI] | vs LtF-kNN: Δ gap pp [CI] | Δ log speed-up [CI] |
+|---|---|---|---|---|
+| Predict-and-Search | −0.013 [−0.107, +0.099] | −1.00 [−1.28, −0.72] | −0.174 [−0.352, −0.013] | −0.59 [−0.86, −0.34] |
+| core + band | +0.049 [+0.008, +0.108] | −0.04 [−0.15, +0.07] | −0.112 [−0.294, +0.054] | +0.36 [+0.07, +0.65] |
+| full MILP, decoded start | −0.109 [−0.176, −0.046] | −1.10 [−1.34, −0.85] | −0.270 [−0.441, −0.126] | −0.69 [−0.92, −0.48] |
+| fix, then prove | −0.130 [−0.189, −0.080] | −1.27 [−1.45, −1.09] | −0.291 [−0.452, −0.165] | −0.86 [−1.12, −0.61] |
+| hybrid + RINS, τ = 1 s | **−0.043 [−0.076, −0.015]** | −0.19 [−0.25, −0.14] | **−0.204 [−0.370, −0.065]** | +0.21 [−0.07, +0.48] |
+| hybrid + local branching, τ = 10 s | −0.044 [−0.085, −0.016] | −0.87 [−1.07, −0.68] | −0.205 [−0.368, −0.069] | −0.47 [−0.73, −0.22] |
+| combined 98 % + RINS, τ = 3 s | +0.392 [+0.214, +0.584] | +0.56 [+0.27, +0.86] | +0.231 [+0.029, +0.438] | +0.96 [+0.65, +1.26] |
+| combined 98 % + gradient release, τ = 10 s | +0.322 [+0.149, +0.511] | +0.16 [−0.10, +0.44] | +0.161 [−0.040, +0.370] | +0.56 [+0.30, +0.82] |
+| hybrid cut at 10 s (cold; τ chosen on validation) | +0.070 [+0.016, +0.140] | +0.41 [+0.27, +0.55] | −0.091 [−0.283, +0.083] | +0.81 [+0.53, +1.08] |
+
+Warm start against cold start, same instances (time to proof incl. every overhead; TTQ = time until the incumbent is
+within 1 % / 0.5 % of the cold full MILP's final cost; starts accepted on 100 % of the runs):
+
+| comparison | time to proof mean s, cold / warm | median ratio cold/warm [CI] | TTQ 1 % median s, cold / warm | TTQ 0.5 % median s |
+|---|---|---|---|---|
+| full MILP, decoded start | 26.6 / 25.8 | 0.99 [0.92, 1.17] | 10.8 / **3.2** | 11.0 / 9.7 |
+| hybrid reduced MILP, decoded start | 14.4 / 13.9 | 0.92 [0.91, 1.12] | 5.1 / 3.8 | 5.2 / 5.4 |
+| error-cost 90 % reduced MILP, decoded start | 8.4 / 8.5 | 0.97 [0.89, 1.13] | 3.0 / 1.3 | 3.3 / 2.9 |
+| combined 98 % reduced MILP, decoded start | 3.5 / 3.5 | 0.94 [0.90, 1.04] | 1.7 / 0.9 | 1.7 / 1.1 |
+| full MILP from the hybrid's solution (incl. the hybrid) | 26.6 / 39.3 | 0.74 [0.72, 1.07] | 10.8 / 6.1 | 11.0 / 6.3 |
+
+Polish: gap reduction against added time (base → polished; added time = mean method-time increase):
+
+| polish | τ = 1 s | τ = 3 s | τ = 10 s |
+|---|---|---|---|
+| hybrid + RINS (0.263 %, 5.74×) | 0.220 %, +0.75 s, 3.96× | 0.200 %, +1.6 s, 3.70× | 0.186 %, +2.5 s, 3.60× |
+| hybrid + local branching r = 10 | 0.263 %, +1.0 s, 3.32× | 0.226 %, +2.7 s, 2.25× | 0.219 %, +7.5 s, 1.56× |
+| hybrid + full MILP from its solution | 0.263 %, +1.0 s, 3.32× | 0.240 %, +2.8 s, 2.28× | 0.211 %, +7.6 s, 1.67× |
+| combined 98 % + RINS (0.840 %, 13.5×) | 0.767 %, +0.7 s, 8.90× | 0.655 %, +1.4 s, 7.25× | 0.566 %, +2.2 s, 6.78× |
+| combined 98 % + gradient release m = 60 | 0.760 %, +0.9 s, 8.12× | 0.728 %, +1.9 s, 6.09× | 0.585 %, +4.2 s, 4.76× |
+| combined 98 % + local branching r = 10 | 0.840 %, +1.0 s, 7.95× | 0.746 %, +2.7 s, 4.76× | 0.680 %, +7.6 s, 2.44× |
+
+Re-timing: the full MILP here took a median 1.27× its stored dataset time (13 % of instances within ±10 %), so every
+reference was re-run (see Setup and Caveats).
+
+![uc12 Pareto](../../results/uc12/solver_results_pareto.png)
+
+What the numbers say (uc12):
+
+* **Trust region (Predict-and-Search) does not buy speed.** At the same set, the trust region with Δ = 10 recovers the
+  quality that hard fixing loses (3.55 % → 0.25 %, the hard-fixed set has a 69 % outlier), but it is as slow as the full
+  MILP (1.28× mean; it hit its 30 s limit on 24 of 60 instances). Against the hybrid: level gap, 2.7× lower speed-up
+  (log −1.00). Why: the full MILP spends nearly all of its time at the root node (median 1 node on test; median 14 and
+  0 nodes for the full MILP and the trust region on validation): LP solves, cut rounds and heuristics on the full-size
+  network model. A trust-region row removes no variable and does not shrink the LP; only hard fixing, through
+  presolve, makes the root cheap. The core + band variant (hybrid fixings hard, trust region over the rest) is never
+  faster than the hybrid and slightly worse (+0.049 pp [+0.008, +0.108]).
+* **Warm starts are accepted but do not shorten proofs.** HiGHS takes the start (100 %) and reports it as its first
+  incumbent, but the 0.1 % proof is limited by the dual bound: time to proof is unchanged for the full MILP (median
+  ratio 0.99) and for every reduced MILP (0.92–0.97). What the start changes is the anytime profile of the full MILP:
+  within 1 % of the final cost after a median 3.2 s instead of 10.8 s, and 0.26 % vs 0.34 % mean gap when both are cut
+  at 20 s (paired −0.08 pp [−0.21, +0.01]). For reduced MILPs the start is a mixed blessing: cut at 10 s, the hybrid
+  with a start is not better than without (+0.145 pp [−0.03, +0.47]; one instance at 9.5 %), because the start changes
+  HiGHS's search path. "Fix, then prove" (the full MILP warm-started with the hybrid's solution) reaches a better mean
+  gap than the cold full MILP within the same 60 s limit (0.133 % vs 0.221 %, −0.088 pp [−0.228, −0.002]: the start
+  helps on the instances where the cold run stops at the limit), but it costs the hybrid's time plus a full solve
+  (1.26× mean, 0.74× median speed-up).
+* **Polish: RINS on the LP relaxation is the only neighbourhood that pays.** Re-opening the ≈ 2 % of decisions where
+  the incumbent disagrees with the LP relaxation (already computed as GNN input) is a tiny reduced MILP: it cuts the
+  hybrid's gap by 0.043 pp [0.015, 0.076] in 0.75 s (0.263 → 0.220 %, 5.7× → 4.0×) and the combined 98 % rule's by
+  0.185 pp in 1.4 s (0.840 → 0.655 %, 13.5× → 7.3×). Local branching and the warm full MILP need the full-size root
+  (≥ 1–2 s before they find anything) and give the same or smaller reductions at 3–8× the added time. Gradient release
+  (dispatch-LP reduced costs) works on the fast rule (−0.25 pp at τ = 10 s) but costs more time than RINS for the same
+  gain.
+* **Pareto front.** From fast to slow: combined 98 % (0.84 %, 13.5×) → combined 98 % + RINS (0.66 %, 7.3×) → hybrid
+  cut at 10 s (0.33 %, 6.8×) → hybrid (0.26 %, 5.7×) → hybrid + RINS (0.22 %, 4.0×) → full MILP from the hybrid's
+  solution (0.13 %, 1.3×). Learning to Fix with the paper's kNN (0.42 %, 3.6×) is dominated by every point from the
+  hybrid down; the LP-integral fixing without learning (1.08 %, 12.4×) is dominated by the combined 98 % rule.
 
 ## Verdict
 

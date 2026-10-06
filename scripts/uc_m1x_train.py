@@ -96,6 +96,8 @@ def val_metrics(sysm, p, va, std=None):
 
 def update_log(tag, rec):
     log = json.load(open(LOG)) if os.path.exists(LOG) else {}
+    if rec.get("train_s", 0) is None and log.get(tag, {}).get("train_s"):    # re-evaluated checkpoint: keep its time
+        rec["train_s"] = log[tag]["train_s"]
     log[tag] = rec
     json.dump(log, open(LOG, "w"), indent=1, default=float)
 

@@ -17,10 +17,14 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
 - 15:34 label-free curve done (500–4000); 17:33 teacher polishing of 1,500 extra instances done (4.7 s per label,
   2.0 core-h); 17:40 polished curve done (1000, 2000). The polished curve stops at 2,000 instances: 2,000 more labels
   would cost another ~2.6 core-h (scaled back for the 8–10 h budget); the label-free curve goes to 4,000.
-- Phases 2–4 (`scripts/uc_m1x_queue2.sh phase23`, log `data/generated/uc12_m1x/queue_phase2.log`) start automatically
-  after phase 1: BCE seeds 0/3/4 at 500 MILP labels, 5-member ensemble, temporal GNN and MLP at 500, guarded-rule
-  validation check of all sources (phase 2); validation-only selection (`scripts/uc_m1x_select.py`, rule written before
-  the results) and the two tuning runs (phase 3); test evaluation on test_fresh 0–59 then 60–119 + report (phase 4).
+- 17:40–18:52 phase 2 done (ensemble, temporal GNN, MLP, guarded-rule validation check of 11 sources).
+- 17:55 phase 2's bash was stopped and phase 3 rewritten to add the temporal GNN on 2,000 polished instances as a
+  candidate (`scripts/uc_m1x_select.py --extended`); phases 3–4 run as `scripts/uc_m1x_queue2.sh phase34`
+  (log `data/generated/uc12_m1x/queue_phase34.log`).
+- 19:40 run A (guard-aware LtF on error-cost scores of the 5-member GNN ensemble, 500 MILP labels) converged:
+  81.4 % fixed on validation after guards (reference hybrid 83.1 %).
+- 19:51 selection: winner pol_n2000_gnnt (temporal GNN, 500 MILP + 1,500 polished); training seeds 1–4, then run B,
+  then the test evaluation (first 60, then 60–119) and the report.
 - To resume after a restart: rerun `scripts/uc_m1x_queue.sh phase1` if it had not finished, then
   `scripts/uc_m1x_queue2.sh phase23` (finished steps are skipped or cheap; an interrupted tuning run restarts from scratch).
 
@@ -92,7 +96,77 @@ on the same 360 validation instances.
 
 ## Results
 
-(pending)
+Full tables: [`results/uc12/m1x_results.md`](../../results/uc12/m1x_results.md). Single seed (0) per curve point
+unless noted; the seed spread of the reference recipe (5 seeds at 500 MILP labels) is given for scale.
+
+### Labels
+
+| label source | cost per label | quality |
+|---|---|---|
+| full MILP (existing 500) | 34 s | reference |
+| label-free (rounded LP relaxation + repairs) | 0.59 s (LP relaxation 0.41 s of it) | median 15.8 % above the MILP on the 24-instance pilot |
+| teacher-polished (conf. 90 %, LP guard, 5 s) | 4.7 s + the 0.59 s above | pilot: median 0.10 %, mean 0.81 %, all served; 1,500 new labels: 72 % hit the 5 s limit, 89 % taken from the reduced MILP, median 9.6 % cheaper than the label-free label; they differ from the teacher's rounded prediction on 1.4 % of unit-hours |
+
+Label cost of the extra data: 3,500 scenarios with label-free labels 0.57 core-h; 1,500 polished labels 2.0 core-h
+(for comparison, 1,500 full-MILP labels ≈ 14 core-h).
+
+### Learning curve (validation, 360 instances)
+
+| training data | n | log-loss | Brier | AUC | wrong / inst. | fixable @99 % | fixable @99.9 % | guarded 95 % rule: Δ gap vs ref, pp [CI] / Δ fixed, pp |
+|---|---|---|---|---|---|---|---|---|
+| MILP labels (reference recipe), 5 seeds | 500 | 0.0563–0.0590 | 0.0139–0.0144 | 0.9945–0.9949 | 14.8–15.5 | 0.975–0.977 | 0.490–0.585 (mean 0.540) | 0 (seed 0 = ref) |
+| label-free | 500 | 0.0655 | 0.0139 | 0.9877 | 13.4 | 0.972 | 0.058 | +0.27 [+0.02, +0.58] / −0.4 |
+| label-free | 1000 | 0.0656 | 0.0137 | 0.9888 | 13.2 | 0.973 | 0.068 | +0.25 [+0.03, +0.53] / +0.3 |
+| label-free | 2000 | 0.0652 | 0.0136 | 0.9894 | 13.2 | 0.973 | 0.072 | +0.27 [+0.12, +0.44] / +0.5 |
+| label-free | 4000 | 0.0653 | 0.0134 | 0.9892 | 12.9 | 0.976 | 0.089 | +0.14 [−0.07, +0.32] / −0.3 |
+| 500 MILP + polished | 1000 | 0.0532 | 0.0133 | 0.9957 | 14.2 | 0.980 | 0.651 | −0.00 [−0.20, +0.23] / +1.5 |
+| 500 MILP + polished | 2000 | **0.0502** | **0.0123** | 0.9961 | 13.1 | **0.985** | 0.687 | −0.03 [−0.28, +0.22] / +1.7 |
+
+(guarded 95 % rule: reference model 0.649 % mean / 0.044 % median gap, 92.5 % fixed, on the first 60 instances of
+val_extra2.)
+
+* **Label-free labels do not scale into better fixing probabilities.** Eight times more data lowers the wrong
+  decisions per instance (13.4 → 12.9, *fewer* than the MILP-label model's 14.8) but the high-confidence region stays
+  polluted: only 6–9 % of the unit-hours can be fixed at 99.9 % precision, against 49–59 % for the MILP-label model.
+  The label-free labels are systematically wrong in the same places (the rounded relaxation), and the model learns
+  those errors confidently. Downstream the guarded rule is 0.14–0.27 pp worse at every size.
+* **Polished labels scale.** 500 MILP + 500 / 1,500 polished labels improve every metric monotonically: log-loss
+  0.0568 → 0.0532 → 0.0502, fixable at 99 % 0.977 → 0.980 → 0.985, at 99.9 % 0.49 → 0.65 → 0.69 (above the 5-seed
+  range of the 500-label model). A single model on 2,000 instances beats the 5-member ensemble on 500 on every
+  probability metric. Downstream, at the fixed 95 % target, the gap is level (−0.03 pp, CI ±0.25) and the LP guard
+  releases fewer fixings (6 vs 21 per instance), so 1.7 pp more is fixed — the direction asked for, but small and not
+  significant on 60 instances.
+
+### Deep ensembles and the disagreement filter
+
+| source | log-loss | Brier | fixable @99 % | fixable @99.9 % | guarded 95 %: Δ gap / Δ fixed vs single seed 0 |
+|---|---|---|---|---|---|
+| single GNN, 5 seeds (500 MILP labels) | 0.0563–0.0590 | 0.0139–0.0144 | 0.975–0.977 | 0.490–0.585 | – |
+| ensemble of 3 | 0.0553 | 0.0134 | 0.980 | 0.642 | −0.02 [−0.13, +0.08] / +0.9 |
+| ensemble of 5 | 0.0543 | 0.0132 | 0.981 | 0.658 | −0.01 [−0.14, +0.11] / +1.2 |
+
+Disagreement (std over the 5 members) as an extra filter, ranking by |p̄ − 0.5| − k·std: fixable at 99.9 % 0.658 /
+0.660 / 0.658 for k = 0 / 1 / 2, at 99 % 0.981 / 0.980 / 0.980. **The filter adds nothing**: where the members
+disagree the mean probability is already near 0.5, and the confident errors that limit fixing are errors all members
+make together (shared label noise and shared inputs), so their disagreement is low there.
+
+### Architecture at equal data (500 MILP labels, seed 0)
+
+| model | params | train min | log-loss | Brier | AUC | wrong / inst. | fixable @99 % | fixable @99.9 % | guarded 95 %: Δ gap / Δ fixed |
+|---|---|---|---|---|---|---|---|---|---|
+| GNN (current; 5 seeds) | 165 k | 2.3 | 0.0563–0.0590 | 0.0139–0.0144 | 0.9945–0.9949 | 14.8–15.5 | 0.975–0.977 | 0.490–0.585 | 0 |
+| **GNN + temporal head** | 180 k | 5.8 | **0.0503** | **0.0128** | **0.9964** | 13.8 | **0.983** | **0.749** | +0.06 [−0.11, +0.21] / +1.2 |
+| MLP (flat) | 2.2 M | 0.5 | 0.0641 | 0.0177 | 0.9947 | 20.2 | 0.957 | 0.748 | +0.24 [−0.13, +0.70] / −2.0 |
+
+* **Temporal mixing is the largest single gain at equal data**: with the same 500 labels it lowers the log-loss by 12 %
+  (0.0573 seed mean → 0.0503, as much as 2,000 polished instances) and raises the share fixable at 99.9 % precision
+  from 0.49–0.59 (mean 0.54) to 0.75 (+0.21, against +0.15 for 2,000 polished instances and +0.12 for a 5-member
+  ensemble).
+* The MLP has as clean a top 75 % as the temporal GNN but many more errors below it (20 wrong decisions per instance,
+  fixable at 99 % only 0.957): its downstream guarded rule fixes less and is worse. The GNN family is the better base.
+* On the guarded 95 % rule (fixed target, harm model trained on the BCE GNN's errors) the temporal head's better
+  probabilities do not show up as a lower gap (median 0.215 % vs 0.044 %; mean level): the error-cost model was
+  trained on the plain GNN's out-of-fold errors and is applied to a different model's probabilities without retraining.
 
 ## Verdict
 

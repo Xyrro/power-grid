@@ -64,16 +64,17 @@
     },
     {
      "label": "hybrid reduced MILP, decoded start, cut at 10 s",
-     "short": "hybrid warm @10 s",
+     "short": "hybrid + start, 10 s limit",
      "variant": "warmred:hybrid",
-     "tau": 10
+     "tau": 10,
+     "plot": false
     },
     {
      "label": "hybrid reduced MILP, cold, cut at 10 s",
-     "short": "hybrid cold @10 s",
+     "short": "hybrid, 10 s limit",
      "variant": "ref:hybrid",
      "tau": 10,
-     "plot": false
+     "plot": true
     },
     {
      "label": "error-cost 90 % reduced MILP, decoded start, to proof",
@@ -85,7 +86,8 @@
      "label": "error-cost 90 % reduced MILP, decoded start, cut at 10 s",
      "short": "ec90 warm @10 s",
      "variant": "warmred:ec90",
-     "tau": 10
+     "tau": 10,
+     "plot": false
     },
     {
      "label": "error-cost 90 % reduced MILP, cold, cut at 10 s",
@@ -308,8 +310,21 @@
    ]
   },
   {
-   "label": "comb98 + grad",
-   "variant": "grad:comb98:60:10",
+   "label": "hybrid, time limit",
+   "variant": "ref:hybrid",
+   "taus": [
+    3,
+    5,
+    10,
+    20,
+    30,
+    60
+   ],
+   "family": "ref"
+  },
+  {
+   "label": "hybrid + RINS",
+   "variant": "rins:hybrid:10",
    "taus": [
     1,
     2,
@@ -368,7 +383,40 @@
    10,
    "ref:ec90",
    null
+  ],
+  [
+   "comb98 + RINS @3 s vs hybrid cut at 10 s",
+   "rins:comb98:10",
+   3,
+   "ref:hybrid",
+   10
+  ],
+  [
+   "fix-then-prove vs cold full MILP",
+   "ftp:hybrid",
+   null,
+   "full",
+   null
+  ],
+  [
+   "hybrid + RINS @1 s vs faithful LtF BCE",
+   "rins:hybrid:10",
+   1,
+   "ref:ltf_bce",
+   null
   ]
  ],
- "stored": "data/generated/uc12/test_fresh.npz"
+ "stored": "data/generated/uc12/test_fresh.npz",
+ "refs_short": {
+  "faithful LtF, kNN, eps = 1 % (paper's setting)": "LtF-kNN 1 %",
+  "faithful LtF, BCE GNN, eps = 1 %": "LtF-BCE 1 %",
+  "hybrid (guard-aware LtF on error-cost scores, 360 val)": "hybrid",
+  "ours: error-cost + adequacy guard, 90 %": "error-cost 90 %",
+  "ours: combined pipeline, 98 %": "combined 98 %",
+  "no learning: fix the LP-integral decisions": "LP-integral fix"
+ },
+ "ylim": [
+  0.1,
+  5.0
+ ]
 }

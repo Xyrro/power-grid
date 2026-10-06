@@ -93,6 +93,11 @@ Fair solver budgets:
   value of a unit (π = 0 or 1) can only do it by freeing *all* of that unit's integral values on that side: 32 units
   end with τ̲ = 0 (never fixed OFF) and 27 with τ̄ = 1 (never fixed ON). The relaxation carries no confidence within
   its integral values, which is exactly what the calibration needs.
+* **24 h validation** (40 instances): LP-integral 0.79 % mean gap to C\* (tol 1e-6, no guards; max 4.5 %, 98.0 %
+  fixed); with guards the rule picks tol 0.2 (0.58 %, 91.8 % fixed: the LP guard releases the fractional roundings
+  that would shed or miss reserve). LP rounding + 5 LPs: 1.59 % (median 0.91 %), 92.5 % served. Learning-free LtF
+  converged in 15 iterations (14 min), every instance within ε (max 0.99 %), **80.5 % fixed** — more than the kNN
+  under the same tuning (68.5 %); 15 units never fixed OFF, 23 never fixed ON.
 
 ### 4.2 12 hours (first 60 of `test_fresh`)
 
@@ -224,12 +229,12 @@ audited scope: §3 U2 says the B1 LP relaxation is "1.3 % below the MILP on aver
 * Done: uc12 validation (`uc_base_val.py --bench uc12` + `--select`: tol 1e-6 without guards, 0.05 with guards) and
   uc12 learning-free LtF tuning (`uc_base_tune.py --bench uc12 --eps 0.01`: converged, 55.2 % fixed on validation,
   23 min).
-* Running since 15:30 UTC (one queue, core 1, in this order): `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path
-  <highspy 1.12>` → `uc_base_report.py --bench uc12` → `uc_base_val.py --bench uc24` (+ `--select`) →
-  `uc_base_tune.py --bench uc24 --eps 0.01 --budget_min 40` → `uc_base_eval.py --bench uc24 --idx 0-19` →
-  `uc_base_report.py --bench uc24`. Logs `results/<bench>/base_eval_run.log`, `base_val.log`, `base_tune_run.log`.
-  Resume after a restart: rerun the remaining commands in that order; eval and val are resumable per instance
-  (records `base_eval_test.jsonl`, `base_val.jsonl`); a tuning run is not (rerun it whole).
+* Done (core 1, in this order): `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12>` →
+  `uc_base_report.py --bench uc12` → `uc_base_val.py --bench uc24` (+ `--select`: tol 1e-6 / 0.2 with guards) →
+  `uc_base_tune.py --bench uc24 --eps 0.01 --budget_min 40` (converged, 80.5 % fixed).
+* Running since 19:15 UTC: `uc_base_eval.py --bench uc24 --idx 0-19` → `uc_base_report.py --bench uc24` (log
+  `results/uc24/base_eval_run.log`; resumable per instance: rerun the same command; records
+  `results/uc24/base_eval_test.jsonl`).
 * highspy 1.12 (= scipy 1.17's HiGHS) lives outside the repository: `pip install --no-deps --target <dir>
   highspy==1.12.0`, passed as `--highs_path <dir>`.
 * Tests and audit: done (52 passed; 148 checks, 4 mismatches).

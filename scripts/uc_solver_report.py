@@ -212,38 +212,81 @@ def warm_table(recs, pairs, T):
     return rows
 
 
-def pareto_plot(points, curves, path, title):
-    """points: [(label, speed-up, gap, family)], curves: [(label, [(sp, gap)], family)]; family in ref/new/full"""
+def pareto_plot(points, curves, path, title, ylim=(0.1, 5.0)):
+    """points: [(label, speed-up, gap, family)], curves: [(label, [(sp, gap)], family)]; family in ref/new/full.
+    Log-log axes; gaps above ylim[1] are clipped (curves) or marked at the top edge (points); labels are placed with a
+    simple collision check."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
     col = {"ref": "#2a78d6", "new": "#eb6834", "full": "#1baf7a"}
     mk = {"ref": "s", "new": "o", "full": "^"}
-    fig, ax = plt.subplots(figsize=(8.0, 5.2), dpi=150)
-    for lab, pts, fam in curves:
-        pts = sorted(pts)
-        ax.plot([p[0] for p in pts], [p[1] for p in pts], "-", color=col[fam], lw=2, alpha=0.9, zorder=2)
-        ax.plot([p[0] for p in pts], [p[1] for p in pts], mk[fam], color=col[fam], ms=4, zorder=3)
-        ax.annotate(lab, (pts[-1][0], pts[-1][1]), textcoords="offset points", xytext=(4, 2), fontsize=7, color="#52514e")
-    for lab, sp, g, fam in points:
-        ax.plot(sp, g, mk[fam], color=col[fam], ms=8, mec="white", mew=1.5, zorder=4)
-        ax.annotate(lab, (sp, g), textcoords="offset points", xytext=(5, 3), fontsize=7, color="#0b0b0b")
+    fig, ax = plt.subplots(figsize=(9.0, 5.8), dpi=150)
+    xs = [p[1] for p in points] + [q[0] for c in curves for q in c[1]]
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("speed-up over the full MILP (mean of per-instance ratios, log scale)", color="#52514e")
-    ax.set_ylabel("gap to the full MILP's dual bound, mean % (log scale)", color="#52514e")
+    ax.set_xlim(min(xs) * 0.8, max(xs) * 1.5)
+    ax.set_ylim(*ylim)
+    for lab, pts, fam in curves:
+        pts = sorted(pts)
+        ax.plot([p[0] for p in pts], [min(p[1], ylim[1] * 0.98) for p in pts], "-" if fam != "ref" else "--",
+                color=col[fam], lw=1.6, alpha=0.75, zorder=2)
+        ax.plot([p[0] for p in pts], [min(p[1], ylim[1] * 0.98) for p in pts], mk[fam], color=col[fam], ms=3.5,
+                alpha=0.75, zorder=3)
+    placed = []
+    fig.canvas.draw()
+
+    def place(x, y, text, size=7, color="#0b0b0b"):
+        X, Y = ax.transData.transform((x, y))
+        w, h = 5.0 * len(text) * size / 7, 10 * size / 7
+        for dx, dy, ha in ((6, 3, "left"), (6, -11, "left"), (-6, 3, "right"), (-6, -11, "right"), (6, 13, "left"),
+                           (6, -21, "left"), (-6, 13, "right"), (-6, -21, "right"), (6, 23, "left"), (6, -31, "left")):
+            x0 = X + dx if ha == "left" else X + dx - w
+            box = (x0, Y + dy, x0 + w, Y + dy + h)
+            if all(box[2] < b[0] or box[0] > b[2] or box[3] < b[1] or box[1] > b[3] for b in placed):
+                placed.append(box)
+                ax.annotate(text, (x, y), textcoords="offset points", xytext=(dx * 72 / fig.dpi * 2, dy * 72 / fig.dpi * 2),
+                            ha=ha, fontsize=size, color=color, zorder=6)
+                return
+        ax.annotate(text, (x, y), textcoords="offset points", xytext=(4, 2), fontsize=size, color=color, zorder=6)
+
+    for lab, sp_, g, fam in points:
+        X, Y = ax.transData.transform((sp_, min(g, ylim[1] * 0.98)))
+        placed.append((X - 5, Y - 5, X + 5, Y + 5))
+    for lab, sp_, g, fam in points:
+        yy = min(g, ylim[1] * 0.98)
+        ax.plot(sp_, yy, mk[fam] if g <= ylim[1] else "^", color=col[fam], ms=7, mec="white", mew=1.2, zorder=5)
+        place(sp_, yy, lab + ("" if g <= ylim[1] else f" ({g:.1f} %)"))
+    for lab, pts, fam in curves:
+        q = [p for p in sorted(pts) if p[1] <= ylim[1]]
+        if q:
+            place(q[0][0], q[0][1], lab, size=6, color="#52514e")
+    ax.set_xlabel("speed-up over the full MILP (mean of per-instance ratios)", color="#52514e")
+    ax.set_ylabel("gap to the full MILP's dual bound, mean %", color="#52514e")
     ax.set_title(title, fontsize=10, color="#0b0b0b", loc="left")
     ax.grid(True, which="both", color="#e8e7e2", lw=0.6)
     for sp_ in ("top", "right"):
         ax.spines[sp_].set_visible(False)
-    from matplotlib.lines import Line2D
-    ax.legend(handles=[Line2D([], [], marker=mk[f], color=col[f], ls="-" if f != "ref" else "", label=l)
-                       for f, l in (("ref", "hard fixing (references)"), ("new", "solver-side variants"),
-                                    ("full", "full MILP cut at time τ"))], fontsize=7, frameon=False, loc="upper left")
+    ax.legend(handles=[Line2D([], [], marker=mk["ref"], color=col["ref"], ls="", label="hard fixing (references)"),
+                       Line2D([], [], marker=mk["new"], color=col["new"], ls="", label="solver-side variants"),
+                       Line2D([], [], marker="o", color=col["new"], ls="-", ms=3.5, label="variant cut at time τ"),
+                       Line2D([], [], marker=mk["full"], color=col["full"], ls="-", ms=3.5, label="full MILP cut at time τ"),
+                       Line2D([], [], marker=mk["ref"], color=col["ref"], ls="--", ms=3.5, label="hard fixing cut at time τ")],
+              fontsize=7, frameon=False, loc="lower right")
+    from matplotlib.ticker import FixedLocator, FuncFormatter, NullFormatter
+    fmt = FuncFormatter(lambda v, _: f"{v:g}")
+    lo_, hi_ = ax.get_ylim()
+    ax.yaxis.set_major_locator(FixedLocator([v for v in (0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20) if lo_ <= v <= hi_]))
+    ax.yaxis.set_major_formatter(fmt)
+    ax.yaxis.set_minor_formatter(NullFormatter())
+    lo_, hi_ = ax.get_xlim()
+    ax.xaxis.set_major_locator(FixedLocator([v for v in (0.5, 1, 2, 3, 5, 10, 20, 50, 100) if lo_ <= v <= hi_]))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}×"))
+    ax.xaxis.set_minor_formatter(NullFormatter())
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
-
 
 
 def build_report(spec, out_json, out_md, out_png, title):
@@ -362,7 +405,7 @@ def build_report(spec, out_json, out_md, out_png, title):
     points, curves = [], []
     for k, v in spec["refs"].items():
         sm = summary(recs, v, None, T)
-        points.append((k, sm["speedup_mean"], sm["gap_mean_%"], "ref"))
+        points.append((spec.get("refs_short", {}).get(k, k), sm["speedup_mean"], sm["gap_mean_%"], "ref"))
     for fam in spec["families"]:
         for r in fam["rows"]:
             if r.get("plot", True):
@@ -382,7 +425,7 @@ def build_report(spec, out_json, out_md, out_png, title):
     for lab, sp_, g, fam in sorted(points, key=lambda x: -x[1]):
         md.append(f"| {lab} | {sp_:.2f} | {g:.3f} |")
     md.append("")
-    pareto_plot(points, curves, out_png, title)
+    pareto_plot(points, curves, out_png, title, tuple(spec.get("ylim", (0.1, 5.0))))
     with open(out_json, "w") as f:
         json.dump(res, f, indent=1, default=float)
     with open(out_md, "w") as f:

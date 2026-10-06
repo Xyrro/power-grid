@@ -36,12 +36,23 @@ phase3() {
   fi
 }
 
+phase3b() {
+  # the rest of phase 3 for the selected family (pol_n2000_gnnt): seeds 1-4, ensemble, run B on error-cost scores
+  # ("he") and, added at 19:55 because the error-cost model was trained on the plain GNN's errors, the same tuning on
+  # the ensemble's probabilities ("hg"); the paper's criterion (larger validation fixed share) picks between them
+  W=pol_n2000_gnnt
+  for s in 1 2 3 4; do step $PY scripts/uc_m1x_train.py --label pol --n 2000 --kind gnnt --seed $s; done
+  step $PY scripts/uc_m1x_train.py --ensemble ${W}_ens5 ${W}_s0,${W}_s1,${W}_s2,${W}_s3,${W}_s4
+  step $PY scripts/uc_m1x_tune.py --job he_${W}_ens5:harm:${W}_ens5:0.01:adeq+rows --budget_min 150
+  step $PY scripts/uc_m1x_tune.py --job hg_${W}_ens5:prob:${W}_ens5:0.01:adeq+rows --budget_min 150
+}
+
 phase4() {
-  # test: first 60 instances of test_fresh, then the other 60
-  W=$(python3 -c "import json; print(json.load(open('results/uc12/m1x_select.json'))['winner'] or '')")
-  if [ -n "$W" ]; then RB=he_${W}_ens5; else RB=hg_milp500_ens5; fi
-  RUNS=he_milp500_ens5
-  [ -f results/uc12/m1x_tune_$RB.json ] && RUNS=$RUNS,$RB
+  # test: first 60 instances of test_fresh, then the other 60; every converged m1x tuning run
+  RUNS=$(python3 -c "
+import glob, json, os
+rs = [json.load(open(f)) for f in sorted(glob.glob('results/uc12/m1x_tune_*.json'))]
+print(','.join(r['run'] for r in rs if r['converged']))")
   step $PY scripts/uc_m1x_eval.py --runs $RUNS --start 0 --n 60
   step python3 scripts/uc_m1x_report.py
   step $PY scripts/uc_m1x_eval.py --runs $RUNS --start 60 --n 60
@@ -50,6 +61,7 @@ phase4() {
 
 phase23() { phase2; phase3; phase4; }
 phase34() { phase3; phase4; }
+phase3b4() { phase3b; phase4; }
 
 "$@"
 echo "[$(date +%H:%M:%S)] queue2 $* done"

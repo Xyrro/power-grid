@@ -215,7 +215,7 @@ if __name__ == "__main__":
             if s0 is not None:                  # reproducibility of the stored reference run
                 r["stored_obj"] = s0["obj"]
                 r["stored_time"] = s0.get("time", s0.get("t_milp"))
-                r["stored_n_fixed"] = s0.get("n_fixed", round(s0.get("fixed_share", np.nan) * TG))
+                r["stored_n_fixed"] = s0["n_fixed"] if "n_fixed" in s0 else int(round(s0["fixed_share"] * TG))
             runs[nm] = r
         if "LP rounding + repair + LPs" not in skip:
             e = lp_round_screen(m, sysm, sc, u_rel)
