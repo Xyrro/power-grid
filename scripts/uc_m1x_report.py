@@ -52,6 +52,13 @@ def valfix_summary():
     return out
 
 
+def valfix_raw(tag, ratio=0.95):
+    path = os.path.join(RES, "m1x_valfix.jsonl")
+    if not os.path.exists(path):
+        return {}
+    return {r["i"]: r for r in map(json.loads, open(path)) if r["tag"] == tag and r["ratio"] == ratio}
+
+
 def label_stats():
     out = {}
     pj = os.path.join(DATA, "pilot.json")
@@ -167,16 +174,35 @@ if __name__ == "__main__":
                      "ranking (harm ensemble s0) at 95 % + adequacy + min up/down rows + LP-relaxation guard, reduced MILPs on "
                      "the first 60 instances of val_extra2, gap to the stored validation MILP.\n")
         rows = []
+        lab = lambda r: {"lf": "label-free", "milp": "MILP"}.get(r.get("label"), r.get("label")) if r.get("label") != "pol" else \
+            ("MILP" if r.get("n") == 500 else "500 MILP + polished")
         for tag, r in tr.items():
             v = r["val"]["all360"]
             f = vf.get(f"{tag}@0.95")
             gr = (f"{fmt(f['gap_mean'], 3)} / {fmt(f['gap_median'], 3)} / {f['n_gt1']} / {fmt(f['fixed'], 1)} / {fmt(f['time'], 2)}"
                   if f else "–")
             ep = r.get("epochs", "–")
-            rows.append([tag, r.get("label"), r.get("n"), r.get("kind"), ep,
+            kind = r.get("kind") if not str(r.get("kind")).startswith("ens:") else f"ensemble of {len(r['kind'].split(','))}"
+            rows.append([tag, lab(r), r.get("n"), kind, ep,
                          fmt(r["train_s"] / 60, 1) if r.get("train_s") else "–"] + [fmt(v[k], p) for k, _, p in MET] + [gr])
         lines.append(table(["source", "labels", "n train", "model", "epochs", "train min"] + [h for _, h, _ in MET] +
                            ["guarded 95 %: gap mean / median / # > 1 % / fixed % / s"], rows))
+        vref = valfix_raw("ref_bce_s0")
+        if vref:
+            lines.append("\nGuarded validation rule, paired against the reference model (ref_bce_s0 = uc_model1_4.pt) on the same 60 "
+                         "instances (instance bootstrap 95 % CI):\n")
+            rows, res["valfix_paired"] = [], {}
+            for tag in tr:
+                v = valfix_raw(tag)
+                if not v or tag == "ref_bce_s0" or len(v) != len(vref):
+                    continue
+                dg = np.array([v[i]["gap"] - vref[i]["gap"] for i in sorted(vref)])
+                dfx = np.array([v[i]["fixed"] - vref[i]["fixed"] for i in sorted(vref)]) * 100
+                res["valfix_paired"][tag] = dict(gap=float(dg.mean()), gap_ci=boot(dg), fixed=float(dfx.mean()), fixed_ci=boot(dfx))
+                rows.append([tag, f"{dg.mean():+.3f} [{boot(dg)[0]:+.3f}, {boot(dg)[1]:+.3f}]",
+                             f"{dfx.mean():+.2f} [{boot(dfx)[0]:+.2f}, {boot(dfx)[1]:+.2f}]",
+                             f"{np.mean([x['released_lp'] for x in v.values()]):.1f}"])
+            lines.append(table(["source", "Δ gap, pp", "Δ fixed share, pp", "fixings released by the LP guard (mean)"], rows))
         dis = [(t, r["val"]["all360"]) for t, r in tr.items() if "fix999_dis1" in r["val"]["all360"]]
         if dis:
             lines.append("\nEnsemble disagreement as an extra filter (rank by |p̄ − 0.5| − k·std over members):\n")
