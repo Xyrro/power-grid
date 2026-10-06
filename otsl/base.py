@@ -73,6 +73,22 @@ def lp_round_screen(m, sysm, sc: UCScenario, u_rel, thresholds=E2E_TH):
     return best
 
 
+def lp_veto_score(score, p, u_rel, tol=1e-6, delta=1e-3):
+    """Fused learned + LP score: the learned pseudo-probability `score` (rounding direction p > 0.5, e.g. the hybrid's
+    error-cost score of otsl.hybrid.harm_to_score) where the LP relaxation agrees with the learned rounding or is
+    fractional; where the relaxation is integral and contradicts it, the decision is demoted to the least confident
+    level of its direction (0.5 - delta for predicted OFF, 0.5 + delta for predicted ON), so a threshold rule fixes it
+    last. The ordering inside each group is the learned one; no point masses at 0 / 1 are created (a max() fusion with
+    the integral LP values would put 98 % of the decisions at exactly 0 or 1)."""
+    s = np.array(score, float, copy=True)
+    yhat = np.asarray(p) > 0.5
+    u = np.asarray(u_rel, float)
+    integral = np.abs(u - np.round(u)) <= tol
+    veto = integral & ((u > 0.5) != yhat)
+    s[veto] = np.where(yhat[veto], 0.5 + delta, 0.5 - delta)
+    return s
+
+
 # ============================================================================ solver wrapper
 def solve_reduced(m, sc: UCScenario, fix=None, time_limit=60.0, mip_gap=1e-3, trace_every=0.0):
     """full (fix empty) or reduced MILP through otsl.b3.solve_milp_hs (highspy, 1 thread, incumbent log). Returns a

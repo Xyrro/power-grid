@@ -339,3 +339,16 @@ Paired against LtF-kNN (rule − LtF-kNN on instances both solve; bootstrap 95 %
 | 1-2 lines out | -10.07 [-16.68, -4.15] | -25.45 [-38.25, -13.41] | -25.78 [-38.66, -13.92] | -10.16 [-16.94, -4.16] | -25.84 [-38.87, -13.84] | -25.73 [-38.81, -13.74] | -23.22 [-36.45, -10.89] |
 | windows across midnight | -0.53 [-0.93, -0.14] | -0.13 [-0.84, 0.68] | -0.31 [-0.93, 0.36] | -0.43 [-0.84, -0.04] | -0.42 [-1.08, 0.26] | -0.49 [-1.14, 0.15] | -0.33 [-3.27, 3.09] |
 
+## Recovery test: 1-2 lines out after 50 labelled shifted instances (n = 30)
+
+kNN: the 50 instances added to its pool; BCE GNN: fine-tuned (`scripts/uc_ood_finetune.py`); thresholds, error-cost model and guards unchanged. *Before* = the main run on the same instances; *after* = a new back-to-back run (its own full MILP). Δ = after − before on instances both solve.
+
+| rule | before: gap mean % [CI], max, served %, feasible % | after: gap mean % [CI], max, served %, feasible %, speed-up mean / median | Δ gap pp [CI] | instances > 10 % (our conv.) before → after |
+|---|---|---|---|---|
+| LtF, kNN, eps = 1 % (paper's setting) | 26.04 [14.21, 38.81], 85.8, 60.0, 100.0 | 26.09 [14.33, 38.82], 85.8, 60.0, 100.0, 5.5 / 1.8 | 0.05 [-0.01, 0.14] | 11 → 11 |
+| LtF on our BCE GNN, eps = 1 % | 15.72 [8.76, 23.51], 62.2, 63.3, 100.0 | 11.19 [5.72, 17.41], 58.4, 60.0, 96.7, 7.0 / 5.2 | -5.06 [-8.42, -2.25] | 11 → 11 |
+| hybrid (guard-aware LtF on error cost) | 15.87 [8.84, 23.64], 62.2, 63.3, 100.0 | 11.07 [6.05, 16.95], 58.4, 63.3, 100.0, 6.6 / 2.5 | -4.80 [-7.83, -2.12] | 11 → 11 |
+| guarded error-cost rule, 90 % | 0.68 [0.28, 1.18], 6.8, 80.0, 100.0 | 0.40 [0.19, 0.65], 2.3, 86.7, 96.7, 8.6 / 3.6 | -0.26 [-0.77, 0.07] | 0 → 0 |
+
+BCE fine-tuning: validation log-loss on 10 held-out shifted instances 0.0744 → 0.0661 (40 shifted + 200 original training instances).
+

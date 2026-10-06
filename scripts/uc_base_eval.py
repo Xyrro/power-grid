@@ -38,6 +38,12 @@ ap.add_argument("--out", default="", help="output path (default results/<bench>/
 ap.add_argument("--select", default="", help="default results/<bench>/base_val_select.json")
 ap.add_argument("--tune", default="", help="default results/<bench>/base_tune_lp_1.json")
 ap.add_argument("--dry", action="store_true")
+ap.add_argument("--full_ref", type=int, default=1, help="0: skip the 0.1 %% full MILP (stacking pass)")
+ap.add_argument("--red_gaps", default="0.001", help="mip_rel_gap values of every reduced MILP")
+ap.add_argument("--ref_gap_rules", default="", help="';'-separated rules also run at 0.001 (with --red_gaps without it)")
+ap.add_argument("--rules", default="", help="';'-separated rule names to run (default: all)")
+ap.add_argument("--fused", default="", help="thresholds of the fused (LP-veto) guard-aware LtF rule (uc12)")
+ap.add_argument("--lp_guards", type=int, default=0, help="1: add LtF on the LP relaxation + our guards at test")
 a = ap.parse_args()
 if a.highs_path:
     sys.path.insert(0, a.highs_path)
@@ -47,7 +53,7 @@ sys.path.insert(0, HERE)
 import numpy as np  # noqa: E402
 
 from otsl.b3 import load_b3  # noqa: E402
-from otsl.base import lp_integral_fixings, lp_round_screen, solve_reduced  # noqa: E402
+from otsl.base import lp_integral_fixings, lp_round_screen, lp_veto_score, solve_reduced  # noqa: E402
 from otsl.combo import rule_fixings  # noqa: E402
 from otsl.fixpolicy import lp_guard, release_conflicting_rows  # noqa: E402
 from otsl.hybrid import ALL_GUARDS, apply_guards, harm_to_score  # noqa: E402
@@ -76,6 +82,9 @@ def timed(fn, *args, **kw):
     return r, time.time() - t0
 
 
+EXTRA = {}           # uc12: per instance the hybrid's error-cost score, BCE probabilities, inference time
+
+
 def refs_uc12(sysm, d, idx):
     """{instance: [(name, fixings, pre_s, uses_lp_relaxation, guards, stored record)]}"""
     R = "results/uc12"
@@ -102,7 +111,8 @@ def refs_uc12(sysm, d, idx):
         fx = fix_dict(pb, np.array(th["bce"]["lo"]), np.array(th["bce"]["hi"]))
         L.append(("LtF BCE GNN eps=1%", fx, s0["pre_s"], True, (), s0))
         s0 = stored[(i, "hybrid he_bce_s0_e1_n360")]
-        fx = fix_dict(harm_to_score(hb, pb, *norms["bce_s0"]), np.array(th["hyb"]["lo"]), np.array(th["hyb"]["hi"]))
+        EXTRA[i] = dict(score=harm_to_score(hb, pb, *norms["bce_s0"]), p=pb, pre=s0["pre_s"])
+        fx = fix_dict(EXTRA[i]["score"], np.array(th["hyb"]["lo"]), np.array(th["hyb"]["hi"]))
         L.append(("hybrid (he_bce_s0_e1_n360)", fx, s0["pre_s"], True, ("adeq", "rows"), s0))
         s0 = stored[(i, "ours: error-cost + adequacy guard 90% (BCE)")]
         fx = rule_fixings("harm", 0.90, pb, sc, sysm, hb)
@@ -165,6 +175,13 @@ if __name__ == "__main__":
     lo_lp, hi_lp = np.array(ltf_lp["lo"]), np.array(ltf_lp["hi"])
     gaps = [float(x) for x in a.gaps.split(",") if x]
     skip = set(x for x in a.skip.split(",") if x)
+    red_gaps = [float(x) for x in a.red_gaps.split(",") if x]
+    rules = set(x.strip() for x in a.rules.split(";") if x.strip())
+    ref_gap_rules = set(x.strip() for x in a.ref_gap_rules.split(";") if x.strip())
+    fused = None
+    if a.fused:
+        J = json.load(open(a.fused))
+        fused = (np.array(J["lo"]), np.array(J["hi"]), tuple(J["guards"]))
     path = a.out or os.path.join(R, "base_eval_test.jsonl")
     done = {json.loads(x)["i"] for x in open(path)} if os.path.exists(path) else set()
     idx = [i for i in idx if i not in done]
@@ -186,7 +203,8 @@ if __name__ == "__main__":
         u_rel = rel.u
         rec.update(t_rel=t_rel, c_rel=float(rel.obj), u_rel_maxdiff=float(np.abs(u_rel - d["u_rel"][i]).max()))
         runs = {}
-        runs["full"] = solve_reduced(m, sc, None, cfg["tl"], cfg["gap"], trace_every=cfg["trace"])
+        if a.full_ref:
+            runs["full"] = solve_reduced(m, sc, None, cfg["tl"], cfg["gap"], trace_every=cfg["trace"])
         for g in gaps:
             nm = f"full gap={g * 100:g}%"
             if nm not in skip:
@@ -202,22 +220,33 @@ if __name__ == "__main__":
         specs.append((f"LP-integral (tol {tol_g:g}) + guards", fx, dt, True, ALL_GUARDS, "base", None))
         fx, dt = timed(fix_dict, u_rel, lo_lp, hi_lp)
         specs.append(("LtF on LP relaxation eps=1%", fx, dt, True, (), "base", None))
-        for nm, fx, pre, use_rel, gd, kind, s0 in specs:
-            if nm in skip:
+        if a.lp_guards:
+            specs.append(("LtF on LP relaxation eps=1% + guards", fx, dt, True, ALL_GUARDS, "fused", None))
+        if fused is not None:
+            t0 = time.time()
+            fx = fix_dict(lp_veto_score(EXTRA[i]["score"], EXTRA[i]["p"], u_rel), fused[0], fused[1])
+            specs.append(("fused: error-cost score + LP veto, guard-aware LtF eps=1%", fx, EXTRA[i]["pre"] + time.time() - t0,
+                          True, fused[2], "fused", None))
+        for nm0, fx, pre, use_rel, gd, kind, s0 in specs:
+            if nm0 in skip or (rules and nm0 not in rules):
                 continue
             n_pre = len(fx)
             fx2, ginfo = guard(m, sysm, sc, fx, gd)
-            r = solve_reduced(m, sc, fx2, cfg["tl"], cfg["gap"])
-            r.pop("trace")
-            r.update(kind=kind, pre_s=float(pre), t_rel=float(t_rel if use_rel else 0.0), t_guard=float(ginfo["guard_s"]),
-                     n_fixed_pre=n_pre, **{kk: v for kk, v in ginfo.items() if kk.startswith("released")})
-            r["t_method"] = r["time"] + r["pre_s"] + r["t_rel"] + r["t_guard"]
-            if s0 is not None:                  # reproducibility of the stored reference run
-                r["stored_obj"] = s0["obj"]
-                r["stored_time"] = s0.get("time", s0.get("t_milp"))
-                r["stored_n_fixed"] = s0["n_fixed"] if "n_fixed" in s0 else int(round(s0["fixed_share"] * TG))
-            runs[nm] = r
-        if "LP rounding + repair + LPs" not in skip:
+            gl = red_gaps + ([cfg["gap"]] if nm0 in ref_gap_rules and cfg["gap"] not in red_gaps else [])
+            for g in sorted(gl):
+                nm = nm0 if g == cfg["gap"] else f"{nm0} @gap={g * 100:g}%"
+                r = solve_reduced(m, sc, fx2, cfg["tl"], g)
+                r.pop("trace")
+                r.update(kind=kind, rule=nm0, mip_rel_gap=g, pre_s=float(pre), t_rel=float(t_rel if use_rel else 0.0),
+                         t_guard=float(ginfo["guard_s"]), n_fixed_pre=n_pre,
+                         **{kk: v for kk, v in ginfo.items() if kk.startswith("released")})
+                r["t_method"] = r["time"] + r["pre_s"] + r["t_rel"] + r["t_guard"]
+                if s0 is not None:                  # reproducibility of the stored reference run
+                    r["stored_obj"] = s0["obj"]
+                    r["stored_time"] = s0.get("time", s0.get("t_milp"))
+                    r["stored_n_fixed"] = s0["n_fixed"] if "n_fixed" in s0 else int(round(s0["fixed_share"] * TG))
+                runs[nm] = r
+        if "LP rounding + repair + LPs" not in skip and (not rules or "LP rounding + repair + LPs" in rules):
             e = lp_round_screen(m, sysm, sc, u_rel)
             runs["LP rounding + repair + LPs"] = dict(
                 kind="e2e", feasible=True, obj=e["cost"], shed=e["shed"], short=e["short"], th=e["th"], n_lp=e["n_lp"],
@@ -227,8 +256,8 @@ if __name__ == "__main__":
         rec["loadavg1"] = os.getloadavg()[0]
         with open(path, "a") as f:
             f.write(json.dumps(rec) + "\n")
-        full = runs["full"]
-        msg = " | ".join(f"{nm[:24]}: " + (f"{(r['obj'] - full['obj']) / full['obj'] * 100:+.2f}% {r['t_method'] if 't_method' in r else r['time']:.1f}s"
+        full = runs.get("full") or next(r for nm, r in runs.items() if nm.startswith("full"))
+        msg = " | ".join(f"{nm[:30]}: " + (f"{(r['obj'] - full['obj']) / full['obj'] * 100:+.2f}% {r['t_method'] if 't_method' in r else r['time']:.1f}s"
                                            if r["feasible"] else "INF") for nm, r in runs.items() if nm != "full")
         print(f"[{k + 1}/{len(idx)} {time.time() - t_start:.0f}s] i={i} full {full['time']:.1f}s | {msg}", flush=True)
     print("done", flush=True)

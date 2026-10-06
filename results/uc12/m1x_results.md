@@ -82,27 +82,28 @@ Ensemble disagreement as an extra filter (rank by |p̄ − 0.5| − k·std over 
 | he_pol_n2000_gnnt_ens5 | harm:pol_n2000_gnnt_ens5 | True | 84.57 | 85.00 | 65 | 0.82 |
 | hg_pol_n2000_gnnt_ens5 | prob:pol_n2000_gnnt_ens5 | True | 88.48 | 88.61 | 66 | 0.61 |
 
-## Test: test_fresh, 3 instances (indices 0–2); full MILP back to back 6.8 s mean (core 3)
+## Test: test_fresh (read once, by scripts/uc_m1x_eval.py)
 
-Paper metrics (gap to the back-to-back full MILP's dual bound, feasible instances; mean per-instance speed-up with every overhead included).
+Paper metrics (gap to the back-to-back full MILP's dual bound, feasible instances; mean per-instance speed-up with every overhead included: LP relaxation, forward passes of all ensemble members, error-cost features, guards).
+
+Timing check against the hybrid study's test run on the same 60 instances: full MILP 25.5 s here vs 20.3 s there (per-instance ratio median 1.36, 8 % within 10 %), so the stored times are not reused: every speed-up is paired against the full MILP solved here, on the same core, back to back. The re-run reference rule reaches the same objective as in the hybrid study on 100 % of the instances.
+
+### First 60 instances, every rule: 60 instances; full MILP back to back 25.5 s mean (core 3)
 
 | rule | feasible % | gap mean % [95 % CI] | gap median % | gap max % | runtime s | speed-up mean [95 % CI] | speed-up median | speed-up (ratio of means) | fixed % (pre-guard) | served % | # > 1 % (dataset ref.) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| full MILP | 100.0 | 0.02 [0.00, 0.07] | 0.000 | 0.07 | 6.8 | 1.0 [1.0, 1.0] | 1.0 | 1.00 | 0.0 (0.0) | 100.0 | 0 |
-| faithful LtF BCE eps=1% | 100.0 | 0.09 [0.08, 0.10] | 0.084 | 0.10 | 1.9 | 4.0 [1.5, 7.2] | 3.3 | 3.58 | 86.6 (86.6) | 100.0 | 0 |
-| hybrid he_bce_s0_e1_n360 | 100.0 | 0.13 [-0.00, 0.30] | 0.104 | 0.30 | 2.1 | 3.9 [2.2, 6.8] | 2.7 | 3.20 | 91.5 (91.5) | 100.0 | 0 |
-| m1x he_milp500_ens5 | 100.0 | 0.02 [-0.00, 0.06] | -0.000 | 0.06 | 3.4 | 2.1 [1.7, 2.7] | 1.8 | 1.98 | 90.7 (90.7) | 100.0 | 0 |
-| m1x he_pol_n2000_gnnt_ens5 | 100.0 | 0.06 [-0.00, 0.10] | 0.063 | 0.10 | 2.9 | 3.5 [1.2, 7.3] | 1.9 | 2.32 | 91.7 (91.7) | 100.0 | 0 |
-| m1x hg_pol_n2000_gnnt_ens5 | 100.0 | 0.16 [-0.00, 0.42] | 0.063 | 0.42 | 2.3 | 3.9 [1.4, 7.8] | 2.6 | 3.01 | 91.9 (91.9) | 100.0 | 0 |
-
-Timing check against the hybrid study's test run on the same 3 instances: full MILP 6.8 s here vs 5.0 s there (per-instance ratio median 1.37, 0 % within 10 %); the re-run reference rule reaches the same objective on 100 % of them. All speed-ups below are paired against the full MILP solved here, on the same core, back to back.
-
+| full MILP | 100.0 | 0.16 [0.09, 0.27] | 0.088 | 2.33 | 25.5 | 1.0 [1.0, 1.0] | 1.0 | 1.00 | 0.0 (0.0) | 100.0 | 1 |
+| faithful LtF BCE eps=1% | 98.3 | 0.29 [0.18, 0.41] | 0.100 | 2.37 | 9.8 | 5.2 [3.8, 6.8] | 2.5 | 2.48 | 83.6 (83.5) | 98.3 | 2 |
+| hybrid he_bce_s0_e1_n360 | 100.0 | 0.25 [0.18, 0.34] | 0.122 | 1.83 | 13.2 | 5.0 [3.4, 7.0] | 2.1 | 1.93 | 85.6 (86.3) | 96.7 | 1 |
+| m1x he_milp500_ens5 | 100.0 | 0.25 [0.17, 0.34] | 0.107 | 1.98 | 13.2 | 4.6 [3.3, 6.3] | 2.0 | 1.93 | 83.8 (84.6) | 98.3 | 1 |
+| m1x he_pol_n2000_gnnt_ens5 | 100.0 | 0.19 [0.14, 0.26] | 0.099 | 1.35 | 14.2 | 3.2 [2.5, 4.0] | 2.1 | 1.80 | 86.4 (86.9) | 100.0 | 0 |
+| m1x hg_pol_n2000_gnnt_ens5 | 100.0 | 0.23 [0.16, 0.31] | 0.100 | 1.45 | 9.3 | 7.0 [4.7, 9.8] | 3.0 | 2.76 | 88.9 (89.0) | 98.3 | 0 |
 
 Paired against the reference hybrid (hybrid he_bce_s0_e1_n360, re-run in the same worker); instance bootstrap 95 % CI. Gap and speed-up on instances feasible for both rules.
 
-| rule | Δ gap to DB, pp | Δ mean speed-up | Δ log speed-up | time ratio ref / rule (geo. mean) | Δ fixed share, pp | n |
-|---|---|---|---|---|---|---|
-| m1x he_milp500_ens5 | -0.113 [-0.234, -0.000] | -1.82 [-4.05, -0.51] | -0.528 [-0.915, -0.263] | 0.59× [0.40, 0.77] | -0.76 [-1.37, -0.23] | 3 |
-| m1x he_pol_n2000_gnnt_ens5 | -0.078 [-0.234, +0.000] | -0.41 [-0.97, +0.52] | -0.282 [-0.575, +0.074] | 0.75× [0.56, 1.08] | +0.19 [-1.03, +1.14] | 3 |
-| m1x hg_pol_n2000_gnnt_ens5 | +0.029 [-0.234, +0.320] | +0.04 [-0.83, +1.03] | -0.118 [-0.467, +0.142] | 0.89× [0.63, 1.15] | +0.42 [-0.80, +1.14] | 3 |
-| faithful LtF BCE eps=1% | -0.043 [-0.212, +0.083] | +0.11 [-0.72, +0.64] | -0.040 [-0.392, +0.211] | 0.96× [0.68, 1.23] | -4.87 [-7.53, -2.63] | 3 |
+| rule | Δ gap to DB, pp | Δ mean speed-up | Δ log speed-up | time ratio ref / rule (geo. mean) | Δ fixed share, pp | Δ gap to dataset ref. (all inst., fallback), pp | n |
+|---|---|---|---|---|---|---|---|
+| m1x he_milp500_ens5 | -0.004 [-0.068, +0.066] | -0.37 [-2.36, +1.61] | -0.014 [-0.250, +0.232] | 0.99× [0.78, 1.26] | -1.77 [-2.36, -1.22] | -0.004 [-0.068, +0.067] | 60 |
+| m1x he_pol_n2000_gnnt_ens5 | -0.064 [-0.124, -0.011] | -1.82 [-3.28, -0.64] | -0.236 [-0.428, -0.041] | 0.79× [0.65, 0.96] | +0.81 [-0.01, +1.60] | -0.065 [-0.125, -0.011] | 60 |
+| m1x hg_pol_n2000_gnnt_ens5 | -0.024 [-0.097, +0.045] | +1.97 [-0.56, +4.65] | +0.272 [+0.009, +0.550] | 1.31× [1.01, 1.73] | +3.33 [+2.05, +4.64] | -0.025 [-0.098, +0.046] | 60 |
+| faithful LtF BCE eps=1% | +0.034 [-0.059, +0.147] | +0.09 [-1.91, +1.75] | +0.183 [-0.027, +0.388] | 1.20× [0.97, 1.47] | -2.00 [-3.48, -0.46] | +0.034 [-0.058, +0.145] | 59 |

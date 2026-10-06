@@ -89,52 +89,37 @@ def label_stats():
     return out
 
 
-def test_section(lines, res):
-    path = os.path.join(RES, "m1x_eval_test_fresh.jsonl")
-    if not os.path.exists(path):
-        return
-    d = load(os.path.join(ROOT, "test_fresh.npz"))
-    X, common, t_full = per_instance(path, d)
+def per_instance_recs(recs, d):
+    """uc_hybrid_report.per_instance on a list of records (rules evaluated on the same instances)"""
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+        for r in recs:
+            f.write(json.dumps(r) + "\n")
+    try:
+        return per_instance(f.name, d)
+    finally:
+        os.remove(f.name)
+
+
+def test_block(lines, res, key, title, recs, d):
+    X, common, t_full = per_instance_recs(recs, d)
     S = {r: stats(x, t_full) for r, x in X.items()}
-    res["test"] = dict(n=len(common), instances=common, full_milp_time_mean=float(t_full.mean()), stats=S)
-    lines += [f"\n## Test: test_fresh, {len(common)} instances (indices {min(common)}–{max(common)}); full MILP back to back "
-              f"{t_full.mean():.1f} s mean (core 3)\n",
-              "Paper metrics (gap to the back-to-back full MILP's dual bound, feasible instances; mean per-instance speed-up "
-              "with every overhead included).\n"]
+    res[key] = dict(n=len(common), instances=common, full_milp_time_mean=float(t_full.mean()), stats=S)
+    lines += [f"\n### {title}: {len(common)} instances; full MILP back to back {t_full.mean():.1f} s mean (core 3)\n"]
     rows = []
     order = ["full MILP", "faithful LtF BCE eps=1%", REF] + sorted(r for r in S if r.startswith("m1x "))
     for r in order:
         if r not in S:
             continue
-        s = S[r]
-        rows.append([r, fmt(s["feasible"], 1), f"{fmt(s['gap_mean'])} [{fmt(s['gap_mean_ci'][0])}, {fmt(s['gap_mean_ci'][1])}]",
-                     fmt(s["gap_median"], 3), fmt(s["gap_max"]), fmt(s["runtime_mean"], 1),
-                     f"{fmt(s['speedup_mean'], 1)} [{fmt(s['speedup_mean_ci'][0], 1)}, {fmt(s['speedup_mean_ci'][1], 1)}]",
-                     fmt(s["speedup_median"], 1), fmt(s["speedup_ratio_of_means"]), f"{fmt(s['fixed_mean'], 1)} ({fmt(s['fixed_pre_guard_mean'], 1)})",
-                     fmt(s["served"], 1), s["n_gt1"]])
+        s_ = S[r]
+        rows.append([r, fmt(s_["feasible"], 1), f"{fmt(s_['gap_mean'])} [{fmt(s_['gap_mean_ci'][0])}, {fmt(s_['gap_mean_ci'][1])}]",
+                     fmt(s_["gap_median"], 3), fmt(s_["gap_max"]), fmt(s_["runtime_mean"], 1),
+                     f"{fmt(s_['speedup_mean'], 1)} [{fmt(s_['speedup_mean_ci'][0], 1)}, {fmt(s_['speedup_mean_ci'][1], 1)}]",
+                     fmt(s_["speedup_median"], 1), fmt(s_["speedup_ratio_of_means"]),
+                     f"{fmt(s_['fixed_mean'], 1)} ({fmt(s_['fixed_pre_guard_mean'], 1)})", fmt(s_["served"], 1), s_["n_gt1"]])
     lines.append(table(["rule", "feasible %", "gap mean % [95 % CI]", "gap median %", "gap max %", "runtime s",
                         "speed-up mean [95 % CI]", "speed-up median", "speed-up (ratio of means)", "fixed % (pre-guard)",
                         "served %", "# > 1 % (dataset ref.)"], rows))
-    # pairing check against the hybrid study's own test run (same instances, other core and load)
-    hp = os.path.join(RES, "hybrid_eval_test_fresh.jsonl")
-    if os.path.exists(hp):
-        old = {(r["rule"], r["i"]): r for r in map(json.loads, open(hp))}
-        new = {(r["rule"], r["i"]): r for r in map(json.loads, open(path))}
-        tf = [(new[("full MILP", i)]["time"], old[("full MILP", i)]["time"]) for i in common if ("full MILP", i) in old]
-        ro = [(new[(REF, i)]["obj"], old[(REF, i)]["obj"]) for i in common if (REF, i) in old and (REF, i) in new]
-        if tf:
-            r_t = np.array([a / b for a, b in tf])
-            same = np.mean([abs(a - b) <= 1e-6 * abs(b) for a, b in ro]) * 100 if ro else float("nan")
-            res["test"]["timing_check"] = dict(n=len(tf), full_time_here=float(np.mean([a for a, _ in tf])),
-                                               full_time_hybrid_study=float(np.mean([b for _, b in tf])),
-                                               ratio_median=float(np.median(r_t)), ratio_mean=float(r_t.mean()),
-                                               within_10pct=float(np.mean(np.abs(r_t - 1) <= 0.1) * 100),
-                                               ref_rule_same_objective_pct=float(same))
-            lines.append(f"\nTiming check against the hybrid study's test run on the same {len(tf)} instances: full MILP "
-                         f"{np.mean([a for a, _ in tf]):.1f} s here vs {np.mean([b for _, b in tf]):.1f} s there (per-instance "
-                         f"ratio median {np.median(r_t):.2f}, {np.mean(np.abs(r_t - 1) <= 0.1) * 100:.0f} % within 10 %); "
-                         f"the re-run reference rule reaches the same objective on {same:.0f} % of them. All speed-ups below are "
-                         f"paired against the full MILP solved here, on the same core, back to back.\n")
     if REF not in X:
         return
     lines.append(f"\nPaired against the reference hybrid ({REF}, re-run in the same worker); instance bootstrap 95 % CI. "
@@ -145,18 +130,59 @@ def test_section(lines, res):
             continue
         a, b = X[r], X[REF]
         both = a["feas"] & b["feas"]
-        dg = paired(np.where(both, a["gap_db"], np.nan), np.where(both, b["gap_db"], np.nan), "gap")
-        ds = paired(np.where(both, a["sp"], np.nan), np.where(both, b["sp"], np.nan), "sp")
-        dl = paired(np.where(both, np.log(a["sp"]), np.nan), np.where(both, np.log(b["sp"]), np.nan), "lsp")
-        df = paired(np.where(both, a["fixed"], np.nan), np.where(both, b["fixed"], np.nan), "fixed")
-        dt = paired(np.where(both, np.log(a["t_m"]), np.nan), np.where(both, np.log(b["t_m"]), np.nan), "lt")
-        pj[r] = dict(gap=dg, speedup=ds, log_speedup=dl, fixed=df, log_time=dt)
+        m = lambda x: np.where(both, x, np.nan)
+        dg = paired(m(a["gap_db"]), m(b["gap_db"]), "gap")
+        ds = paired(m(a["sp"]), m(b["sp"]), "sp")
+        dl = paired(m(np.log(a["sp"])), m(np.log(b["sp"])), "lsp")
+        df = paired(m(a["fixed"]), m(b["fixed"]), "fixed")
+        dt = paired(m(np.log(a["t_m"])), m(np.log(b["t_m"])), "lt")
+        dr = paired(a["g_ref"], b["g_ref"], "gref")
+        pj[r] = dict(gap=dg, speedup=ds, log_speedup=dl, fixed=df, log_time=dt, gap_dataset_ref=dr)
         c = lambda x, p=3: f"{x['diff']:+.{p}f} [{x['ci'][0]:+.{p}f}, {x['ci'][1]:+.{p}f}]"
         rows.append([r, c(dg), c(ds, 2), c(dl), f"{np.exp(-dt['diff']):.2f}× [{np.exp(-dt['ci'][1]):.2f}, {np.exp(-dt['ci'][0]):.2f}]",
-                     c(df, 2), dg["n"]])
-    res["test"]["paired_vs_ref"] = pj
+                     c(df, 2), c(dr), dg["n"]])
+    res[key]["paired_vs_ref"] = pj
     lines.append(table(["rule", "Δ gap to DB, pp", "Δ mean speed-up", "Δ log speed-up", "time ratio ref / rule (geo. mean)",
-                        "Δ fixed share, pp", "n"], rows))
+                        "Δ fixed share, pp", "Δ gap to dataset ref. (all inst., fallback), pp", "n"], rows))
+
+
+def test_section(lines, res):
+    path = os.path.join(RES, "m1x_eval_test_fresh.jsonl")
+    if not os.path.exists(path):
+        return
+    d = load(os.path.join(ROOT, "test_fresh.npz"))
+    recs = [json.loads(line) for line in open(path)]
+    lines.append("\n## Test: test_fresh (read once, by scripts/uc_m1x_eval.py)\n\nPaper metrics (gap to the back-to-back "
+                 "full MILP's dual bound, feasible instances; mean per-instance speed-up with every overhead included: LP "
+                 "relaxation, forward passes of all ensemble members, error-cost features, guards).")
+    # pairing check against the hybrid study's own test run (same instances, other core and load)
+    hp = os.path.join(RES, "hybrid_eval_test_fresh.jsonl")
+    if os.path.exists(hp):
+        old = {(r["rule"], r["i"]): r for r in map(json.loads, open(hp))}
+        new = {(r["rule"], r["i"]): r for r in recs}
+        ii = sorted({r["i"] for r in recs})
+        tf = [(new[("full MILP", i)]["time"], old[("full MILP", i)]["time"]) for i in ii if ("full MILP", i) in old and ("full MILP", i) in new]
+        ro = [(new[(REF, i)]["obj"], old[(REF, i)]["obj"]) for i in ii if (REF, i) in old and (REF, i) in new]
+        if tf:
+            r_t = np.array([a / b for a, b in tf])
+            same = np.mean([abs(a - b) <= 1e-6 * abs(b) for a, b in ro]) * 100 if ro else float("nan")
+            res["timing_check"] = dict(n=len(tf), full_time_here=float(np.mean([a for a, _ in tf])),
+                                       full_time_hybrid_study=float(np.mean([b for _, b in tf])),
+                                       ratio_median=float(np.median(r_t)), ratio_mean=float(r_t.mean()),
+                                       within_10pct=float(np.mean(np.abs(r_t - 1) <= 0.1) * 100),
+                                       ref_rule_same_objective_pct=float(same))
+            lines.append(f"\nTiming check against the hybrid study's test run on the same {len(tf)} instances: full MILP "
+                         f"{np.mean([a for a, _ in tf]):.1f} s here vs {np.mean([b for _, b in tf]):.1f} s there (per-instance "
+                         f"ratio median {np.median(r_t):.2f}, {np.mean(np.abs(r_t - 1) <= 0.1) * 100:.0f} % within 10 %), so the "
+                         f"stored times are not reused: every speed-up is paired against the full MILP solved here, on the same "
+                         f"core, back to back. The re-run reference rule reaches the same objective as in the hybrid study on "
+                         f"{same:.0f} % of the instances.")
+    first = [r for r in recs if r["i"] < 60]
+    test_block(lines, res, "test_first60", "First 60 instances, every rule", first, d)
+    rules_all = {r["rule"] for r in recs if r["i"] >= 60}
+    if rules_all:
+        test_block(lines, res, "test_all", "All instances evaluated with the reference and the selected rule",
+                   [r for r in recs if r["rule"] in rules_all], d)
 
 
 if __name__ == "__main__":

@@ -35,7 +35,20 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
 
 ## Summary
 
-(pending)
+**Better probabilities do translate into more fixing, but only through a better model, not through more cheap labels
+or ensembling alone.** Two changes improve Model 1's probabilities substantially: a temporal head on the GNN (dilated
+1-D convolutions across the 12 hours on per-hour inputs) and more training instances labelled by one reduced MILP
+around a teacher's confident decisions (4.7 s per label, no full MILP). Together, as a 5-member ensemble on 500 MILP +
+1,500 polished instances, they cut the validation log-loss from 0.057 to 0.046 and raise the share of unit-hours that
+can be fixed at 99.9 % precision from 0.49 (0.49–0.59 over 5 seeds) to 0.79. Learning to Fix's joint ε = 1 % tuning
+on these probabilities fixes 88.5 % of the validation decisions instead of 83.1 %, and on the first 60 fresh test
+instances it gives **0.23 % mean gap at 7.0× against the reference hybrid's 0.25 % at 5.0×** (re-run back to back on the
+same core): Δ gap −0.02 pp [−0.10, +0.05], Δ log speed-up +0.27 [+0.01, +0.55] (1.31× less time, geometric mean),
++3.3 pp fixed [+2.1, +4.6]. The same probabilities through the error-cost transform give the lowest gap instead (0.19 %,
+−0.06 pp [−0.12, −0.01]) but at 3.2×. Negative results: label-free labels do not scale (4,000 instances: 9 % fixable
+at 99.9 % precision); a 5-member ensemble alone improves the pooled metrics but not the tuned fixed share (81.4 %) or
+the test result; ensemble disagreement adds nothing as a filter; a flat MLP is worse. Single tuning run per rule,
+60 test instances with all rules (120 for the reference and the selected rule, below).
 
 ## Method
 
@@ -203,10 +216,56 @@ make together (shared label noise and shared inputs), so their disagreement is l
   (`combo_harm_s0.pt`) was trained on the plain GNN's out-of-fold errors; on a different, better-calibrated model it
   costs fixings instead of adding them. The paper's criterion (larger validation fixed share) selects **B-hg**.
 
+### Test (test_fresh, paper metrics, full MILP re-solved back to back on the same core)
+
+The full MILP took 25.5 s here on the first 60 instances against 20.3 s in the hybrid study (per-instance ratio median
+1.37: the machine was more loaded), so stored times were not reused; every speed-up is against the full MILP solved in
+the same worker, and the reference hybrid and faithful LtF were re-run there. The re-run reference reaches the same
+objective as in the hybrid study on every instance (0.25 % at 5.0× here vs 0.24 % at 5.2× there).
+
+**First 60 instances, every rule:**
+
+| rule | feasible | gap to DB, mean [95 % CI] | gap max | speed-up mean [95 % CI] | median | ratio of means | fixed |
+|---|---|---|---|---|---|---|---|
+| full MILP | 100 % | 0.16 % | 2.33 % | 1.0× | 1.0× | 1.00 | 0 % |
+| faithful LtF, BCE GNN, ε = 1 % | 98.3 % | 0.29 % [0.18, 0.41] | 2.37 % | 5.2× [3.8, 6.8] | 2.5× | 2.48 | 83.6 % |
+| reference hybrid (he, BCE GNN) | 100 % | 0.25 % [0.18, 0.34] | 1.83 % | 5.0× [3.4, 7.0] | 2.1× | 1.93 | 85.6 % |
+| A: he, 5 × GNN, 500 MILP labels | 100 % | 0.25 % [0.17, 0.34] | 1.98 % | 4.6× [3.3, 6.3] | 2.0× | 1.93 | 83.8 % |
+| B-he: he, 5 × temporal GNN, 2,000 inst. | 100 % | **0.19 %** [0.14, 0.26] | **1.35 %** | 3.2× [2.5, 4.0] | 2.1× | 1.80 | 86.4 % |
+| **B-hg: hg, 5 × temporal GNN, 2,000 inst. (selected)** | 100 % | 0.23 % [0.16, 0.31] | 1.45 % | **7.0×** [4.7, 9.8] | **3.0×** | **2.76** | **88.9 %** |
+
+Paired against the reference hybrid (same 60 instances, instance bootstrap 95 % CI):
+
+| rule | Δ gap to DB, pp | Δ mean speed-up | Δ log speed-up | time ratio ref / rule (geo. mean) | Δ fixed, pp |
+|---|---|---|---|---|---|
+| A | −0.004 [−0.068, +0.066] | −0.37 [−2.36, +1.61] | −0.01 [−0.25, +0.23] | 0.99× [0.78, 1.26] | −1.8 [−2.4, −1.2] |
+| B-he | **−0.064 [−0.124, −0.011]** | −1.82 [−3.28, −0.64] | −0.24 [−0.43, −0.04] | 0.79× [0.65, 0.96] | +0.8 [−0.0, +1.6] |
+| **B-hg** | −0.024 [−0.097, +0.045] | +1.97 [−0.56, +4.65] | **+0.27 [+0.01, +0.55]** | **1.31× [1.01, 1.73]** | **+3.3 [+2.1, +4.6]** |
+| faithful LtF, BCE | +0.034 [−0.059, +0.147] | +0.09 [−1.91, +1.75] | +0.18 [−0.03, +0.39] | 1.20× [0.97, 1.47] | −2.0 [−3.5, −0.5] |
+
+TEST120_PLACEHOLDER
+
 ## Verdict
 
 (pending)
 
 ## Caveats
 
-(pending)
+* **Single seeds on the learning curves** (one model per data size and label type); the 5-seed spread of the reference
+  recipe (fixable at 99.9 %: 0.49–0.59) is the yardstick, and the selected family was confirmed with 5 seeds
+  (0.75–0.78). The share fixable at 99.9 % precision is an extreme-tail statistic (it moves with a few dozen confident
+  errors) and was not sufficient on its own: the MLP matches the temporal GNN on it but is worse on everything else.
+* **Polished curve stops at 2,000** (budget); the label-free curve reaches 4,000. Polished labels depend on a teacher
+  trained on the 500 MILP labels (semi-supervised self-training), so the 2,000-instance models partly distil the
+  3-member teacher ensemble; the single student is better than the teacher ensemble on every metric, so it is not only
+  distillation.
+* **The error-cost model was not retrained** for the new probabilities (its labels come from 26,700 dispatch LPs on
+  the plain GNN's out-of-fold errors); B-he is therefore a lower bound for error-cost scores on the better model.
+* **Selection steps added during the study** (both validation-only, before any downstream or test result): the
+  temporal GNN on 2,000 instances as a candidate, and the "hg" tuning of the selected ensemble.
+* **One tuning run per configuration**: the tuned fixed share also varies with the tuning's own randomness (cut order,
+  6 s relaxation MILPs); the hybrid study saw 81–84 % across two BCE seeds.
+* **Shared machine**: one core of four, the other three busy with other agents' MILP jobs; absolute times are slower than
+  in the hybrid study (see the timing check), so only the paired speed-ups (same core, back to back) are compared.
+* Validation includes `val.npz`, which is also the early-stopping set of every model (as for the reference models).
+* The GNN feature normalisation uses the statistics of the 500 original instances for every model (same distribution).

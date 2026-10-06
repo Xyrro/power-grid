@@ -1,6 +1,7 @@
 #!/bin/bash
 # m1x study: the run sequence, one job at a time on one core (taskset -c 3), every step idempotent (resume = rerun).
 #   setsid nohup scripts/uc_m1x_queue.sh phase1 > data/generated/uc12_m1x/queue_phase1.log 2>&1 &
+# Phases 2-4 (ensembles, architecture, validation fixing, selection, tuning, test): scripts/uc_m1x_queue2.sh
 cd "$(dirname "$0")/.."
 export OTSL_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 PY="taskset -c 3 python3"

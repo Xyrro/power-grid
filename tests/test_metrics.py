@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 from otsl.base import (boot_ci, gap_db, gap_within, incumbent_at, lp_integral_fixings, lp_round_candidates,
-                       lp_round_screen, paired, paper_stats, solve_reduced, time_to_gap)
+                       lp_round_screen, lp_veto_score, paired, paper_stats, solve_reduced, time_to_gap)
 
 # --------------------------------------------------------------------------------------------- toy records
 DB = np.array([100.0, 200.0, 50.0])
@@ -152,3 +152,16 @@ def test_solve_reduced_record(uc3, uc3_milp):
     assert r["inc"] and isinstance(r["inc"][0], list) and json.dumps(r)
     full = solve_reduced(m, sc, None, time_limit=30, mip_gap=1e-4)
     assert full["n_fixed"] == 0 and abs(full["obj"] - sol["obj"]) <= 1e-6 * sol["obj"]
+
+
+def test_lp_veto_score_demotes_only_contradicted_decisions():
+    from otsl.ltfx import fix_masks
+    p = np.array([[0.9, 0.9, 0.1, 0.1, 0.6]])
+    score = np.array([[0.95, 0.99, 0.02, 0.05, 0.7]])
+    u = np.array([[1.0, 0.0, 0.0, 1.0, 0.4]])                      # agree, contradict, agree, contradict, fractional
+    f = lp_veto_score(score, p, u)
+    assert np.allclose(f, [[0.95, 0.501, 0.02, 0.499, 0.7]]) and np.allclose(score, [[0.95, 0.99, 0.02, 0.05, 0.7]])
+    off, on = fix_masks(f, np.full(5, 0.3), np.full(5, 0.6))     # vetoed decisions are left free by a [0.3, 0.6] zone
+    assert on[0].tolist() == [True, False, False, False, True] and off[0].tolist() == [False, False, True, False, False]
+    off, on = fix_masks(f, np.full(5, 0.5), np.full(5, 0.5))     # lo = hi = 0.5 still rounds every decision
+    assert np.array_equal(on, p > 0.5) and np.array_equal(off, p <= 0.5)

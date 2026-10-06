@@ -239,6 +239,28 @@ if __name__ == "__main__":
             res["degradation"][sh] = {ru: degradation(X[sh][ru], X["id"][ru]) for ru in X[sh] if ru in X["id"]}
             res["did_vs_ltf_knn"][sh] = {ru: did(X[sh][ru], X[sh][REF], X["id"][ru], X["id"][REF])
                                          for ru in OURS if ru in X[sh] and ru in X["id"]}
+    # ---------------- recovery test (scripts/uc_ood_finetune.py): same shifted instances, models given 50 labelled
+    # shifted instances; "before" = the main run's records of the same rules and instances
+    ftp = os.path.join(OUT, "ood_ft_eval.jsonl")
+    if os.path.exists(ftp):
+        fby = {}
+        for line in open(ftp):
+            r = json.loads(line)
+            fby.setdefault(r["shift"], {}).setdefault(r["rule"], {})[r["k"]] = r
+        res["recovery"] = {}
+        for sh, rr in fby.items():
+            ks = sorted(k for k in rr["full MILP"] if all(k in v for v in rr.values()) and k in by[sh]["full MILP"])
+            out = {"n": len(ks)}
+            info = os.path.join(OUT, f"ood_ft_bce_{sh}.json")
+            if os.path.exists(info):
+                out["bce_finetune"] = json.load(open(info))
+            for ru in rr:
+                if ru == "full MILP":
+                    continue
+                after = per_rule(rr[ru], rr["full MILP"], ks)
+                before = per_rule(by[sh][ru], by[sh]["full MILP"], ks)
+                out[ru] = {"before": stats(before), "after": stats(after), "after_minus_before": paired(after, before)}
+            res["recovery"][sh] = out
     json.dump(res, open(os.path.join(OUT, "ood_results.json"), "w"), indent=1, default=float)
 
     # ---------------------------------------------------------------- markdown
@@ -334,6 +356,27 @@ if __name__ == "__main__":
               "| shift | " + " | ".join(LABEL[r] for r in OURS) + " |", "|---|" + "---|" * len(OURS)]
         for sh, dd in res["did_vs_ltf_knn"].items():
             L.append(f"| {SHIFT_LABEL[sh]} | " + " | ".join(ci(dd[r]["did"], dd[r]["ci"]) if r in dd else "–" for r in OURS) + " |")
+        L.append("")
+    for sh, out in res.get("recovery", {}).items():
+        L += [f"## Recovery test: {SHIFT_LABEL[sh]} after 50 labelled shifted instances (n = {out['n']})", "",
+              "kNN: the 50 instances added to its pool; BCE GNN: fine-tuned (`scripts/uc_ood_finetune.py`); thresholds, error-cost "
+              "model and guards unchanged. *Before* = the main run on the same instances; *after* = a new back-to-back run "
+              "(its own full MILP). Δ = after − before on instances both solve.", "",
+              "| rule | before: gap mean % [CI], max, served %, feasible % | after: gap mean % [CI], max, served %, feasible %, "
+              "speed-up mean / median | Δ gap pp [CI] | instances > 10 % (our conv.) before → after |",
+              "|---|---|---|---|---|"]
+        for ru, v in out.items():
+            if ru in ("n", "bce_finetune"):
+                continue
+            b, a_, d = v["before"], v["after"], v["after_minus_before"]
+            L.append(f"| {LABEL[ru]} | {ci(b['gap_mean'], b['gap_mean_ci'])}, {fmt(b['gap_max'], 1)}, {fmt(b['served'], 1)}, "
+                     f"{fmt(b['feasible'], 1)} | {ci(a_['gap_mean'], a_['gap_mean_ci'])}, {fmt(a_['gap_max'], 1)}, "
+                     f"{fmt(a_['served'], 1)}, {fmt(a_['feasible'], 1)}, {fmt(a_['speedup_mean'], 1)} / "
+                     f"{fmt(a_['speedup_median'], 1)} | {ci(d['d_gap'], d['d_gap_ci'])} | {b['n_gt10']} → {a_['n_gt10']} |")
+        if "bce_finetune" in out:
+            ft = out["bce_finetune"]
+            L += ["", f"BCE fine-tuning: validation log-loss on 10 held-out shifted instances {ft['val_logloss_before']:.4f} → "
+                      f"{ft['best']:.4f} ({ft['n_shifted_train']} shifted + {ft['n_orig']} original training instances)."]
         L.append("")
     open(os.path.join(OUT, "ood_results.md"), "w").write("\n".join(L) + "\n")
     print("\n".join(L))

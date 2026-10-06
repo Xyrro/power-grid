@@ -34,20 +34,20 @@ from otsl.hybrid import harm_to_score  # noqa: E402
 from otsl.ltfx import fix_dict  # noqa: E402
 from otsl.uc import load_rts_gmlc  # noqa: E402
 from otsl.ucdata import load, scenario_from  # noqa: E402
-from uc_hybrid_tune import parse_guards  # noqa: E402
 from uc_m1x_train import featurizer, load_net  # noqa: E402
 
 ROOT, DATA, RES = "data/generated/uc12", "data/generated/uc12_m1x", "results/uc12"
 REF = "hybrid he_bce_s0_e1_n360"
 
 
-def rules(runs):
+def rules(runs, faithful=True):
     """{rule name: (kind, src, lo, hi, guards, norm)}"""
     r = json.load(open(os.path.join(RES, "hybrid_tune_he_bce_s0_e1_n360.json")))
     norm = json.load(open(os.path.join(RES, "hybrid_probs.json")))["harm_norm_logh_mean_sd"]["bce_s0"]
     out = {REF: ("harm", "ref_bce_s0", np.array(r["lo"]), np.array(r["hi"]), tuple(r["guards"]), norm)}
-    r = json.load(open(os.path.join(RES, "ltfx_tune_bce_1.json")))
-    out["faithful LtF BCE eps=1%"] = ("prob", "ref_bce_s0", np.array(r["lo"]), np.array(r["hi"]), (), None)
+    if faithful:
+        r = json.load(open(os.path.join(RES, "ltfx_tune_bce_1.json")))
+        out["faithful LtF BCE eps=1%"] = ("prob", "ref_bce_s0", np.array(r["lo"]), np.array(r["hi"]), (), None)
     for run in runs:
         r = json.load(open(os.path.join(RES, f"m1x_tune_{run}.json")))
         if not r["converged"]:
@@ -65,6 +65,7 @@ if __name__ == "__main__":
     ap.add_argument("--start", type=int, default=0)
     ap.add_argument("--n", type=int, default=60)
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--skip_faithful", action="store_true", help="leave out faithful LtF BCE (second test half, time)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     torch.set_num_threads(1)
@@ -73,7 +74,7 @@ if __name__ == "__main__":
     d = load(os.path.join(ROOT, f"{a.split}.npz"))
     idx = list(range(a.start, min(a.start + a.n, len(d["load"]))))
     one = lambda i: {k: v[i:i + 1] for k, v in d.items() if isinstance(v, np.ndarray) and v.ndim >= 1 and len(v) == len(d["load"])}
-    R = rules([x for x in a.runs.split(",") if x])
+    R = rules([x for x in a.runs.split(",") if x], faithful=not a.skip_faithful)
     reg = json.load(open(os.path.join(DATA, "sources.json")))
     srcs = sorted({v[1] for v in R.values()})
     members = {s: [(load_net(pth, kind, sysm, feat), pth) for pth, kind in reg[s]] for s in srcs}

@@ -59,6 +59,14 @@ print(','.join(r['run'] for r in rs if r['converged']))")
   step python3 scripts/uc_m1x_report.py
 }
 
+phase4b() {
+  # second test half (60-119) with the reference hybrid and the selected rule only (budget: ~75 s per instance with
+  # all five rules); the first half (0-59) has every rule
+  step python3 scripts/uc_m1x_report.py
+  step $PY scripts/uc_m1x_eval.py --runs hg_pol_n2000_gnnt_ens5 --skip_faithful --start 60 --n 60
+  step python3 scripts/uc_m1x_report.py
+}
+
 phase23() { phase2; phase3; phase4; }
 phase34() { phase3; phase4; }
 phase3b4() { phase3b; phase4; }

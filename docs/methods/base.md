@@ -312,13 +312,21 @@ audited scope: §3 U2 says the B1 LP relaxation is "1.3 % below the MILP on aver
 
 ## Status
 
-* **Complete** (2026-10-06 22:20 UTC). Validation: `uc_base_val.py --bench uc12 / uc24` (+ `--select`), learning-free
-  LtF tuning `uc_base_tune.py --bench uc12 / uc24 --eps 0.01`; test: `uc_base_eval.py --bench uc12 --idx 0-59
-  --highs_path <highspy 1.12>`, `uc_base_eval.py --bench uc24 --idx 0-19`; reports `uc_base_report.py --bench uc12 /
-  uc24`; audit `uc_base_audit.py --lp 1 --out results/uc12/base_audit.json`; tests 52 passed.
-* Reproduce in that order, one core (`taskset -c 1`, `OTSL_THREADS=1`); eval and val are resumable per instance
-  (records `results/<bench>/base_eval_test.jsonl`, `base_val.jsonl`), a tuning run is not (rerun it whole). Compute:
-  uc12 validation 21 min + tuning 23 min + test 2.4 h; uc24 validation 55 min + tuning 14 min + test 2.9 h.
+* First study **complete** (2026-10-06 22:10 UTC): validation, learning-free LtF tuning, test passes, reports, audit,
+  tests (see the reproduction order below).
+* **Stacking follow-up running** (core 1): `uc_base_eval.py --bench uc24 --idx 0-19 --full_ref 0 --gaps 0.005,0.01
+  --red_gaps 0.005,0.01 --rules "<4 rules>" --out results/uc24/base_stack_test.jsonl` (started 22:14) → then
+  `uc_base_fuse.py --eps 0.01 --budget_min 60` (12-hour fused-rule tuning, `results/uc12/base_tune_fused_1.{json,log}`)
+  → `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12> --full_ref 0 --gaps 0.005,0.01 --red_gaps
+  0.005,0.01 --lp_guards 1 --fused results/uc12/base_tune_fused_1.json --rules "<8 rules>" --ref_gap_rules "<2 new
+  rules>" --out results/uc12/base_stack_test.jsonl` → `uc_base_stack_report.py --bench uc24 / uc12`. Logs
+  `results/<bench>/base_stack_run.log`, `results/uc12/base_fuse_run.log`. The eval passes are resumable per instance
+  (rerun the same command); the tuning is not.
+* Reproduction order of the first study: `uc_base_val.py --bench uc12 / uc24` (+ `--select`), `uc_base_tune.py --bench
+  uc12 / uc24 --eps 0.01`, `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12>`, `uc_base_eval.py
+  --bench uc24 --idx 0-19`, `uc_base_report.py --bench uc12 / uc24`, `uc_base_audit.py --lp 1 --out
+  results/uc12/base_audit.json`; one core (`taskset -c 1`, `OTSL_THREADS=1`). Compute: uc12 validation 21 min + tuning
+  23 min + test 2.4 h; uc24 validation 55 min + tuning 14 min + test 2.9 h.
 * highspy 1.12 (= scipy 1.17's HiGHS) lives outside the repository: `pip install --no-deps --target <dir>
   highspy==1.12.0`, passed as `--highs_path <dir>`.
 * Not done: the 20 remaining 24-hour test instances (compute), ε = 5 % for the learning-free LtF, separate
