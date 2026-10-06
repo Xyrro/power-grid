@@ -1,0 +1,374 @@
+{
+ "bench": "uc12",
+ "title": "12-hour UC (test_fresh 0-59): solver-side alternatives to hard fixing",
+ "runs": [
+  "results/uc12/solver_test_fresh.jsonl"
+ ],
+ "out_prefix": "results/uc12/solver_results",
+ "refs": {
+  "faithful LtF, kNN, eps = 1 % (paper's setting)": "ref:ltf_knn",
+  "faithful LtF, BCE GNN, eps = 1 %": "ref:ltf_bce",
+  "hybrid (guard-aware LtF on error-cost scores, 360 val)": "ref:hybrid",
+  "ours: error-cost + adequacy guard, 90 %": "ref:ec90",
+  "ours: combined pipeline, 98 %": "ref:comb98",
+  "no learning: fix the LP-integral decisions": "lpfix"
+ },
+ "families": [
+  {
+   "name": "1. Trust region (Predict-and-Search) vs hard fixing at the same k",
+   "rows": [
+    {
+     "label": "Predict-and-Search, (q0, q1) = (0.97, 0.9), Delta = 10, 30 s limit",
+     "short": "PaS",
+     "variant": "pas:0.97:0.9:10:30"
+    },
+    {
+     "label": "same set hard-fixed",
+     "short": "hard, same set",
+     "variant": "hard:0.97:0.9"
+    },
+    {
+     "label": "hybrid fixings hard + trust region over the rest of the set, Delta = 10",
+     "short": "core + band",
+     "variant": "core:hybrid:0.97:0.9:10"
+    }
+   ]
+  },
+  {
+   "name": "2. Warm starts (to proof, and cut at the validation-chosen tau)",
+   "rows": [
+    {
+     "label": "full MILP, decoded start, to proof",
+     "short": "warm full",
+     "variant": "warmfull:dec",
+     "plot": false
+    },
+    {
+     "label": "full MILP, decoded start, cut at 20 s",
+     "short": "warm full @20 s",
+     "variant": "warmfull:dec",
+     "tau": 20
+    },
+    {
+     "label": "full MILP, cold, cut at 20 s",
+     "short": "cold full @20 s",
+     "variant": "full",
+     "tau": 20,
+     "plot": false
+    },
+    {
+     "label": "hybrid reduced MILP, decoded start, to proof",
+     "short": "hybrid warm",
+     "variant": "warmred:hybrid",
+     "plot": false
+    },
+    {
+     "label": "hybrid reduced MILP, decoded start, cut at 10 s",
+     "short": "hybrid warm @10 s",
+     "variant": "warmred:hybrid",
+     "tau": 10
+    },
+    {
+     "label": "hybrid reduced MILP, cold, cut at 10 s",
+     "short": "hybrid cold @10 s",
+     "variant": "ref:hybrid",
+     "tau": 10,
+     "plot": false
+    },
+    {
+     "label": "error-cost 90 % reduced MILP, decoded start, to proof",
+     "short": "ec90 warm",
+     "variant": "warmred:ec90",
+     "plot": false
+    },
+    {
+     "label": "error-cost 90 % reduced MILP, decoded start, cut at 10 s",
+     "short": "ec90 warm @10 s",
+     "variant": "warmred:ec90",
+     "tau": 10
+    },
+    {
+     "label": "error-cost 90 % reduced MILP, cold, cut at 10 s",
+     "short": "ec90 cold @10 s",
+     "variant": "ref:ec90",
+     "tau": 10,
+     "plot": false
+    },
+    {
+     "label": "combined 98 % reduced MILP, decoded start, to proof",
+     "short": "comb98 warm",
+     "variant": "warmred:comb98",
+     "plot": false
+    },
+    {
+     "label": "fix, then prove: full MILP from the hybrid's solution (60 s)",
+     "short": "fix-then-prove",
+     "variant": "ftp:hybrid"
+    }
+   ]
+  },
+  {
+   "name": "3. Fix and polish (headline tau chosen on validation)",
+   "rows": [
+    {
+     "label": "hybrid + RINS, tau = 1 s",
+     "short": "hybrid+RINS",
+     "variant": "rins:hybrid:10",
+     "tau": 1
+    },
+    {
+     "label": "hybrid + local branching r = 10, tau = 10 s",
+     "short": "hybrid+LB",
+     "variant": "lb:hybrid:10:10",
+     "tau": 10
+    },
+    {
+     "label": "combined 98 % + RINS, tau = 3 s",
+     "short": "comb98+RINS",
+     "variant": "rins:comb98:10",
+     "tau": 3
+    },
+    {
+     "label": "combined 98 % + gradient release m = 60, tau = 10 s",
+     "short": "comb98+grad",
+     "variant": "grad:comb98:60:10",
+     "tau": 10
+    },
+    {
+     "label": "combined 98 % + local branching r = 10, tau = 10 s",
+     "short": "comb98+LB",
+     "variant": "lb:comb98:10:10",
+     "tau": 10,
+     "plot": false
+    }
+   ]
+  }
+ ],
+ "warm": [
+  [
+   "full MILP: decoded start vs cold",
+   "warmfull:dec",
+   "full"
+  ],
+  [
+   "hybrid reduced MILP: decoded start vs cold",
+   "warmred:hybrid",
+   "ref:hybrid"
+  ],
+  [
+   "error-cost 90 % reduced MILP: decoded start vs cold",
+   "warmred:ec90",
+   "ref:ec90"
+  ],
+  [
+   "combined 98 % reduced MILP: decoded start vs cold",
+   "warmred:comb98",
+   "ref:comb98"
+  ],
+  [
+   "full MILP: hybrid solution as start (incl. the hybrid's time) vs cold",
+   "ftp:hybrid",
+   "full"
+  ]
+ ],
+ "polish": [
+  {
+   "label": "hybrid + RINS",
+   "base": "ref:hybrid",
+   "variant": "rins:hybrid:10",
+   "taus": [
+    1,
+    2,
+    3,
+    5,
+    10
+   ],
+   "tau_sel": 1
+  },
+  {
+   "label": "hybrid + local branching r = 10",
+   "base": "ref:hybrid",
+   "variant": "lb:hybrid:10:10",
+   "taus": [
+    1,
+    2,
+    3,
+    5,
+    10
+   ],
+   "tau_sel": 10
+  },
+  {
+   "label": "hybrid + full MILP from its solution",
+   "base": "ref:hybrid",
+   "variant": "ftp:hybrid",
+   "taus": [
+    1,
+    2,
+    3,
+    5,
+    10,
+    20
+   ],
+   "tau_sel": null
+  },
+  {
+   "label": "combined 98 % + RINS",
+   "base": "ref:comb98",
+   "variant": "rins:comb98:10",
+   "taus": [
+    1,
+    2,
+    3,
+    5,
+    10
+   ],
+   "tau_sel": 3
+  },
+  {
+   "label": "combined 98 % + gradient release m = 60",
+   "base": "ref:comb98",
+   "variant": "grad:comb98:60:10",
+   "taus": [
+    1,
+    2,
+    3,
+    5,
+    10
+   ],
+   "tau_sel": 10
+  },
+  {
+   "label": "combined 98 % + local branching r = 10",
+   "base": "ref:comb98",
+   "variant": "lb:comb98:10:10",
+   "taus": [
+    1,
+    2,
+    3,
+    5,
+    10
+   ],
+   "tau_sel": null
+  }
+ ],
+ "comparators": [
+  "ref:hybrid",
+  "ref:ltf_knn"
+ ],
+ "curves": [
+  {
+   "label": "full MILP, cold",
+   "variant": "full",
+   "taus": [
+    5,
+    10,
+    15,
+    20,
+    30,
+    40,
+    60
+   ],
+   "family": "full"
+  },
+  {
+   "label": "full MILP, decoded start",
+   "variant": "warmfull:dec",
+   "taus": [
+    2,
+    5,
+    10,
+    15,
+    20,
+    30,
+    40,
+    60
+   ]
+  },
+  {
+   "label": "PaS",
+   "variant": "pas:0.97:0.9:10:30",
+   "taus": [
+    5,
+    10,
+    15,
+    20,
+    30
+   ]
+  },
+  {
+   "label": "comb98 + RINS",
+   "variant": "rins:comb98:10",
+   "taus": [
+    1,
+    2,
+    3,
+    5,
+    10
+   ]
+  },
+  {
+   "label": "comb98 + grad",
+   "variant": "grad:comb98:60:10",
+   "taus": [
+    1,
+    2,
+    3,
+    5,
+    10
+   ]
+  }
+ ],
+ "pairs": [
+  [
+   "full MILP @20 s: decoded start vs cold",
+   "warmfull:dec",
+   20,
+   "full",
+   20
+  ],
+  [
+   "hybrid @10 s: decoded start vs cold",
+   "warmred:hybrid",
+   10,
+   "ref:hybrid",
+   10
+  ],
+  [
+   "error-cost 90 % @10 s: decoded start vs cold",
+   "warmred:ec90",
+   10,
+   "ref:ec90",
+   10
+  ],
+  [
+   "PaS vs hard fixing of the same set",
+   "pas:0.97:0.9:10:30",
+   null,
+   "hard:0.97:0.9",
+   null
+  ],
+  [
+   "core + band vs hybrid alone",
+   "core:hybrid:0.97:0.9:10",
+   null,
+   "ref:hybrid",
+   null
+  ],
+  [
+   "comb98 + RINS @3 s vs error-cost 90 %",
+   "rins:comb98:10",
+   3,
+   "ref:ec90",
+   null
+  ],
+  [
+   "comb98 + grad @10 s vs error-cost 90 %",
+   "grad:comb98:60:10",
+   10,
+   "ref:ec90",
+   null
+  ]
+ ],
+ "stored": "data/generated/uc12/test_fresh.npz"
+}

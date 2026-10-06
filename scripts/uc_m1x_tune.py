@@ -75,6 +75,10 @@ if __name__ == "__main__":
     run, spec, eps, gname = a.job.split(":", 1)[0], *a.job.split(":", 1)[1].rsplit(":", 2)
     eps = float(eps)
     guards = parse_guards(gname)
+    done = os.path.join(RES, f"m1x_tune_{run}.json")
+    if os.path.exists(done) and json.load(open(done))["converged"] and not a.harm_only:
+        print(f"{run}: already converged, skipped", flush=True)
+        sys.exit(0)
     sysm = load_rts_gmlc()
     pi, norm = scores(spec, sysm)
     if a.harm_only:

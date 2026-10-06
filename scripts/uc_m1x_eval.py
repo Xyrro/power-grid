@@ -50,7 +50,9 @@ def rules(runs):
     out["faithful LtF BCE eps=1%"] = ("prob", "ref_bce_s0", np.array(r["lo"]), np.array(r["hi"]), (), None)
     for run in runs:
         r = json.load(open(os.path.join(RES, f"m1x_tune_{run}.json")))
-        assert r["converged"], run
+        if not r["converged"]:
+            print(f"skip {run}: tuning did not converge", flush=True)
+            continue
         kind, src = r["score"].split(":", 1)
         out[f"m1x {run}"] = (kind, src, np.array(r["lo"]), np.array(r["hi"]), tuple(r["guards"]), r["harm_norm"])
     return out

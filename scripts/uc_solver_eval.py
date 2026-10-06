@@ -63,6 +63,16 @@ VARIANT_SETS = {
     # supplementary validation pass on the same instances (merged by instance index in the report)
     "val12b": ["ref:hybrid", "ref:comb98", "grad:hybrid:120:10", "grad:comb98:120:10", "rins:hybrid:10",
                "rins:comb98:10", "lpfix"],
+    # third validation pass: warm starts (to choose time limits for warm-started anytime variants)
+    "val12c": ["warmfull:dec", "warmred:hybrid", "warmred:ec90", "warmred:comb98"],
+    # uc12 test (fixed on validation, docs/methods/solver.md "uc12 selection")
+    "test12": ["full", "ref:ltf_knn", "ref:ltf_bce", "ref:hybrid", "ref:ec90", "ref:comb98", "lpfix",
+               "warmfull:dec", "warmred:hybrid", "warmred:ec90", "warmred:comb98", "ftp:hybrid",
+               "rins:hybrid:10", "lb:hybrid:10:10", "rins:comb98:10", "grad:comb98:60:10", "lb:comb98:10:10",
+               "hard:0.97:0.9", "core:hybrid:0.97:0.9:10", "pas:0.97:0.9:10:30"],
+    # uc24 validation (uc24ltf_val; the dataset's full MILP is the reference, not re-solved)
+    "val24": ["fullstored", "ref:g95", "warmred:g95", "rins:g95:60", "grad:g95:100:60", "grad:g95:250:60",
+              "hard:0.97:0.9", "core:g95:0.97:0.9:20", "pas:0.97:0.9:20:150"],
 }
 
 

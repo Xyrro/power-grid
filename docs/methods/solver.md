@@ -10,8 +10,10 @@ trust region; complete starts; local branching; gradient release), [`scripts/uc_
 
 (kept current; newest first)
 
-* 2026-10-06 15:10 — module and evaluation script written; pilot on uc12 val instances 0–5 running (scratch).
-  Next: validation runs on uc12 (40 val instances), selection rule fixed in this file, then test_fresh 0–59.
+* 2026-10-06 16:25 — uc12 validation done (12 `val` instances, 3 passes: `results/uc12/solver_val{,_b,_c}.jsonl`).
+  **Test selection fixed (below, "uc12 selection") before any test instance was read.** Next: test_fresh 0–59
+  (`results/uc12/solver_test_fresh.jsonl`, resumable), then uc24 validation (10 `uc24ltf_val` instances) and test.
+* 2026-10-06 15:10 — module and evaluation script written; pilot on uc12 val instances 0–5 (scratch).
 
 ## Summary
 
@@ -113,6 +115,44 @@ cold full MILP of the same process (0.1 % gap, 60 s / 300 s limit); speed-up = p
 and median over feasible instances, plus the ratio of mean times; feasibility rate; fixed share. Paired instance
 bootstrap (10,000 resamples) for differences against the hybrid and against LtF-kNN (gap in pp; log speed-up).
 Time to quality (TTQ q): time until a run holds a schedule within q = 1 % / 0.5 % of the cold full MILP's final cost.
+
+**Validation (uc12).** The first 12 instances of `val` (full MILP 33.5 s mean here — harder than the first 60 of
+`test_fresh`, ≈ 20 s), three passes (`results/uc12/solver_val{,_b,_c}.jsonl`): trust-region sets
+(q0, q1) ∈ {(0.97, 0.9), (1, 1)} with Δ ∈ {10, 20} (30 s limit), core + band with Δ ∈ {10, 20}, polish around the
+hybrid and the combined 98 % rule (warm full MILP, local branching r ∈ {10, 30}, gradient release m ∈ {20, 60, 120},
+RINS; 10 s limit, cut post hoc at τ ∈ {1, 2, 3, 5, 10} s), the warm-started full and reduced MILPs, and the
+LP-integral reference. 12 instances only, because one instance with all variants costs ≈ 5 min of the single core.
+
+| validation (12 `val` instances) | gap mean % | speed-up mean |
+|---|---|---|
+| hybrid / error-cost 90 % / combined 98 % (hard fixing) | 0.170 / 0.450 / 0.872 | 3.74 / 4.33 / 8.49 |
+| Predict-and-Search, (0.97, 0.9), Δ = 10 / (1, 1), Δ = 20 (30 s limit) | 0.246 / 0.370 | 1.20 / 1.22 |
+| hard fixing of the (0.97, 0.9) set (same k) | 5.14 (max 22.6) | 24.0 |
+| core (hybrid) + band trust region, Δ = 10 / 20 | 0.174 / 0.170 | 3.31 / 3.49 |
+| polish of the hybrid at τ = 1 / 10 s: RINS; local branching r = 10 | 0.162 / 0.157; 0.170 / 0.115 | 3.12 / 2.77; 2.43 / 1.53 |
+| polish of combined 98 % at τ = 3 / 10 s: RINS | 0.481 / 0.466 | 5.48 / 4.98 |
+| polish of combined 98 % at τ = 5 / 10 s: gradient release m = 60 | 0.655 / 0.388 | 4.51 / 3.94 |
+| polish of combined 98 % at τ = 10 s: warm full MILP; local branching r = 10 / 30 | 0.631; 0.733 / 0.791 | 2.30; 2.30 / 2.29 |
+| no learning: fix the LP-integral decisions | 2.147 | 11.43 |
+| warm-started full MILP (decoded start), to proof / cut at τ = 20 s; cold full MILP cut at 20 s | 0.096 / 0.243; 5.06 | 0.94 / 1.72; 1.77 |
+| warm-started reduced MILP (decoded start), hybrid / error-cost 90 %, cut at τ = 10 s | 0.352 / 0.482 | 4.97 / 5.24 |
+
+**uc12 selection (fixed before the test run).**
+* Trust region: `pas:0.97:0.9:10` (lower validation gap than (1, 1), Δ = 20 at the same speed), with the 30 s
+  limit used on validation; its comparators `hard:0.97:0.9` (same set hard-fixed) and `core:hybrid:0.97:0.9:10`.
+* Polish of combined 98 %: RINS with τ = 3 s (the best validation gap among polish points ≥ 5×) and gradient release
+  m = 60 with τ = 10 s (the lowest validation gap of all polish points); local branching r = 10 is also run (curve
+  only). Polish of the hybrid: RINS τ = 1 s and local branching r = 10, τ = 10 s (the only polish points that
+  improved the hybrid on validation). Gradient release on the hybrid and warm-full-MILP polish of combined 98 % were
+  dominated on validation and are not run on test.
+* Warm starts (no parameter): `warmfull:dec`, `warmred:{hybrid, ec90, comb98}`, `ftp:hybrid` (full MILP from the
+  hybrid's solution, 60 s, to proof).
+* Warm-start headline points (validation pass `_c`, fixed 16:35 before reading test output): to proof, and cut at
+  τ = 10 s (warm-started reduced MILPs; validation: hybrid 0.352 % at 4.97× vs 5.35 % cold at τ = 10 s, error-cost 90 %
+  0.482 % at 5.24×) and τ = 20 s (warm-started full MILP; validation 0.243 % vs 5.06 % cold), each paired with the
+  cold run cut at the same τ. Validation: starts accepted on 100 % of the runs; time to proof warm vs cold — full
+  MILP 36.0 / 33.5 s, hybrid 23.4 / 20.8 s, error-cost 90 % 13.0 / 11.0 s, combined 98 % 8.0 / 5.8 s (no gain).
+* Every polish / anytime run is reported along its whole τ curve as well; headline points are the τ above.
 
 ## Results
 

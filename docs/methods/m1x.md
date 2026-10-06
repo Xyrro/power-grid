@@ -14,8 +14,13 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
 - Pilot for the polishing setting done (`data/generated/uc12_m1x/pilot.json`): confidence ranking, 90 %, LP guard,
   5 s chosen (median label gap 0.10 %, all served, 4.9 s per label).
 - 15:14 3,500 extra scenarios generated (`extra_0..13.npz`, 34 min); reference metrics written (`results/uc12/m1x_train.json`).
-- Phase 2 (`scripts/uc_m1x_queue2.sh phase2`, log `queue_phase2.log`) starts automatically after phase 1: BCE seeds 0/3/4
-  at 500 MILP labels, 5-member ensemble, temporal GNN and MLP at 500, guarded-rule validation check of all sources.
+- 15:34 label-free curve done (500–4000); teacher polishing of 1,500 extra instances running (4.8 s per label).
+- Phases 2–4 (`scripts/uc_m1x_queue2.sh phase23`, log `data/generated/uc12_m1x/queue_phase2.log`) start automatically
+  after phase 1: BCE seeds 0/3/4 at 500 MILP labels, 5-member ensemble, temporal GNN and MLP at 500, guarded-rule
+  validation check of all sources (phase 2); validation-only selection (`scripts/uc_m1x_select.py`, rule written before
+  the results) and the two tuning runs (phase 3); test evaluation on test_fresh 0–59 then 60–119 + report (phase 4).
+- To resume after a restart: rerun `scripts/uc_m1x_queue.sh phase1` if it had not finished, then
+  `scripts/uc_m1x_queue2.sh phase23` (finished steps are skipped or cheap; an interrupted tuning run restarts from scratch).
 
 ## Summary
 

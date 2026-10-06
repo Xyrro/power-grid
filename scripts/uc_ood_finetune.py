@@ -2,7 +2,7 @@
 
     OTSL_THREADS=1 taskset -c 2 python3 scripts/uc_ood_finetune.py --shift gen_out --stage gen     # 50 MILP labels
     OTSL_THREADS=1 taskset -c 2 python3 scripts/uc_ood_finetune.py --shift gen_out --stage train   # fine-tune BCE GNN
-    OTSL_THREADS=1 taskset -c 2 python3 scripts/uc_ood_eval.py --shifts gen_out --n 40 \
+    OTSL_THREADS=1 taskset -c 2 python3 scripts/uc_ood_eval.py --shifts gen_out --n 30 \
         --bce results/uc12/ood_ft_bce_gen_out.pt --knn_extra data/generated/uc12_ood/ft_gen_out.npz \
         --rules "LtF kNN eps=1%,LtF BCE eps=1%,hybrid eps=1%,guarded error-cost 90%" \
         --out results/uc12/ood_ft_eval.jsonl --inst_dir data/generated/uc12_ood/ft_eval

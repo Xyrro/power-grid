@@ -229,8 +229,9 @@ def pareto_plot(points, curves, path, title):
         ax.plot(sp, g, mk[fam], color=col[fam], ms=8, mec="white", mew=1.5, zorder=4)
         ax.annotate(lab, (sp, g), textcoords="offset points", xytext=(5, 3), fontsize=7, color="#0b0b0b")
     ax.set_xscale("log")
+    ax.set_yscale("log")
     ax.set_xlabel("speed-up over the full MILP (mean of per-instance ratios, log scale)", color="#52514e")
-    ax.set_ylabel("gap to the full MILP's dual bound, mean %", color="#52514e")
+    ax.set_ylabel("gap to the full MILP's dual bound, mean % (log scale)", color="#52514e")
     ax.set_title(title, fontsize=10, color="#0b0b0b", loc="left")
     ax.grid(True, which="both", color="#e8e7e2", lw=0.6)
     for sp_ in ("top", "right"):
@@ -238,7 +239,7 @@ def pareto_plot(points, curves, path, title):
     from matplotlib.lines import Line2D
     ax.legend(handles=[Line2D([], [], marker=mk[f], color=col[f], ls="-" if f != "ref" else "", label=l)
                        for f, l in (("ref", "hard fixing (references)"), ("new", "solver-side variants"),
-                                    ("full", "full MILP cut at time τ"))], fontsize=7, frameon=False, loc="upper right")
+                                    ("full", "full MILP cut at time τ"))], fontsize=7, frameon=False, loc="upper left")
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
@@ -263,6 +264,20 @@ def build_report(spec, out_json, out_md, out_png, title):
     md += [f"Full MILP (cold, this process): mean {full['time_mean_s']:.1f} s, gap to its own bound "
            f"{full['gap_mean_%']:.3f} % (max {full['gap_max_%']:.2f} %).", ""]
     res["full"] = full
+    if spec.get("stored"):                         # dataset full-MILP times vs the re-timed (paired) ones
+        st = np.load(spec["stored"])
+        a = [(R["full"]["t_build"] + R["full"]["t_run"], float(st["time"][R["i"]]), float(st["obj"][R["i"]]), R["full"]["obj"])
+             for R in recs if "full" in R]
+        tn, ts, os_, on = (np.array(x) for x in zip(*a))
+        within = np.abs(tn / ts - 1) <= 0.10
+        res["retime"] = {"n": len(tn), "mean_s_now": float(tn.mean()), "mean_s_stored": float(ts.mean()),
+                         "median_ratio_now_over_stored": float(np.median(tn / ts)),
+                         "share_within_10%": float(within.mean()),
+                         "obj_rel_diff_max": float(np.max(np.abs(on - os_) / os_))}
+        md += [f"Re-timing: the full MILP here takes {tn.mean():.1f} s on average against {ts.mean():.1f} s in the stored "
+               f"dataset run (median per-instance ratio {np.median(tn / ts):.2f}; {within.mean() * 100:.0f} % of instances "
+               f"within ±10 %; objectives agree to {np.max(np.abs(on - os_) / os_) * 100:.3f} %). All speed-ups below use the "
+               "re-timed, paired full MILP.", ""]
 
     def add_rows(rows, header):
         md.append(header)
@@ -297,6 +312,13 @@ def build_report(spec, out_json, out_md, out_png, title):
             md.append(f"| {r['label']} | `{c}` | {pr['n_common']} | {pr['gap_diff_pp']:+.3f} [{pr['gap_diff_ci'][0]:+.3f}, "
                       f"{pr['gap_diff_ci'][1]:+.3f}] | {pr['log_speedup_diff']:+.2f} [{pr['log_speedup_diff_ci'][0]:+.2f}, "
                       f"{pr['log_speedup_diff_ci'][1]:+.2f}] |")
+    for lab, v, tv, w, tw in spec.get("pairs", []):
+        pr = paired(recs, v, w, tv, tw, T)
+        pr["label"] = lab
+        res["paired"].append(pr)
+        md.append(f"| {lab} | `{w}`" + (f" @ {tw:g} s" if tw else "") + f" | {pr['n_common']} | {pr['gap_diff_pp']:+.3f} "
+                  f"[{pr['gap_diff_ci'][0]:+.3f}, {pr['gap_diff_ci'][1]:+.3f}] | {pr['log_speedup_diff']:+.2f} "
+                  f"[{pr['log_speedup_diff_ci'][0]:+.2f}, {pr['log_speedup_diff_ci'][1]:+.2f}] |")
     md.append("")
     # warm starts
     if spec.get("warm"):

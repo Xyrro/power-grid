@@ -77,6 +77,7 @@ def label_stats():
                              served=float(np.concatenate([z["served"] for z in Z]).mean() * 100),
                              cost_vs_lf_median=float(np.median(cost / clf - 1) * 100), cost_vs_lf_mean=float(np.mean(cost / clf - 1) * 100),
                              unit_hours_changed=float((y != ylf).mean() * 100),
+                             unit_hours_vs_teacher=float((y != (np.concatenate([z["p_teacher"] for z in Z]) > 0.5)).mean() * 100),
                              core_s=float(np.concatenate([z["total_s"] for z in Z]).sum()))
     return out
 
@@ -157,7 +158,8 @@ if __name__ == "__main__":
                      f"({p['core_s'] / 3600:.2f} core-h), reduced MILP hit the limit on {p['hit_limit']:.0f} %, label from the "
                      f"reduced MILP on {p['from_milp']:.0f} % (else the label-free label), served (no shedding / shortfall) "
                      f"{p['served']:.0f} %, cost vs the label-free label median {p['cost_vs_lf_median']:+.2f} % (mean "
-                     f"{p['cost_vs_lf_mean']:+.2f} %), {p['unit_hours_changed']:.2f} % of unit-hours changed.")
+                     f"{p['cost_vs_lf_mean']:+.2f} %), {p['unit_hours_changed']:.2f} % of unit-hours changed; the label differs from the "
+                     f"teacher's rounded prediction on {p['unit_hours_vs_teacher']:.2f} % of unit-hours.")
     if tr:
         lines.append("\n## Validation: probability quality (360 instances: val + val_extra + val_extra2)\n\n"
                      "Against MILP labels aligned to the prediction inside identical-unit groups; *fixable @P*: largest share of "

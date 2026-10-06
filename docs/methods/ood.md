@@ -10,18 +10,20 @@ one `.npz` per instance with the scenario, the full-MILP schedule, the LP relaxa
 
 ## Status
 
-*Kept current for resumption.* Main run started 2026-10-06 15:05 UTC on core 2 (7 instance sets × 40 instances,
-round-robin; ~65 s per instance on average, ~5 h); restarted 15:25 after the line-outage design change (the two
-line instances already run were discarded, every other finished instance was kept). To resume after a restart (finished instances are skipped):
+*Kept current for resumption.* Main run started 2026-10-06 15:05 UTC on core 2, round-robin over the 7 instance sets;
+restarted 15:25 after the line-outage design change (the two line instances already run were discarded). Shifted
+instances took ~135 s each (full MILP plus 13 methods; reduced MILPs are often slower under shift), so 40 per set
+would have needed ~9 h: at 16:17 the run was restarted with **30 instances per set** (5 rounds done, all kept);
+the in-distribution set is extended to 40 afterwards if time allows. To resume after a restart (finished instances are skipped):
 
 ```bash
-OTSL_THREADS=1 setsid nohup taskset -c 2 python3 scripts/uc_ood_eval.py --n 40 >> results/uc12/ood_eval.log 2>&1 &
+OTSL_THREADS=1 setsid nohup taskset -c 2 python3 scripts/uc_ood_eval.py --n 30 >> results/uc12/ood_eval.log 2>&1 &
 python3 scripts/uc_ood_report.py            # any time; uses the instances finished so far
 ```
 
 Planned after the main run (rule fixed before its results were complete): recovery test on the one shift with the
 largest sum of mean-gap degradations (shift − in-distribution) of LtF-kNN and the hybrid: 50 labelled shifted instances
-on training days, BCE GNN fine-tuned / kNN pool augmented, same 40 test instances (`scripts/uc_ood_finetune.py`).
+on training days, BCE GNN fine-tuned / kNN pool augmented, same 30 test instances (`scripts/uc_ood_finetune.py`).
 Not planned: 24-hour shifts (each instance needs a ~154 s full MILP plus the uc24 method stack; does not fit the budget
 after the 12-hour run).
 
