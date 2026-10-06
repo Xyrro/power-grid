@@ -559,8 +559,9 @@ speed-ups, statistics over feasible instances; full MILP 0.12 % / 19.6 s):
   (0.28 % vs our 0.42 % at 4.2×; in our convention the paired difference is not significant), and at ~13.5× it is
   level with our combined pipeline (0.85 % vs 0.82 %). Our rules reach higher speed-ups only with larger gaps
   (REINFORCE ranking: 3.4 % at 33×).
-* **What our work adds to it**: better probabilities. The same calibration on our GNN (LP-relaxation features)
-  beats it on the paper's kNN at every tolerance tested, and the label-free / self-trained models need no MILP labels.
+* **What our work adds to it**: better probabilities. The same calibration on our GNN (LP-relaxation features) gives
+  a lower gap than on the paper's kNN at every tolerance tested, and is also faster at ε = 10 % and 5 % (at 1 % the
+  BCE GNN is better on both); the self-trained model needs no MILP labels.
 
 ### X4. A 24-hour benchmark (uc24)
 
