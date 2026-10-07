@@ -38,7 +38,8 @@ Not done: 24-hour shifts (each instance needs a ~154 s full MILP plus the uc24 m
 
 *Progress*: timing check done 23:42 UTC (14 instances, full MILP new / stored median 0.95, 13 of 14 within
 ±10 %, all objectives identical → stored times reused); validation stage 36 / 60 instances when the container
-restarted at ~00:18 UTC; resumed 00:19 (finished instances are skipped), then the test stage. Resume with
+restarted at ~00:18 UTC; resumed 00:19 (finished instances are skipped) and finished 00:49 — chosen: the
+*unit-hour veto* (`results/uc12/ood_fu_select.json`); test stage started 00:49. Resume with
 `OTSL_THREADS=1 taskset -c 2 python3 scripts/uc_ood_followup.py --stage val` and then `--stage test` (both skip
 finished instances; the test stage needs `results/uc12/ood_fu_select.json` from the validation stage).
 

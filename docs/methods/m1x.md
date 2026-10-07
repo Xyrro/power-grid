@@ -31,6 +31,10 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
 - 22:03–23:27 test, first 60 instances, every rule. 23:28 instances 60–119 with the reference and the selected rule only
   (budget). 00:18 a container restart killed the run after instance 103; resumed 00:20 (finished instances skipped,
   `data/generated/uc12_m1x/queue_resume.log`).
+- 00:35 main study complete (test 0–119 done, report regenerated).
+- 00:39 follow-up: robustness of B-hg on the shifted sets of the ood study (`scripts/uc_m1x_ood.py`, records
+  `results/uc12/m1x_ood_eval.jsonl`, logs `data/generated/uc12_m1x/ood_*.log`): timing check on 14 instances first
+  (full MILP re-solved on core 3), then every instance; resume = rerun the same command (finished instances skipped).
 - `scripts/uc_m1x_queue2.sh` was rewritten after the runs to the sequence actually executed (phase2, phase3, phase4).
 - To resume after a restart: `taskset -c 3 python3 scripts/uc_m1x_eval.py --runs hg_pol_n2000_gnnt_ens5 --skip_faithful
   --start 60 --n 60` then `python3 scripts/uc_m1x_report.py` (the evaluation skips finished instances; every tuning

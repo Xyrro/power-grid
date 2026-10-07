@@ -1,0 +1,60 @@
+{
+ "chosen": "unit-hour veto",
+ "stats": {
+  "unit-hour veto": {
+   "gap_mean": 0.22954747345800353,
+   "logsp_vs_base": 0.0051836966013950716,
+   "released_mean": 1.1916666666666667
+  },
+  "rarely-on unit veto": {
+   "gap_mean": 0.23833908051842378,
+   "logsp_vs_base": -0.027947875309673416,
+   "released_mean": 2.275
+  },
+  "base hyb": {
+   "gap_mean": 0.23162086828343234
+  },
+  "base knn": {
+   "gap_mean": 0.24685483291516316
+  }
+ },
+ "n": 60,
+ "rarely_on_units": [
+  4,
+  5,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  23,
+  24,
+  30,
+  31,
+  33,
+  34,
+  35,
+  36,
+  38,
+  43,
+  44,
+  45,
+  46,
+  47,
+  48,
+  49,
+  50,
+  51,
+  52,
+  53,
+  57,
+  58,
+  59,
+  60,
+  61
+ ],
+ "rule": "lowest mean validation gap over hybrid and LtF-kNN; within 0.02 pp the faster",
+ "tol": 0.001,
+ "rare_freq": 0.01
+}
