@@ -40,6 +40,8 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
   shifted sets (300 instances), three shards on cores 0, 1, 3 (one single-threaded process each), records
   `results/uc12/m1x_pipeline_eval_s{0,1,2}.jsonl`, logs `data/generated/uc12_m1x/pipe_s*.log`. Resume: rerun
   `taskset -c N python3 scripts/uc_m1x_pipeline.py --shard i --nshards 3` (finished instances skipped), then `--report`.
+- 05:15 main pass done (300 instances); 05:56 veto pass done; report `results/uc12/m1x_pipeline.{md,json}`
+  (`python3 scripts/uc_m1x_pipeline.py --report`). Follow-ups complete.
 - 04:17 supplementary pass queued per core after the main shard: B-hg + LP veto (the robustness study's unit-hour veto)
   at both gaps, `--veto`, records `results/uc12/m1x_pipeline_veto_s{0,1,2}.jsonl`, logs `data/generated/uc12_m1x/veto_s*.log`;
   it reuses the main pass's reference full MILP and re-solves every 10th one to confirm the timing. Resume: rerun with
@@ -67,7 +69,10 @@ at 99.9 % precision); a 5-member ensemble alone improves the pooled metrics but 
 the test result; ensemble disagreement adds nothing as a filter; a flat MLP is worse. Single tuning run per rule,
 60 test instances with all rules, 120 for the reference and the selected rule; about 10 core-hours in total. **Follow-up under distribution shift** (the robustness study's six shifted sets): B-hg keeps its advantage on
 five shifts but collapses under line outages like every LtF-calibrated rule (17.7 % mean gap); adding the
-LP-relaxation guard at test time repairs it (0.23 % at 6.9×) at a 5–15 % speed cost elsewhere.
+LP-relaxation guard at test time repairs it (0.23 % at 6.9×) at a 5–15 % speed cost elsewhere. **End to end** (B-hg + LP guard
++ reduced MILP at a 0.5 % gap): on test_fresh 0.30 % at 9.7× (median 5.5×), level with the full MILP at 0.5 % at
+2.85× its speed and with the hybrid at 1.93× its speed; it survives every shift (line outages 0.24 %) but is
+less accurate than the loosened full MILP under wind + solar ×1.5 and load −15 %.
 
 ## Method
 
@@ -358,6 +363,83 @@ on every set (Δ log speed-up +0.52 to +0.94, every CI above 0) and fixes 20–2
   safer rule: it gives up about 10 % of the speed-up in distribution for robustness to topology changes.
 * B-hg + LP guard on line outages is also more accurate than the robustness study's own guarded rules there
   (guarded error-cost 95 % + LP guard 0.47 % at 7.1×, 90 % rule 0.68 % at 6.5×; not paired here).
+
+## Recommended pipeline, end to end (follow-up)
+
+Code: `scripts/uc_m1x_pipeline.py`; records `results/uc12/m1x_pipeline_eval_s{0,1,2}.jsonl` (main pass) and
+`m1x_pipeline_veto_s{0,1,2}.jsonl` (veto pass); tables [`results/uc12/m1x_pipeline.md`](../../results/uc12/m1x_pipeline.md)
+(+ `.json`).
+
+**Pipeline**: B-hg fixings (validation-tuned thresholds) → adequacy guard + min up/down rows → LP-relaxation guard →
+reduced MILP at mip_rel_gap 0.5 % (the loose gap stacks with fixing, [`base.md`](base.md) §4.4). **Variant** (added
+afterwards, from the robustness study): B-hg + LP veto instead of the guard: after the tuned guards, the OFF fixing of
+(t, g) is released whenever the LP relaxation has u_rel[t, g] > 1e-3 (`otsl.ood.lp_off_veto`, unit-hour variant, chosen
+there on `val`), at both gaps. Nothing is tuned here.
+
+**Setup.** test_fresh 0–119 and the robustness study's six shifted sets (30 each; its in-distribution set is test_fresh
+0–39, verified identical, and is reported from the test_fresh runs): 300 instances, split round-robin over three
+single-threaded processes pinned to cores 0, 1, 3. Per instance, in one process: full MILP at the reference gap 0.1 %
+(dual bound and speed-up denominator), full MILP at 0.5 %, hybrid (reference gap), B-hg + LP guard at 0.1 % and 0.5 %;
+outages as in the robustness follow-up; every MILP through highspy, one thread, 60 s. The veto pass ran afterwards on the
+same cores and instance split and uses the main pass's reference full MILP; 30 of those were re-solved (10 per core):
+per-instance time ratio median 1.00 / 1.03 / 1.00, 90–100 % within 10 %, identical objectives on all 30. The main
+pass's reference full MILPs also agree with the stored references of the robustness study (median ratio 0.97–0.99,
+89–95 % within 10 %), but they were all re-solved, nothing stored was reused. LtF-kNN comes from stored records (test_fresh
+0–59 from the hybrid study, the shifted sets from the robustness study): cost scored against this run's dual bound,
+speed-up against the full MILP of its own run.
+
+**Results** (gap to the dual bound, mean [95 % CI] / max; served; speed-up mean / median; fixed share; all 100 % feasible):
+
+| set | full MILP 0.5 % | hybrid (0.1 %) | B-hg + LP guard (0.1 %) | **pipeline** (guard, 0.5 %) | pipeline-veto (veto, 0.5 %) |
+|---|---|---|---|---|---|
+| test_fresh (120) | 0.31 % [0.22, 0.44] / 4.08, 97 %, 3.3× / 1.6× | 0.29 % [0.23, 0.36] / 2.19, 97 %, 5.7× / 2.3×, 85 % | 0.27 % [0.21, 0.34] / 2.58, 96 %, 5.8× / 2.9×, 89 % | **0.30 % [0.24, 0.37] / 2.71, 97 %, 9.7× / 5.5×, 89 %** | 0.28 % [0.22, 0.35] / 2.58, 96 %, 8.9× / 5.0×, 88 % |
+| load +15 % | 0.17 % / 1.17, 100 %, 2.3× / 1.3× | 0.29 % / 2.62, 97 %, 3.4× / 2.0× | 0.18 % / 0.87, 100 %, 5.4× / 2.2× | **0.19 % / 0.87, 100 %, 8.4× / 5.4×** | 0.18 % / 0.87, 100 %, 6.9× / 4.7× |
+| load −15 % | 0.47 % / 2.76, 90 %, 2.5× / 1.3× | 0.96 % / 12.24, 97 %, 3.6× / 1.8× | 1.63 % / 27.24, 97 %, 5.2× / 3.0× | **1.64 % / 27.24, 97 %, 7.0× / 6.4×** | 1.61 % / 27.24, 93 %, 7.4× / 6.0× |
+| wind + solar ×1.5 | 0.50 % / 2.36, 97 %, 2.6× / 1.1× | 1.66 % / 19.91, 97 %, 4.4× / 2.6× | 1.39 % / 8.67, 97 %, 5.7× / 3.4× | **1.42 % / 8.67, 100 %, 6.7× / 3.6×** | 1.25 % / 8.67, 97 %, 7.7× / 3.0× |
+| 2–3 units out | 0.52 % / 4.82, 90 %, 2.1× / 1.4× | 0.81 % / 6.85, 93 %, 6.0× / 2.0× | 0.62 % / 3.30, 90 %, 5.6× / 4.7× | **0.63 % / 3.30, 93 %, 9.7× / 6.2×** | 0.62 % / 3.30, 93 %, 10.7× / 5.4× |
+| 1–2 lines out | 0.19 % / 0.95, 90 %, 2.6× / 1.9× | 15.86 % / 62.17, 63 %, 7.6× / 4.8× | 0.22 % / 0.97, 93 %, 6.5× / 2.3×, 70 % | **0.24 % / 1.07, 93 %, 9.5× / 5.1×, 70 %** | 0.23 % / 1.08, 90 %, 9.7× / 5.2×, 89 % |
+| across midnight | 0.30 % / 3.18, 93 %, 2.3× / 1.2× | 0.30 % / 1.44, 93 %, 6.5× / 1.8× | 0.22 % / 1.38, 97 %, 5.8× / 2.8× | **0.24 % / 1.44, 100 %, 7.8× / 5.1×** | 0.25 % / 1.41, 100 %, 8.8× / 5.2× |
+
+(Full MILP at the reference gap: 0.27 % on test_fresh, 0.12–0.48 % on the shifted sets.)
+
+Paired, **pipeline − reference** (Δ gap pp [CI]; time ratio = reference time / pipeline time, geometric mean, with the
+Δ log speed-up CI):
+
+| set | vs full MILP 0.5 % | vs hybrid | vs LtF-kNN (stored) |
+|---|---|---|---|
+| test_fresh (120; kNN 60) | −0.01 [−0.09, +0.05], 2.85× [+0.89, +1.20] | +0.01 [−0.04, +0.06], 1.93× [+0.45, +0.86] | −0.16 [−0.33, −0.04], 3.0× [+0.78, +1.42] |
+| load +15 % | +0.02 [−0.06, +0.09], 2.98× | −0.10 [−0.25, +0.00], 2.16× | −3.84 [−9.91, −0.47], 2.9× |
+| load −15 % | +1.17 [−0.01, +3.11], 2.90× | +0.68 [−0.05, +1.79], 2.05× | +0.11 [−0.82, +1.25], 2.4× |
+| wind + solar ×1.5 | **+0.91 [+0.21, +1.87]**, 2.93× | −0.24 [−1.19, +0.66], 1.57× | +0.13 [−0.71, +1.07], 2.5× |
+| 2–3 units out | +0.12 [−0.07, +0.30], 3.69× | −0.18 [−0.71, +0.23], 2.15× | −0.21 [−0.60, +0.11], 3.7× |
+| 1–2 lines out | +0.05 [−0.04, +0.15], 2.72× | **−15.63 [−23.42, −8.59]**, 1.23× [−0.37, +0.77] | **−25.80 [−38.57, −13.94]**, 1.84× |
+| across midnight | −0.06 [−0.20, +0.06], 3.03× | −0.05 [−0.14, +0.03], 1.71× | −0.68 [−1.05, −0.37], 2.5× |
+
+Every time ratio against the full MILP at 0.5 % and against LtF-kNN has a Δ log speed-up CI above 0; against the hybrid
+all but line outages do.
+
+**Veto vs guard** (paired, same instances): at the reference gap, B-hg + LP veto − B-hg + LP guard: Δ gap −0.01 pp
+[−0.04, +0.01] on test_fresh (−0.00 to −0.18 pp on the shifts, wind + solar −0.18 [−0.50, −0.00]), time ratio 0.92×
+[Δ log −0.16, −0.02] on test_fresh (0.91–1.01× on the shifts, 1.18× on line outages). At 0.5 %, pipeline-veto −
+pipeline: Δ gap −0.02 [−0.04, +0.01] on test_fresh, time ratio 0.89× [Δ log −0.20, −0.03]; on line outages 1.19×
+[−0.07, +0.40], with 89 % instead of 70 % fixed.
+
+* **The pipeline does what the stacking promised.** On test_fresh it matches the full MILP at 0.5 % (−0.01 pp) at 2.85×
+  its speed and the hybrid at the reference gap (+0.01 pp) at 1.93× its speed; mean speed-up 9.7× (median 5.5×) against
+  the full MILP at the reference gap, from 5.8× for the same fixings at the reference gap. Against the paper's setting
+  (LtF-kNN) it is both more accurate and 3× faster.
+* **It survives the shifts the guard was meant for**: under line outages 0.24 % (full MILP at 0.5 %: 0.19 %) where the
+  hybrid and LtF-kNN lose 16–26 %. It is 2.7–3.7× faster than the loosened full MILP on every shifted set.
+* **Where it is worse than simply loosening the full MILP**: wind + solar ×1.5 (+0.91 pp, significant) and load −15 %
+  (+1.17 pp, driven by one instance at 27 %). These are the two shifts with the largest relaxation gap (≈ 2 %); the
+  fixings come from a model that never saw such net-load levels, and neither guard detects a wrong but cheap-looking
+  commitment that sheds nothing. On these two sets the loosened full MILP is the safer choice when accuracy matters more
+  than a 3× speed-up.
+* **The LP veto is not free on B-hg**, unlike on the hybrid: on test_fresh it releases OFF fixings on 63 % of the
+  instances (mean 2.6, up to 18) where the LP guard releases something on 1 of 120, and freeing a few binaries sometimes makes the reduced MILP much slower (8–11 %
+  slower on average, significant). It is marginally more accurate (−0.01 to −0.02 pp) and keeps far more fixed under
+  line outages (89 % vs 70 %, 1.2× faster there). Both variants avoid every line-outage catastrophe; on B-hg the guard
+  is the better default in distribution, the veto under topology changes, and the difference is small either way.
 
 ## Caveats
 
