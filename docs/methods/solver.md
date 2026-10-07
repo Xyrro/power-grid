@@ -10,20 +10,14 @@ trust region; complete starts; local branching; gradient release), [`scripts/uc_
 
 (kept current; newest first)
 
-* 2026-10-07 00:20 — container restart at ≈ 00:18 killed uc24 pass B (no instance finished). **uc24 pass A is
-  complete** (40 instances, `results/uc24/solver_test.jsonl`). Pass B restarted detached on core 0:
-  `taskset -c 0 python3 -u scripts/uc_solver_eval.py --bench uc24 --split test --start 0 --n 12 --variants test24b
-  --out results/uc24/solver_test_b.jsonl` (resumable: completed instances are skipped). After it: build the uc24 report
-  (`python3 scripts/uc_solver_report.py --spec results/uc24/solver_selection.json`), fill the `PASS_B_*` placeholders in
-  the uc24 results below, finish Summary / Verdict. Not planned: test_fresh 60–119 (time).
-* 2026-10-06 20:15 — **uc12 test done** (60 instances, `results/uc12/solver_test_fresh.jsonl`; report
-  `results/uc12/solver_results.{md,json}` + Pareto figure, rebuilt with
-  `python3 scripts/uc_solver_report.py --spec results/uc12/solver_selection.json`). uc24 validation running
-  (`results/uc24/solver_val.jsonl`, instances 30–35 of `uc24ltf_val`). Next: uc24 selection (written here before the
-  test), uc24 test (`results/uc24/solver_test.jsonl`), then, if time allows, test_fresh 60–119 with the headline variants.
-* 2026-10-06 16:25 — uc12 validation done (12 `val` instances, 3 passes: `results/uc12/solver_val{,_b,_c}.jsonl`).
-  **Test selection fixed (below, "uc12 selection") before any test instance was read.** Next: test_fresh 0–59
-  (`results/uc12/solver_test_fresh.jsonl`, resumable), then uc24 validation (10 `uc24ltf_val` instances) and test.
+* 2026-10-07 02:05 — **all planned runs done.** uc12: validation (12 `val`, 3 passes) and test_fresh 0–59; uc24:
+  validation (6 `uc24ltf_val`) and test pass A (40) + pass B (first 12; restarted after the 00:18 container restart,
+  run in a separate process from pass A). Reports: `python3 scripts/uc_solver_report.py --spec
+  results/uc12/solver_selection.json` and `... results/uc24/solver_selection.json` (seconds). **Not done:**
+  test_fresh 60–119 (time; would be `--split test_fresh --start 60 --n 60 --variants test12`, ≈ 4 h on one core) and
+  pass-B variants on uc24 instances 12–39 (≈ 5.5 h).
+* 2026-10-06 20:40 — uc24 selection fixed (below) before the uc24 test; uc12 test done (20:10).
+* 2026-10-06 16:35 — uc12 selection fixed (below) before the uc12 test.
 * 2026-10-06 15:10 — module and evaluation script written; pilot on uc12 val instances 0–5 (scratch).
 
 ## Summary
@@ -38,10 +32,12 @@ were chosen on validation only (12 uc12 / 6 uc24 instances); each test configura
 * **Trust regions recover the quality but not the speed.** On the same 95 % set, the Predict-and-Search row turns
   hard fixing's 3.55 % mean gap (one instance at 69 %) into 0.25 % (12 h), but the solve is as slow as the full MILP
   (1.28× mean speed-up; the time is root-node work on the full-size network model, which a single row does not shrink).
-  Level with the hybrid in gap (−0.013 pp [−0.107, +0.099]) at a third of its speed. PASS_B_SUMMARY_PAS
+  Level with the hybrid in gap (−0.013 pp [−0.107, +0.099]) at a third of its speed. On 24 h (12 instances) it reaches 0.145 % — the full MILP's quality — but
+  cut at equal time it is level with the full MILP (+0.03 pp at 60 and 120 s): a shorter time limit, not a faster method.
 * **Warm starts are accepted (100 % of runs) but never shorten proofs**: full MILP 26.6 → 25.8 s, reduced MILPs
-  unchanged (median ratios 0.92–0.99). They only bring the full MILP's first 1 %-good schedule forward (median 10.8 →
-  3.2 s on 12 h). PASS_B_SUMMARY_WARM
+  unchanged (median ratios 0.92–0.99). They only bring the full MILP's first 1 %-good schedule forward, and only on part of
+  the instances (12 h: median 10.8 → 3.2 s, more than 2× sooner on 40 % of the instances, later on 43 %). On 24 h the decoded start shortens the full MILP's proof by ≈ 15 % (155.9 →
+  136.4 s, mean log ratio +0.14 [+0.04, +0.25], 12 instances) — still a full-MILP-scale solve.
 * **Polishing in a reduced space is the only lever that pays.** RINS (re-open the ≈ 2 % of decisions where the
   incumbent disagrees with the LP relaxation that is computed anyway as GNN input) cuts the hybrid's gap from 0.263 to
   0.220 % in 0.75 s (−0.043 pp [−0.076, −0.015]; 5.7× → 4.0×), the fast combined 98 % rule's from 0.84 to 0.66 %
@@ -51,7 +47,7 @@ were chosen on validation only (12 uc12 / 6 uc24 instances); each test configura
   Learning to Fix with the paper's kNN: on 12 h, hybrid + RINS has a lower gap (−0.204 pp [−0.370, −0.065]) at a speed-up
   that is not lower (4.0× vs 3.6×); on 24 h, guarded 95 % + RINS / + gradient release are level-to-better in gap
   (−0.12 [−0.31, +0.07] / −0.17 [−0.38, +0.02] pp) at the same speed-up (5.7× / 4.8× vs 5.1×), and the guarded rule
-  alone is level in gap at 2.2× its speed.
+  alone is level in gap at about twice its speed-up.
 
 ## Method
 
@@ -151,7 +147,7 @@ bootstrap (10,000 resamples) for differences against the hybrid and against LtF-
 Time to quality (TTQ q): time until a run holds a schedule within q = 1 % / 0.5 % of the cold full MILP's final cost.
 
 **Validation (uc12).** The first 12 instances of `val` (full MILP 33.5 s mean here — harder than the first 60 of
-`test_fresh`, ≈ 20 s), three passes (`results/uc12/solver_val{,_b,_c}.jsonl`): trust-region sets
+`test_fresh`, 26.6 s), three passes (`results/uc12/solver_val{,_b,_c}.jsonl`): trust-region sets
 (q0, q1) ∈ {(0.97, 0.9), (1, 1)} with Δ ∈ {10, 20} (30 s limit), core + band with Δ ∈ {10, 20}, polish around the
 hybrid and the combined 98 % rule (warm full MILP, local branching r ∈ {10, 30}, gradient release m ∈ {20, 60, 120},
 RINS; 10 s limit, cut post hoc at τ ∈ {1, 2, 3, 5, 10} s), the warm-started full and reduced MILPs, and the
@@ -273,7 +269,7 @@ instance bootstrap, 60 instances):
 Warm start against cold start, same instances (time to proof incl. every overhead; TTQ = time until the incumbent is
 within 1 % / 0.5 % of the cold full MILP's final cost; starts accepted on 100 % of the runs):
 
-| comparison | time to proof mean s, cold / warm | median ratio cold/warm [CI] | TTQ 1 % median s, cold / warm | TTQ 0.5 % median s |
+| comparison | time to proof mean s, cold / warm | median ratio cold/warm [95 % CI of the geometric-mean ratio] | TTQ 1 % median s, cold / warm | TTQ 0.5 % median s |
 |---|---|---|---|---|
 | full MILP, decoded start | 26.6 / 25.8 | 0.99 [0.92, 1.17] | 10.8 / **3.2** | 11.0 / 9.7 |
 | hybrid reduced MILP, decoded start | 14.4 / 13.9 | 0.92 [0.91, 1.12] | 5.1 / 3.8 | 5.2 / 5.4 |
@@ -305,12 +301,13 @@ What the numbers say (uc12):
   (log −1.00). Why: the full MILP spends nearly all of its time at the root node (median 1 node on test; median 14 and
   0 nodes for the full MILP and the trust region on validation): LP solves, cut rounds and heuristics on the full-size
   network model. A trust-region row removes no variable and does not shrink the LP; only hard fixing, through
-  presolve, makes the root cheap. The core + band variant (hybrid fixings hard, trust region over the rest) is never
+  presolve, makes the root cheap. The core + band variant (hybrid fixings hard, trust region over the rest) is not
   faster than the hybrid and slightly worse (+0.049 pp [+0.008, +0.108]).
 * **Warm starts are accepted but do not shorten proofs.** HiGHS takes the start (100 %) and reports it as its first
   incumbent, but the 0.1 % proof is limited by the dual bound: time to proof is unchanged for the full MILP (median
   ratio 0.99) and for every reduced MILP (0.92–0.97). What the start changes is the anytime profile of the full MILP:
-  within 1 % of the final cost after a median 3.2 s instead of 10.8 s, and 0.26 % vs 0.34 % mean gap when both are cut
+  within 1 % of the final cost after a median 3.2 s instead of 10.8 s (more than 2× sooner on 40 % of the instances,
+  later on 43 %; median per-instance ratio 1.1), and 0.26 % vs 0.34 % mean gap when both are cut
   at 20 s (paired −0.08 pp [−0.21, +0.01]). For reduced MILPs the start is a mixed blessing: cut at 10 s, the hybrid
   with a start is not better than without (+0.145 pp [−0.03, +0.47]; one instance at 9.5 %), because the start changes
   HiGHS's search path. "Fix, then prove" (the full MILP warm-started with the hybrid's solution) reaches a better mean
@@ -326,8 +323,8 @@ What the numbers say (uc12):
   gain.
 * **Pareto front.** From fast to slow: combined 98 % (0.84 %, 13.5×) → combined 98 % + RINS (0.66 %, 7.3×) → hybrid
   cut at 10 s (0.33 %, 6.8×) → hybrid (0.26 %, 5.7×) → hybrid + RINS (0.22 %, 4.0×) → full MILP from the hybrid's
-  solution (0.13 %, 1.3×). Learning to Fix with the paper's kNN (0.42 %, 3.6×) is dominated by every point from the
-  hybrid down; the LP-integral fixing without learning (1.08 %, 12.4×) is dominated by the combined 98 % rule.
+  solution (0.13 %, 1.3×). Learning to Fix with the paper's kNN (0.42 %, 3.6×) is dominated in mean gap and mean
+  speed-up by the hybrid, the hybrid cut at 10 s and hybrid + RINS; the LP-integral fixing without learning (1.08 %, 12.4×) is dominated by the combined 98 % rule.
 
 ### uc24: 40 test instances (pass A), first 12 (pass B)
 
@@ -347,7 +344,12 @@ to the stored dataset times, 80 % of instances within ±10 % (the stored uc24 ti
 | *fix and polish (τ chosen on validation)* | | | | | | |
 | guarded 95 % + RINS, τ = 20 s | 40 | 100 | 0.486 [0.35, 0.64] | 1.79 | 5.68 (3.00) | 97 in the polish |
 | guarded 95 % + gradient release m = 250, τ = 60 s | 40 | 100 | 0.430 [0.31, 0.57] | 2.12 | 4.75 (2.57) | 74 in the polish |
-PASS_B_ROWS
+| *pass B (first 12 instances; paired values on these 12 below)* | | | | | | |
+| Predict-and-Search, (0.97, 0.9), Δ = 20, 150 s limit | 12 | 100 | 0.145 [0.07, 0.23] | 0.49 | 1.40 (1.09) | 0 (≈ 95 in the row) |
+| the same set hard-fixed | 12 | 100 | 1.047 [0.62, 1.53] | 2.58 | 20.06 (3.72) | 86 |
+| full MILP, decoded start, to proof | 12 | 100 | 0.144 [0.06, 0.24] | 0.44 | 1.17 (1.09) | – |
+| fix, then prove: full MILP from the guarded rule's solution | 12 | 100 | 0.171 [0.06, 0.29] | 0.59 | 0.96 (0.82) | – |
+| *on the same 12: full MILP / guarded 95 % / LtF-kNN* | 12 | 100 | 0.195 / 0.890 / 0.689 | | 1 / 12.22 / 7.85 | |
 
 Paired (variant − comparator; 40 instances unless noted):
 
@@ -359,14 +361,46 @@ Paired (variant − comparator; 40 instances unless noted):
 | guarded 95 % + decoded start | +0.003 [−0.000, +0.008] | −0.00 [−0.16, +0.15] | +0.068 [−0.131, +0.267] | +0.66 [+0.28, +1.04] |
 | guarded 95 % (reference) | – | – | +0.065 [−0.134, +0.263] | +0.67 [+0.25, +1.08] |
 | LP-integral fixing (no learning) | +0.283 [+0.064, +0.530] | +0.50 [+0.15, +0.87] | +0.348 [+0.119, +0.568] | +1.17 [+0.80, +1.52] |
-PASS_B_PAIRS
+| Predict-and-Search (12) | −0.745 [−1.074, −0.433] | −1.43 [−2.12, −0.79] | −0.544 [−0.918, −0.236] | −1.21 [−1.92, −0.57] |
+| (0.97, 0.9) set hard-fixed (12) | +0.157 [+0.022, +0.326] | +0.10 [−0.32, +0.60] | +0.359 [−0.078, +0.809] | +0.32 [−0.74, +1.37] |
+| full MILP, decoded start (12) | −0.745 [−1.060, −0.450] | −1.57 [−2.33, −0.88] | −0.544 [−0.916, −0.236] | −1.36 [−1.95, −0.80] |
+| fix, then prove (12) | −0.718 [−1.039, −0.422] | −1.84 [−2.50, −1.24] | −0.517 [−0.877, −0.217] | −1.62 [−2.15, −1.09] |
+
+Against the cold full MILP on the same 12 instances: Predict-and-Search −0.050 pp [−0.118, +0.008] gap, +0.28 log
+speed-up [+0.09, +0.47] — but 6 of its 12 runs stopped at its 150 s limit (the full MILP: 3 at 300 s), and cut at the
+same time it is level with the full MILP (60 s: +0.03 pp [−0.12, +0.19]; 120 s: +0.03 pp [−0.09, +0.18]; log speed-up
+−0.03 / −0.01). The trust region is the full MILP with a shorter limit, not a faster method. The decoded start
+shortens the full MILP's proof on 24 hours (155.9 → 136.4 s mean, median ratio 1.09, mean log ratio +0.14
+[+0.04, +0.25]; gap −0.050 pp [−0.121, −0.003]) and transforms its early incumbent (cut at 30 s: 1.19 % vs 9.08 % mean
+gap; level from 60 s on), but its start schedules are poor (0.7–35 % above the bound) and it reaches 1 % / 0.5 % of the
+final cost only marginally sooner (median 23.2 / 24.1 s vs 24.4 / 26.5 s). Fix-then-prove: 0.171 % at 0.96× (gap vs
+cold full MILP −0.023 pp [−0.060, +0.003]); started from the guarded rule's solution, the full MILP reaches 0.29 % after
+60 s of polish (from 0.89 % on these 12), but that point is slower than the polish in a reduced space.
 
 Polish curve (guarded 95 %: 0.668 %, 11.25×): RINS τ = 5 / 10 / 20 / 60 s → 0.606 / 0.533 / 0.486 / 0.453 % at
 7.7 / 6.6 / 5.7 / 5.3× (added 3.9 / 7.0 / 11.3 / 15.2 s); gradient release m = 250 → 0.663 / 0.633 / 0.488 / 0.430 %
 at 7.3 / 6.2 / 5.4 / 4.8× (added 4.2 / 7.6 / 12.6 / 25.3 s). Warm start of the guarded rule's reduced MILP: time to
 proof 30.5 / 32.0 s cold / warm (median ratio 0.93), TTQ 1 % median 10.3 / 8.5 s. Full MILP: within 1 % / 0.5 % of its
 final cost after a median 25.8 / 26.3 s; 6.5 % mean gap if cut at 30 s, 0.29 % at 60 s.
-PASS_B_TEXT
+
+![uc24 Pareto](../../results/uc24/solver_results_pareto.png)
+
+(In the figure, the full MILP's τ-curve and every pass-A point are over 40 instances; the Predict-and-Search,
+decoded-start and fix-then-prove points and curves over the first 12.)
+
+What the numbers say (uc24):
+
+* **Polish in a reduced space pays more than on 12 hours.** RINS cuts the guarded rule's gap by 0.182 pp
+  [0.092, 0.291] at τ = 20 s, gradient release by 0.238 pp [0.141, 0.345] at τ = 60 s; both bring the label-free
+  guarded rule from LtF-kNN's gap level (0.67 vs 0.60 %) to below it (0.49 / 0.43 %) at the same speed-up (5.7× / 4.8×
+  vs 5.1×; paired gap −0.117 [−0.307, +0.067] / −0.173 [−0.382, +0.019] pp, log speed-up +0.15 [−0.18, +0.47] / −0.02
+  [−0.36, +0.30]): level-to-better, not significant on 40 instances. The RINS curve point at τ = 10 s (0.533 % at
+  6.6×) is also level in gap with LtF-kNN (−0.070 pp [−0.257, +0.110]) and faster (+0.29 log [−0.06, +0.63]).
+* **Trust region: as on 12 hours, no speed.** Quality close to the full MILP (0.145 %), time close to its own limit.
+* **Warm starts: a small but significant proof speed-up for the full MILP on 24 hours** (≈ 15 % mean, 12 instances),
+  none for the reduced MILP (30.5 → 32.0 s); the main effect is again on early incumbents.
+* **No learning:** fixing the LP-integral decisions gives 0.95 % at 17.4× (median 8.9×), more accurate than the
+  hard-fixed (0.97, 0.9) set (1.05 %) and faster than the guarded rule, but 0.28 pp [0.06, 0.53] worse than it.
 
 ## Verdict
 
@@ -387,16 +421,47 @@ PASS_B_TEXT
   ≈ 2 % free decisions, adds 0.7–1.4 s and recovers a quarter to a third of the distance to the best schedules
   found here (fix-then-prove, 0.133 %): hybrid 0.263 → 0.220 %, combined 98 % 0.840 → 0.655 %.
 
+**uc24 (40 test instances; 12 for the full-size variants).**
+
+* **Against LtF-kNN (the reference on 24 h): our label-free guarded rule + reduced-space polish is level-to-better in
+  gap at the same speed-up**: + RINS (τ = 20 s) 0.486 % at 5.7× and + gradient release (τ = 60 s) 0.430 % at 4.8×
+  against 0.603 % at 5.1× (paired −0.12 / −0.17 pp, CIs touching 0). The guarded rule alone stays level in gap
+  (+0.065 pp [−0.134, +0.263]) at about twice the speed-up (11.3× vs 5.1×; log +0.67 [+0.25, +1.08]), as in
+  [`uc24ltf.md`](uc24ltf.md).
+* **Trust regions and warm starts do not close the gap to exact solving at fixing-like speed.** The trust region and
+  the warm-started full MILP both reach full-MILP quality (0.145 / 0.144 %) at full-MILP cost (1.4× / 1.2×); the decoded
+  start shortens the proof by ≈ 15 % but is far from a fixing-level speed-up.
+* **Time to the same quality** (the measure under which every fixing method gained only 1–3× on 24 h): the full MILP
+  is within 0.5 % of its final cost after a median 26 s. Polish raises the share of instances on which a method gets
+  there at all (guarded rule 57 % → + RINS 75 %, + gradient release 85 %), but when both get there its time-to-quality
+  speed-up stays 1.4–1.7× (guarded rule alone 2.1×, LtF-kNN 1.8×); the trust region (0.97×), the warm-started full MILP
+  (0.93×) and fix-then-prove (0.67×) gain nothing. Polish buys accuracy at fixing speed, not a faster route to a
+  0.5 %-good schedule than HiGHS's own heuristics. (uc12: hybrid 2.3×, hybrid + RINS 1.7×, combined 98 % + RINS 2.9×,
+  full MILP with decoded start: median per-instance ratio 1.0× to 0.5 %, 1.1× to 1 %.)
+
+**Overall.** The way to close the gap between hard fixing and exact solving on these benchmarks is a cheap,
+time-limited repair of the fixed solution in a *reduced* neighbourhood (RINS around the LP relaxation; gradient release
+from the dispatch LP's reduced costs) — not trust regions, not warm starts, and not polish on the full model, because
+on a network-constrained UC the full-size root node is where the time goes. The resulting points beat Learning to Fix
+with the paper's kNN in gap at no lower speed-up on 12 h (hybrid + RINS) and are level-to-better on 24 h, but they do not move the hybrid's
+frontier on 12 h.
+
 ## Caveats
 
 * **Another HiGHS build than the stored uc12 references.** The earlier uc12 studies solved through scipy's HiGHS; here
   everything runs through highspy 1.15 with one thread on one pinned core. The re-run references reproduce their
-  stored objectives (identical solutions on the instances compared), but solve times are longer: on the first test
-  instances the full MILP took a median 1.7× its earlier back-to-back time and the reduced MILPs 1.3–1.6×. Speed-ups
-  here are paired and internally consistent, but not interchangeable with the published ones (they are slightly
-  higher for fixing rules, because the full MILP slowed down more than the reduced ones).
+  published means closely (LtF-kNN 0.424 vs 0.40 %, LtF-BCE 0.298 vs 0.28 %, hybrid 0.263 vs 0.24 %, error-cost 90 %
+  0.441 vs 0.42 %, combined 98 % 0.840 vs 0.82 %) and the same objective on 73–97 % of the instances (the rest are
+  time-limited or tied solves ending elsewhere), but solve times are longer: over the 60 test instances the full MILP
+  took a median 1.56× its earlier back-to-back time and the reduced MILPs 1.38–1.51×. Speed-ups here are paired and
+  internally consistent, but not interchangeable with the published ones (slightly higher for fixing rules, because
+  the full MILP slowed down a little more than the reduced ones).
 * **Shared machine.** Three other agents' jobs ran on the other cores (load average 4–5); one process ran on core 0 at
   a time. Back-to-back pairing removes the drift between runs, not the noise within one.
+* **uc24 pass B is paired less tightly.** Its 12 instances ran in a separate process after a container restart,
+  about 3.5–4 h after their full MILP (pass A); the uc24 full-MILP times reproduced the stored ones within ±10 % on 80 % of
+  the instances (median ratio 0.98), so the drift is small, but these rows are not back to back. Pass B covers 12
+  instances only.
 * **Post-hoc time limits.** Results at τ are read from one run's incumbent trace. HiGHS is deterministic, so a run with
   limit τ follows the same path, but its timing can differ slightly (timer checks, final clean-up).
 * **Small validation sets.** 12 uc12 and 6 uc24 validation instances (one instance with every variant costs ≈ 5 min

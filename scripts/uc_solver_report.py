@@ -384,20 +384,21 @@ def build_report(spec, out_json, out_md, out_png, title):
     # polish curves: gap reduction vs added time
     if spec.get("polish"):
         md += ["## Polish: gap reduction against added time", "",
-               "| polish (base) | τ s | gap base → polished, mean % | Δ gap pp [95 % CI] | added time mean s | speed-up base → polished |",
-               "|---|---|---|---|---|---|"]
+               "| polish (base) | n | τ s | gap base → polished, mean % | Δ gap pp [95 % CI] | added time mean s | speed-up base → polished |",
+               "|---|---|---|---|---|---|---|"]
         for pz in spec["polish"]:
-            sb = summary(recs, pz["base"], None, T)
+            have = [R for R in recs if pz["variant"] in R and pz["base"] in R]    # same instances for base and polish
+            sb = summary(have, pz["base"], None, T)
             for tau in pz["taus"]:
-                sp_ = summary(recs, pz["variant"], tau, T)
-                pr = paired(recs, pz["variant"], pz["base"], tau, None, T)
+                sp_ = summary(have, pz["variant"], tau, T)
+                pr = paired(have, pz["variant"], pz["base"], tau, None, T)
                 add = sp_["time_mean_s"] - sb["time_mean_s"]
                 sel = " **(selected on val)**" if tau == pz.get("tau_sel") else ""
                 res["polish"].append(dict(label=pz["label"], base=pz["base"], variant=pz["variant"], tau=tau,
                                           gap_base=sb["gap_mean_%"], gap=sp_["gap_mean_%"], diff=pr["gap_diff_pp"],
                                           diff_ci=pr["gap_diff_ci"], added_s=add, sp_base=sb["speedup_mean"],
                                           sp=sp_["speedup_mean"], selected=bool(sel)))
-                md.append(f"| {pz['label']}{sel} | {tau:g} | {sb['gap_mean_%']:.3f} → {sp_['gap_mean_%']:.3f} | "
+                md.append(f"| {pz['label']}{sel} | {len(have)} | {tau:g} | {sb['gap_mean_%']:.3f} → {sp_['gap_mean_%']:.3f} | "
                           f"{pr['gap_diff_pp']:+.3f} [{pr['gap_diff_ci'][0]:+.3f}, {pr['gap_diff_ci'][1]:+.3f}] | {add:.2f} | "
                           f"{sb['speedup_mean']:.2f} → {sp_['speedup_mean']:.2f} |")
         md.append("")
