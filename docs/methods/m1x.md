@@ -32,9 +32,10 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
   (budget). 00:18 a container restart killed the run after instance 103; resumed 00:20 (finished instances skipped,
   `data/generated/uc12_m1x/queue_resume.log`).
 - 00:35 main study complete (test 0–119 done, report regenerated).
-- 00:39 follow-up: robustness of B-hg on the shifted sets of the ood study (`scripts/uc_m1x_ood.py`, records
-  `results/uc12/m1x_ood_eval.jsonl`, logs `data/generated/uc12_m1x/ood_*.log`): timing check on 14 instances first
-  (full MILP re-solved on core 3), then every instance; resume = rerun the same command (finished instances skipped).
+- 00:39–02:15 follow-up: robustness of B-hg on the ood study's shifted sets (`scripts/uc_m1x_ood.py`, records
+  `results/uc12/m1x_ood_eval.jsonl`, logs `data/generated/uc12_m1x/ood_*.log`): timing check on 14 instances (agrees
+  within 10 %), then all 220 instances; report `results/uc12/m1x_ood.{md,json}` (`python3 scripts/uc_m1x_ood.py
+  --report`). Done; resume = rerun the same command (finished instances skipped).
 - `scripts/uc_m1x_queue2.sh` was rewritten after the runs to the sequence actually executed (phase2, phase3, phase4).
 - To resume after a restart: `taskset -c 3 python3 scripts/uc_m1x_eval.py --runs hg_pol_n2000_gnnt_ens5 --skip_faithful
   --start 60 --n 60` then `python3 scripts/uc_m1x_report.py` (the evaluation skips finished instances; every tuning
@@ -56,7 +57,9 @@ geometric mean), +3.9 pp fixed [+3.0, +4.9] (first 60: 0.23 % at 7.0× vs 0.25 %
 −0.06 pp [−0.12, −0.01] on the first 60) but at 3.2×. Negative results: label-free labels do not scale (4,000 instances: 9 % fixable
 at 99.9 % precision); a 5-member ensemble alone improves the pooled metrics but not the tuned fixed share (81.4 %) or
 the test result; ensemble disagreement adds nothing as a filter; a flat MLP is worse. Single tuning run per rule,
-60 test instances with all rules, 120 for the reference and the selected rule; about 10 core-hours in total.
+60 test instances with all rules, 120 for the reference and the selected rule; about 10 core-hours in total. **Follow-up under distribution shift** (the robustness study's six shifted sets): B-hg keeps its advantage on
+five shifts but collapses under line outages like every LtF-calibrated rule (17.7 % mean gap); adding the
+LP-relaxation guard at test time repairs it (0.23 % at 6.9×) at a 5–15 % speed cost elsewhere.
 
 ## Method
 
@@ -291,6 +294,62 @@ served; the full MILP itself 98.3 %); the gap includes those penalties.
 * **The tuned fixed share responds to probability quality only weakly**: the 99.9 %-fixable share 0.54 (5-seed mean)
   → 0.79 and the log-loss −19 % buy +5.4 pp of validation fixing and +3.9 pp on test. The joint ε-check is a worst case
   over 360 instances with one threshold pair per generator, so a few confident errors per generator set the thresholds.
+
+## Robustness under distribution shift (follow-up)
+
+Code: `scripts/uc_m1x_ood.py`; records `results/uc12/m1x_ood_eval.jsonl`; tables
+[`results/uc12/m1x_ood.md`](../../results/uc12/m1x_ood.md) (+ `.json`). Shifted sets, outage handling and the other
+rules come from the robustness study ([`ood.md`](ood.md), `otsl/ood.py`, `results/uc12/ood_eval.jsonl`; used read-only).
+
+**Setup.** The selected rule B-hg, unchanged (thresholds, models and guards from validation; nothing tuned on shifted
+data), and B-hg followed by the LP-relaxation guard at test time ("+ LP guard"), on the robustness study's sets:
+in-distribution (test_fresh 0–39) and 30 instances each of load +15 %, load −15 %, wind + solar ×1.5, 2–3 thermal units
+out, 1–2 loaded lines out, and windows across midnight (220 instances). Outages exactly as there: the UC model forces
+unavailable units off and removes outaged lines (`OODModel`), the GNN's on-probabilities of unavailable units are set to
+0, guards use the available fleet (`avail_view`), fixings of unavailable units are forced OFF after the guards, and the
+fixed share counts available units only; MILPs through `otsl.ood.solve_milp` (highspy, one thread, 60 s, 0.1 %).
+**Timing**: 14 full MILPs (2 per set) re-solved on core 3 agree with the stored times of the robustness study (per-instance
+ratio median 0.96, ratio of means 0.96, 12 / 14 within 10 %, identical objectives on all 14), so the stored full-MILP
+times and dual bounds are the reference for every rule; gaps are therefore exactly paired with the study's records. The
+re-timed full MILPs ran ≈ 4 % faster than the stored ones, so the m1x speed-ups may be flattered by up to ≈ 4 %.
+
+**Results** (gap to the full MILP's dual bound, mean [95 % CI]; speed-up mean / median; fixed share; all 100 % feasible):
+
+| set | LtF-kNN | hybrid | **B-hg** | **B-hg + LP guard** |
+|---|---|---|---|---|
+| in-distribution (40) | 0.42 % [0.27, 0.63], 2.9× / 1.6×, 68 % | 0.31 % [0.21, 0.43], 4.7× / 2.3×, 86 % | 0.28 % [0.18, 0.39], 7.8× / 3.8×, 89 % | 0.28 %, 6.9× / 3.7×, 89 % |
+| load +15 % | 4.04 % [0.67, 10.06], 2.5× / 1.6×, 67 % | 0.29 % [0.15, 0.50], 3.4× / 1.9×, 86 % | **0.18 %** [0.11, 0.26], 6.6× / 2.6×, 89 % | 0.18 %, 5.7× / 2.3×, 89 % |
+| load −15 % | 1.54 % [0.74, 2.52], 4.9× / 1.7×, 66 % | 0.97 % [0.37, 1.81], 3.6× / 1.8×, 80 % | 1.64 % [0.42, 3.54], 5.8× / 3.0×, 88 % | 1.64 %, 5.5× / 3.1×, 88 % |
+| wind + solar ×1.5 | 1.15 % [0.65, 1.79], 2.3× / 1.8×, 66 % (97 % feasible) | 1.66 % [0.71, 3.13], 4.3× / 2.7×, 78 % | 1.40 % [0.68, 2.37], 6.1× / 3.6×, 86 % | 1.40 %, 5.6× / 3.5×, 86 % |
+| 2–3 units out | 0.85 % [0.46, 1.33], 2.6× / 1.3×, 66 % | 0.82 % [0.35, 1.42], 6.1× / 1.9×, 79 % | 0.63 % [0.34, 0.96], 6.2× / 4.7×, 86 % | 0.63 %, 5.9× / 4.8×, 86 % |
+| **1–2 lines out** | 26.0 % [14.2, 38.8], 6.0× / 1.9×, 69 % | 15.9 % [8.8, 23.6], 7.4× / 4.8×, 86 % | **17.7 %** [9.9, 26.3], 10.3× / 3.4×, 89 % | **0.23 %** [0.15, 0.32], 6.9× / 2.2×, 70 % |
+| across midnight | 0.93 % [0.60, 1.29], 4.5× / 1.4×, 64 % | 0.30 % [0.20, 0.42], 6.2× / 1.8×, 84 % | 0.22 % [0.14, 0.33], 7.3× / 3.1×, 84 % | 0.22 %, 6.2× / 2.9×, 84 % |
+
+Paired against the hybrid on the same instances (Δ gap pp / Δ log speed-up, 95 % CI): in-distribution −0.04 [−0.14, +0.06]
+/ +0.50 [+0.17, +0.86]; load +15 % −0.11 [−0.26, −0.01] / +0.39 [+0.02, +0.77]; load −15 % +0.67 [−0.05, +1.77] /
++0.46 [+0.20, +0.74]; wind + solar −0.27 [−1.22, +0.62] / +0.37 [+0.17, +0.58]; units out −0.20 [−0.73, +0.21] /
++0.40 [+0.00, +0.73]; lines out +1.87 [−0.15, +4.11] / +0.17 [−0.20, +0.53]; across midnight −0.07 [−0.16, +0.01] /
++0.16 [−0.22, +0.53]. With the LP guard on line outages: −15.6 pp [−23.4, −8.6] against the hybrid, −25.8 pp
+[−38.6, −14.0] against LtF-kNN, Δ log speed-up −0.29 [−0.78, +0.18] against the hybrid. Against LtF-kNN, B-hg is faster
+on every set (Δ log speed-up +0.52 to +0.94, every CI above 0) and fixes 20–22 pp more; full table in the results file.
+
+* **The better probabilities carry over to five of the six shifts.** B-hg is at least as accurate as the hybrid on
+  load +15 % (better on both gap and speed), wind + solar ×1.5, units out and windows across midnight, as in
+  distribution, and faster (significant on log speed-up except across midnight, +0.16 [−0.22, +0.53]);
+  on load −15 % it is faster but its mean gap is higher (1.64 % vs 0.97 %, CI of the difference touches 0), driven by
+  one very low-load instance (27 % above a 54 k$ optimum, no shedding: a wrong cheap-unit choice that no guard sees).
+* **It collapses under line outages like every LtF-calibrated rule** (17.7 % mean, 11 of 30 instances above 10 %;
+  hybrid 15.9 %, LtF-kNN 26 %). Same cause as found by the robustness study: units 30 and 31 (the two CTs at one bus,
+  never on in the validation set) have collapsed thresholds at τ̲ = τ̄ = 0.5 (24 of 73 generators are collapsed), so
+  they are fixed by rounding with no margin; the GNN does not see the outaged line, under-predicts them in the hours a
+  re-routed flow needs them, and they are fixed OFF (units 30 / 31 account for 65 of the 127 wrong OFF fixings on this
+  set, before guards). Better in-distribution probabilities do not help when the model cannot see the shift.
+* **The LP-relaxation guard repairs it**: 0.23 % [0.15, 0.32] mean, max 0.97 %, 93 % served (B-hg alone 63 %),
+  at 6.9× mean / 2.2× median, by releasing fixings (70 % fixed instead of 89 %). On the other sets it releases nothing
+  (identical gaps) and costs 5–15 % of the speed-up (one or two extra LPs). As a default the guarded variant is the
+  safer rule: it gives up about 10 % of the speed-up in distribution for robustness to topology changes.
+* B-hg + LP guard on line outages is also more accurate than the robustness study's own guarded rules there
+  (guarded error-cost 95 % + LP guard 0.47 % at 7.1×, 90 % rule 0.68 % at 6.5×; not paired here).
 
 ## Caveats
 
