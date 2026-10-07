@@ -300,6 +300,45 @@ What the numbers say (uc12):
   solution (0.13 %, 1.3×). Learning to Fix with the paper's kNN (0.42 %, 3.6×) is dominated by every point from the
   hybrid down; the LP-integral fixing without learning (1.08 %, 12.4×) is dominated by the combined 98 % rule.
 
+### uc24: 40 test instances (pass A), first 12 (pass B)
+
+Full tables: [`results/uc24/solver_results.md`](../../results/uc24/solver_results.md) (+ `.json`, Pareto figure),
+raw records `results/uc24/solver_test.jsonl` (pass A) and `solver_test_b.jsonl` (pass B). Full MILP (cold, same
+process): 149.6 s mean, 11 of 40 at the 300 s limit, 0.152 % mean gap to its own bound. Re-timing: median ratio 0.98
+to the stored dataset times, 80 % of instances within ±10 % (the stored uc24 times are consistent with core 0 today).
+
+| method | n | feasible % | gap mean % [95 % CI] | gap max % | speed-up mean (median) | fixed % |
+|---|---|---|---|---|---|---|
+| *references, re-run in the same process* | | | | | | |
+| faithful LtF, kNN, ε = 1 % | 40 | 100 | 0.603 [0.41, 0.82] | 2.70 | 5.12 (3.29) | 67 |
+| ours: guarded rule, 95 % target | 40 | 100 | 0.668 [0.49, 0.86] | 2.29 | 11.25 (4.13) | 85 |
+| no learning: fix the LP-integral decisions | 40 | 100 | 0.951 [0.70, 1.22] | 3.35 | 17.36 (8.87) | 98 |
+| *warm start* | | | | | | |
+| guarded 95 % + decoded start, to proof | 40 | 100 | 0.671 [0.49, 0.86] | 2.29 | 11.28 (5.29) | 85 |
+| *fix and polish (τ chosen on validation)* | | | | | | |
+| guarded 95 % + RINS, τ = 20 s | 40 | 100 | 0.486 [0.35, 0.64] | 1.79 | 5.68 (3.00) | 97 in the polish |
+| guarded 95 % + gradient release m = 250, τ = 60 s | 40 | 100 | 0.430 [0.31, 0.57] | 2.12 | 4.75 (2.57) | 74 in the polish |
+PASS_B_ROWS
+
+Paired (variant − comparator; 40 instances unless noted):
+
+| variant | vs guarded 95 %: Δ gap pp [CI] | Δ log speed-up [CI] | vs LtF-kNN: Δ gap pp [CI] | Δ log speed-up [CI] |
+|---|---|---|---|---|
+| guarded 95 % + RINS, τ = 20 s | −0.182 [−0.291, −0.092] | −0.52 [−0.69, −0.37] | −0.117 [−0.307, +0.067] | +0.15 [−0.18, +0.47] |
+| guarded 95 % + RINS, τ = 10 s (curve point) | −0.134 [−0.209, −0.068] | | −0.070 [−0.257, +0.110] | +0.29 [−0.06, +0.63] |
+| guarded 95 % + gradient release, τ = 60 s | −0.238 [−0.345, −0.141] | −0.69 [−0.85, −0.55] | −0.173 [−0.382, +0.019] | −0.02 [−0.36, +0.30] |
+| guarded 95 % + decoded start | +0.003 [−0.000, +0.008] | −0.00 [−0.16, +0.15] | +0.068 [−0.131, +0.267] | +0.66 [+0.28, +1.04] |
+| guarded 95 % (reference) | – | – | +0.065 [−0.134, +0.263] | +0.67 [+0.25, +1.08] |
+| LP-integral fixing (no learning) | +0.283 [+0.064, +0.530] | +0.50 [+0.15, +0.87] | +0.348 [+0.119, +0.568] | +1.17 [+0.80, +1.52] |
+PASS_B_PAIRS
+
+Polish curve (guarded 95 %: 0.668 %, 11.25×): RINS τ = 5 / 10 / 20 / 60 s → 0.606 / 0.533 / 0.486 / 0.453 % at
+7.7 / 6.6 / 5.7 / 5.3× (added 3.9 / 7.0 / 11.3 / 15.2 s); gradient release m = 250 → 0.663 / 0.633 / 0.488 / 0.430 %
+at 7.3 / 6.2 / 5.4 / 4.8× (added 4.2 / 7.6 / 12.6 / 25.3 s). Warm start of the guarded rule's reduced MILP: time to
+proof 30.5 / 32.0 s cold / warm (median ratio 0.93), TTQ 1 % median 10.3 / 8.5 s. Full MILP: within 1 % / 0.5 % of its
+final cost after a median 25.8 / 26.3 s; 6.5 % mean gap if cut at 30 s, 0.29 % at 60 s.
+PASS_B_TEXT
+
 ## Verdict
 
 **uc12 (60 test instances, paired, paper metrics).**

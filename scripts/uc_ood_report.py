@@ -43,6 +43,12 @@ LABEL = {"full MILP": "full MILP", "LtF kNN eps=1%": "LtF, kNN, eps = 1 % (paper
          "hybrid eps=1% (GNN sees topology)": "hybrid, GNN sees topology", "guarded error-cost 90% (GNN sees topology)": "guarded 90 %, GNN sees topology",
          "e2e RL 1 LP": "end-to-end REINFORCE, 1 LP (no MILP)", "e2e RL screen": "end-to-end REINFORCE, 7-threshold screening",
          "e2e lag 1 LP": "end-to-end combined (Lagrangian), 1 LP", "e2e lag screen": "end-to-end combined, screening"}
+FU_RULES = ["LtF LP-relaxation eps=1%", "hybrid + LP guard", "LtF BCE + LP guard", "LtF kNN + LP guard",
+            "hybrid + LP veto", "LtF kNN + LP veto", "LtF LP-relaxation + LP veto"]
+LABEL.update({"LtF LP-relaxation eps=1%": "LtF on the LP relaxation, eps = 1 % (no learning)",
+              "hybrid + LP guard": "hybrid + LP-relaxation guard", "LtF BCE + LP guard": "LtF on BCE GNN + rows + LP guard",
+              "LtF kNN + LP guard": "LtF kNN + rows + LP guard", "hybrid + LP veto": "hybrid + LP veto",
+              "LtF kNN + LP veto": "LtF kNN + LP veto", "LtF LP-relaxation + LP veto": "LtF on the LP relaxation + LP veto"})
 REF = "LtF kNN eps=1%"
 OURS = ["hybrid eps=1%", "guarded error-cost 90%", "guarded error-cost 95%", "LtF BCE eps=1%", "combined 98%",
         "no learning: LP-integral fixings + guards", "e2e lag screen"]
@@ -209,13 +215,14 @@ if __name__ == "__main__":
     res = {"n_per_shift": {}, "stats": {}, "paired_vs_ltf_knn": {}, "degradation": {}, "did_vs_ltf_knn": {}, "ood": {},
            "specs": {k: {kk: v for kk, v in s.items() if kk != "jobs"} for k, s in specs["shifts"].items()},
            "line_pool": specs["line_pool"], "coverage_train": cov["train"]}
-    X = {}
+    X, res_ks = {}, {}
     shifts = [s for s in ORDER if s in by]
     for sh in shifts:
         rr = by[sh]
         full = rr["full MILP"]
         ks = sorted(k for k in full if all(k in rr[ru] for ru in rr if not ru.endswith("(GNN sees topology)")))
         res["n_per_shift"][sh] = len(ks)
+        res_ks[sh] = ks
         X[sh] = {ru: per_rule(rr[ru], full, ks) for ru in RULES if ru in rr and all(k in rr[ru] for k in ks)}
         res["stats"][sh] = {ru: stats(x) for ru, x in X[sh].items()}
         res["paired_vs_ltf_knn"][sh] = {ru: paired(X[sh][ru], X[sh][REF]) for ru in OURS if ru in X[sh]}
@@ -239,6 +246,39 @@ if __name__ == "__main__":
             res["degradation"][sh] = {ru: degradation(X[sh][ru], X["id"][ru]) for ru in X[sh] if ru in X["id"]}
             res["did_vs_ltf_knn"][sh] = {ru: did(X[sh][ru], X[sh][REF], X["id"][ru], X["id"][REF])
                                          for ru in OURS if ru in X[sh] and ru in X["id"]}
+    # ---------------- follow-up (scripts/uc_ood_followup.py): new rules on the same instances; full MILP and base
+    # rules from the main run (timing check in ood_fu_retime.json)
+    fup = os.path.join(OUT, "ood_fu_eval.jsonl")
+    if os.path.exists(fup):
+        fu = {}
+        for line in open(fup):
+            r = json.loads(line)
+            fu.setdefault(r["shift"], {}).setdefault(r["rule"], {})[r["k"]] = r
+        F = {"stats": {}, "paired_vs_hybrid": {}, "paired_vs_ltf_knn": {}, "did_vs_ltf_knn": {}, "reused_share": {}, "n": {}}
+        XF = {}
+        for sh in shifts:
+            if sh not in fu:
+                continue
+            full = by[sh]["full MILP"]
+            ks = sorted(k for k in res_ks[sh] if all(k in fu[sh].get(ru, {}) for ru in FU_RULES))
+            F["n"][sh] = len(ks)
+            XF[sh] = {ru: per_rule(fu[sh][ru], full, ks) for ru in FU_RULES}
+            for ru in ("hybrid eps=1%", "LtF kNN eps=1%", "LtF BCE eps=1%"):
+                XF[sh][ru] = per_rule(by[sh][ru], full, ks)
+            F["stats"][sh] = {ru: stats(x) for ru, x in XF[sh].items()}
+            F["paired_vs_hybrid"][sh] = {ru: paired(XF[sh][ru], XF[sh]["hybrid eps=1%"]) for ru in FU_RULES}
+            F["paired_vs_ltf_knn"][sh] = {ru: paired(XF[sh][ru], XF[sh][REF]) for ru in FU_RULES}
+            F["reused_share"][sh] = {ru: float(np.mean([fu[sh][ru][k].get("reused", False) for k in ks]) * 100) for ru in FU_RULES}
+        if "id" in XF:
+            for sh in XF:
+                if sh != "id":
+                    F["did_vs_ltf_knn"][sh] = {ru: did(XF[sh][ru], XF[sh][REF], XF["id"][ru], XF["id"][REF]) for ru in FU_RULES}
+        for nm in ("ood_fu_retime.json", "ood_fu_select.json"):
+            if os.path.exists(os.path.join(OUT, nm)):
+                F[nm.replace(".json", "")] = json.load(open(os.path.join(OUT, nm)))
+        F["retime_summary"] = F.get("ood_fu_retime", {}).get("summary")
+        F.pop("ood_fu_retime", None)
+        res["followup"] = F
     # ---------------- recovery test (scripts/uc_ood_finetune.py): same shifted instances, models given 50 labelled
     # shifted instances; "before" = the main run's records of the same rules and instances
     ftp = os.path.join(OUT, "ood_ft_eval.jsonl")
@@ -356,6 +396,58 @@ if __name__ == "__main__":
               "| shift | " + " | ".join(LABEL[r] for r in OURS) + " |", "|---|" + "---|" * len(OURS)]
         for sh, dd in res["did_vs_ltf_knn"].items():
             L.append(f"| {SHIFT_LABEL[sh]} | " + " | ".join(ci(dd[r]["did"], dd[r]["ci"]) if r in dd else "–" for r in OURS) + " |")
+        L.append("")
+    F = res.get("followup")
+    if F:
+        L += ["## Follow-up: LP-relaxation rules and fixes (same instances)", "",
+              "New rules on the same instances (`scripts/uc_ood_followup.py`); the full MILP and the base rules (hybrid, LtF-kNN, "
+              "LtF-BCE) are the main run's records. A new rule whose fixings equal its base rule's reuses that solve (share in "
+              "the last table)."]
+        rt = F.get("retime_summary")
+        if rt:
+            L += ["", f"Timing check (re-solved on the same core, {rt['n']} instances, 2 per set): full MILP time ratio new / "
+                      f"stored median {rt['full_ratio_median']:.3f}, ratio of means {rt['full_ratio_of_means']:.3f}, "
+                      f"{rt['full_within_10pct']:.0f} % of instances within ±10 %; hybrid reduced MILP median "
+                      f"{rt['hyb_ratio_median']:.3f}; identical objectives {rt['objectives_identical_full']} / {rt['n']} (full), "
+                      f"{rt['objectives_identical_hyb']} / {rt['n']} (hybrid); agreement within 10 %: {rt['agree_within_10pct']}."]
+        sel = F.get("ood_fu_select")
+        if sel:
+            st = sel["stats"]
+            L += ["", f"Veto variant chosen on `val` ({sel['n']} instances; {sel['rule']}): **{sel['chosen']}** — "
+                      + "; ".join(f"{v}: mean gap {st[v]['gap_mean']:.3f} %, log speed-up vs unvetoed {st[v]['logsp_vs_base']:+.3f}, "
+                                  f"released {st[v]['released_mean']:.1f} fixings" for v in ("unit-hour veto", "rarely-on unit veto"))
+                      + f"; unvetoed hybrid {st['base hyb']['gap_mean']:.3f} %, LtF-kNN {st['base knn']['gap_mean']:.3f} %."]
+        fsh = list(F["stats"])
+        cols = ["hybrid eps=1%", "LtF kNN eps=1%", "LtF BCE eps=1%"] + FU_RULES
+        L += ["", "Mean gap % [95 % CI], speed-up mean / median, feasible %, served %:", "",
+              "| rule | " + " | ".join(SHIFT_LABEL[sh] for sh in fsh) + " |", "|---|" + "---|" * len(fsh)]
+        for ru in cols:
+            cells = []
+            for sh in fsh:
+                st_ = F["stats"][sh][ru]
+                cells.append("–" if st_.get("feasible", 0) == 0 else
+                             f"{ci(st_['gap_mean'], st_['gap_mean_ci'])}, {fmt(st_['speedup_mean'], 1)} / {fmt(st_['speedup_median'], 1)}×, "
+                             f"{fmt(st_['feasible'], 0)}, {fmt(st_['served'], 0)}")
+            L.append(f"| {LABEL[ru]} | " + " | ".join(cells) + " |")
+        for title, key in (("Paired against the hybrid", "paired_vs_hybrid"), ("Paired against LtF-kNN", "paired_vs_ltf_knn")):
+            L += ["", f"{title} (Δ mean gap pp [95 % CI] / Δ log speed-up [95 % CI]; instances both solve):", "",
+                  "| rule | " + " | ".join(SHIFT_LABEL[sh] for sh in fsh) + " |", "|---|" + "---|" * len(fsh)]
+            for ru in FU_RULES:
+                cells = [f"{ci(F[key][sh][ru]['d_gap'], F[key][sh][ru]['d_gap_ci'])} / "
+                         f"{ci(F[key][sh][ru]['d_logsp'], F[key][sh][ru]['d_logsp_ci'])}" for sh in fsh]
+                L.append(f"| {LABEL[ru]} | " + " | ".join(cells) + " |")
+        if F["did_vs_ltf_knn"]:
+            dsh = list(F["did_vs_ltf_knn"])
+            L += ["", "Difference in degradation against LtF-kNN (pp; negative = loses less than LtF-kNN):", "",
+                  "| rule | " + " | ".join(SHIFT_LABEL[sh] for sh in dsh) + " |", "|---|" + "---|" * len(dsh)]
+            for ru in FU_RULES:
+                L.append(f"| {LABEL[ru]} | " + " | ".join(ci(F['did_vs_ltf_knn'][sh][ru]['did'], F['did_vs_ltf_knn'][sh][ru]['ci'])
+                                                         for sh in dsh) + " |")
+        L += ["", "Fixed share % (available units) and share of records that reuse the base rule's solve:", "",
+              "| rule | " + " | ".join(SHIFT_LABEL[sh] for sh in fsh) + " |", "|---|" + "---|" * len(fsh)]
+        for ru in FU_RULES:
+            L.append(f"| {LABEL[ru]} | " + " | ".join(f"{fmt(F['stats'][sh][ru].get('fixed_mean'), 1)} ({F['reused_share'][sh][ru]:.0f} % reused)"
+                                                     for sh in fsh) + " |")
         L.append("")
     for sh, out in res.get("recovery", {}).items():
         L += [f"## Recovery test: {SHIFT_LABEL[sh]} after 50 labelled shifted instances (n = {out['n']})", "",

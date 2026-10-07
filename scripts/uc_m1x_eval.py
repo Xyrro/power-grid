@@ -75,9 +75,13 @@ if __name__ == "__main__":
     idx = list(range(a.start, min(a.start + a.n, len(d["load"]))))
     one = lambda i: {k: v[i:i + 1] for k, v in d.items() if isinstance(v, np.ndarray) and v.ndim >= 1 and len(v) == len(d["load"])}
     R = rules([x for x in a.runs.split(",") if x], faithful=not a.skip_faithful)
-    reg = json.load(open(os.path.join(DATA, "sources.json")))
+    reg_path = os.path.join(DATA, "sources.json")
+    reg = json.load(open(reg_path if os.path.exists(reg_path) else os.path.join(RES, "m1x_sources.json")))
     srcs = sorted({v[1] for v in R.values()})
-    members = {s: [(load_net(pth, kind, sysm, feat), pth) for pth, kind in reg[s]] for s in srcs}
+    # model files: as registered (data/generated/uc12_m1x/models, git-ignored), else the tracked copies
+    # results/uc12/m1x_<tag>.pt of the models used downstream
+    find = lambda pth: pth if os.path.exists(pth) else os.path.join(RES, "m1x_" + os.path.basename(pth))
+    members = {s: [(load_net(find(pth), kind, sysm, feat), pth) for pth, kind in reg[s]] for s in srcs}
     harm = harm_from_file(os.path.join(RES, "combo_harm_s0.pt"))
     ff = FixFeaturizer(sysm, 12)
     harm_scores(harm, ff, members[srcs[0]][0][0].predict(one(idx[0])), one(idx[0]), [0])            # warm-up

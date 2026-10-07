@@ -290,3 +290,28 @@ def critical_lines(sysm, m: OODModel, scenarios, thr=0.1):
     mx = inc.max(0)
     pool = [l for l in cand if mx[l] > thr]
     return pool, inc, base
+
+
+# ============================================================================ follow-up: LP-relaxation veto on OFF fixings
+def rarely_on_units(train_u, freq=0.01):
+    """units that are on in less than `freq` of the training unit-hours (MILP labels) - a training statistic"""
+    return np.where(np.asarray(train_u).mean((0, 1)) < freq)[0]
+
+
+def lp_off_veto(fix, u_rel, tol=1e-3, units=None, unit_level=False):
+    """Release OFF fixings that the instance's own LP relaxation contradicts (a cheap post-hoc fix for thresholds that
+    collapsed on units the validation set never needed).
+    unit_level=False ("unit-hour" variant): drop the OFF fixing of (t, g) whenever u_rel[t, g] > tol.
+    unit_level=True  ("unit" variant): drop every OFF fixing of unit g if u_rel[t, g] > tol in any hour of the horizon.
+    units: restrict the veto to these units (e.g. rarely_on_units); None = all units. Returns (fix, released)."""
+    u = np.asarray(u_rel, float)
+    allowed = None if units is None else set(int(g) for g in units)
+    hot = u > tol
+    unit_hot = hot.any(0)
+    out, rel = {}, 0
+    for (t, g), v in fix.items():
+        if v == 0 and (allowed is None or g in allowed) and (unit_hot[g] if unit_level else hot[t, g]):
+            rel += 1
+            continue
+        out[(t, g)] = v
+    return out, rel

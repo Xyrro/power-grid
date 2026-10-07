@@ -217,6 +217,43 @@ LtF-kNN it is level (0.92 % vs 0.54 % where it has one; −0.34 pp [−1.18, +0.
 rules it is far behind (guarded 95 %: 0.61 % vs 14.1 %; LP-integral: 0.9 % vs 22 %). Time to the same quality (median):
 LtF-kNN 1.5×, LtF on the LP relaxation 1.7×, guarded 95 % 2.3×, LP-integral 2.2× / 3.6× (with guards), LP rounding 10×.
 
+### 4.4 Stacking: partial fixing on top of a loose solver gap
+
+Every fixing rule above solves its reduced MILP at the reference gap (0.1 %). A second paired pass (same instances,
+one process per benchmark) solved each rule's reduced MILP at `mip_rel_gap` 0.5 % and 1 % and re-ran the full MILP at
+the same two gaps back to back with them. Gaps are to the reference dual bound; speed-ups are against the first pass's
+0.1 % full MILP. The re-run loose-gap full MILPs took 0.96–0.99× their first-pass time (median; 90–100 % of instances
+within 10 %), so the two passes are comparable. Paired comparisons are against the full MILP at the *same* gap. The
+"Pareto" column is descriptive (chosen on test): a point is dominated if another has a lower-or-equal mean gap and a
+higher-or-equal speed-up. Full tables: the "Stacking" sections of `results/<bench>/base_results.md`.
+
+**24 hours** (20 instances; speed-up mean / geometric mean):
+
+| rule | 0.1 % gap | 0.5 % gap | 1 % gap | vs full MILP at 0.5 %: Δ gap pp / Δ log speed-up |
+|---|---|---|---|---|
+| full MILP | 0.16 % · 1.0× | 0.25 % · 5.1× / 2.7× | 0.39 % · 6.5× / 3.9× | – |
+| LtF kNN ε = 1 % | 0.54 % · 5.8× / 3.4× | 0.64 % · 15.9× / 9.4× | **0.70 % · 18.6× / 13.0×** (frontier) | **+0.39 [+0.17, +0.67]** / **+1.26 [+0.68, +1.86]** |
+| ours: guarded 95 % rule | 0.61 % · 11.7× / 5.6× | 0.63 % · 14.6× / 8.6× | 0.72 % · 17.4× / 10.6× | **+0.38 [+0.13, +0.66]** / **+1.17 [+0.79, +1.58]** |
+| LtF on the LP relaxation | **0.34 % · 6.8× / 4.8×** | **0.35 % · 15.7× / 8.1×** | **0.48 % · 18.1× / 10.9×** | +0.09 [−0.05, +0.23] / **+1.07 [+0.67, +1.50]** |
+| LP-integral + guards | **0.76 % · 21.9× / 12.2×** | **0.79 % · 32.4× / 16.5×** | **0.86 % · 34.3× / 19.4×** | **+0.54 [+0.23, +0.90]** / **+1.82 [+1.42, +2.24]** |
+
+*(bold: on the Pareto frontier of mean gap vs mean speed-up)*
+
+* **Speed-ups stack on 24 h.** At the same loose gap every rule is 2.7–6× faster than the full MILP (geometric
+  mean, all significant). The cost in gap is 0.3–0.5 pp for the learned and LP-integral rules, and none for
+  learning-free LtF: at 0.5 % it is level with the 0.5 %-gap full MILP in gap (0.35 vs 0.25 %, +0.09 pp
+  [−0.05, +0.23]) and 2.9× faster.
+* **The frontier is mostly no-learning.**
+  * The full MILP at 0.1 / 0.5 %, learning-free LtF at all three gaps, and LP-integral + guards at all three gaps are
+    on it.
+  * The paper's LtF-kNN reaches it only at 1 % (0.70 % at 18.6×).
+  * Our learned guarded rule is dominated at every gap by learning-free LtF (e.g. 0.63 % at 14.6× vs 0.35 % at 15.7×).
+* **Best setting per rule:**
+  * learning-free LtF: 0.5 % (no loss against 0.1 %, 2.3× faster);
+  * LP-integral + guards: 0.5–1 %;
+  * LtF-kNN: 1 %;
+  * the guarded rule: 0.5 % (0.63 % at 14.6×; the gain over 0.1 % is mainly in the median, 3.2× → 7.2×).
+
 ## 5. Verdict
 
 * **Is RTS-GMLC as easy for the LP relaxation as California? Partly.** The relaxation is 6–9× looser at the median

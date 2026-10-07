@@ -75,7 +75,9 @@ All labels are canonicalised inside groups of identical units (as for the existi
 stopping on the log-loss of `val.npz`), features normalised with the statistics of the 500 original instances; epochs
 80 / 60 / 40 / 30 for 500 / 1000 / 2000 / 4000 instances (more gradient steps for more data, bounded compute).
 
-**2. Deep ensembles.** Mean probability of independently seeded models (5 members). Disagreement (std over members)
+**2. Deep ensembles.** Mean probability of independently seeded models (5 members; for the 500-MILP-label GNN the
+three existing seeds `uc_model1_4.pt`, `hybrid_bce_s1.pt`, `hybrid_bce_s2.pt` plus seeds 3 and 4; seed 0 retrained
+here reproduces `uc_model1_4.pt` exactly). Disagreement (std over members)
 was tested as an extra filter by ranking on |p̄ − 0.5| − k·std (k = 1, 2).
 
 **3. Temporal mixing** (`otsl.m1x.CommitGNNT`). The current GNN encodes the 12 hours of a unit in one 64-d state and
@@ -111,7 +113,8 @@ final evaluation.
 ## Setup
 
 * **Compute.** One core (core 3 of a 4-core machine shared with three other agents' jobs), HiGHS and PyTorch
-  single-threaded, every job alone on the core, in the order of `scripts/uc_m1x_queue.sh`.
+  single-threaded, every job alone on the core, in the order of `scripts/uc_m1x_queue.sh` (phase 1) and
+  `scripts/uc_m1x_queue2.sh` (phases 2–4).
 * **Selection.** Everything is chosen on validation (probability metrics, the guarded validation rule, the tuned fixed
   share). The test set (`test_fresh`) is read once, by `scripts/uc_m1x_eval.py`.
 * **Test protocol.** For each test instance one worker solves the full MILP (60 s, 0.1 %), then the LP relaxation that
@@ -247,7 +250,23 @@ TEST120_PLACEHOLDER
 
 ## Verdict
 
-(pending)
+* **Against the hybrid (0.24 % at 5.2× in its own run, 0.25 % at 5.0× re-run here): the goal is met — the same gap at a
+  higher speed-up.** The selected rule (Learning to Fix's tuning on the probabilities of a 5-member temporal-GNN
+  ensemble trained on 500 MILP + 1,500 polished labels) fixes 88.9 % instead of 85.6 % of the test decisions and is
+  1.31× faster per instance (geometric mean, CI [1.01, 1.73]) at an unchanged gap (−0.02 pp, CI ±0.07) on the first 60
+  instances; VERDICT120_PLACEHOLDER Its worst instance is better too (1.45 % vs 1.83 %). The mean per-instance speed-up
+  (7.0× vs 5.0×) has a wide CI because it is dominated by a few very fast instances.
+* **Where the gain comes from**: the temporal head (the largest single improvement at equal data) and the polished data
+  (log-loss and the 99.9 % fixable share improve monotonically from 500 to 2,000 instances). Not from ensembling alone
+  (run A is level with the reference on test and fixes less on validation), not from the disagreement filter, not from
+  label-free data (systematically wrong labels make confident errors that more data does not remove), not from a flat MLP.
+* **Error-cost scores do not transfer to a new probability model without retraining.** On the better ensemble the
+  error-cost transform (B-he) gives the lowest test gap of all rules (0.19 %, −0.06 pp [−0.12, −0.01] against the
+  reference) but at 3.2×; tuning on the probabilities themselves (B-hg) gives the speed. If the target is a lower gap at
+  the reference's speed, B-he is the better rule; the validation criterion fixed in advance (fixed share) picked B-hg.
+* **The tuned fixed share responds to probability quality only weakly**: the 99.9 %-fixable share 0.54 (5-seed mean) → 0.79
+  and the log-loss −19 % buy +5.4 pp of validation fixing. The joint ε-check is a worst case over 360 instances with one threshold
+  pair per generator, so a few confident errors per generator set the thresholds.
 
 ## Caveats
 

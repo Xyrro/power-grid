@@ -34,6 +34,19 @@ python3 scripts/uc_ood_report.py                            # results/uc12/ood_r
 Not done: 24-hour shifts (each instance needs a ~154 s full MILP plus the uc24 method stack; no budget left after the
 12-hour run), seeds, shift-severity sweeps.
 
+### Follow-up (running; plan fixed before any run)
+
+Requested after the main study: on the same 7 instance sets, (1) Learning to Fix with the instance's LP-relaxation
+values as probabilities (thresholds of the baselines study, `results/uc12/base_tune_lp_1.json`); (2) the hybrid,
+LtF-BCE and LtF-kNN followed by the post-hoc LP-relaxation guard; (3) a cheap fix for collapsed thresholds: release OFF
+fixings the instance's LP relaxation contradicts. Two variants, fixed a priori: *unit-hour veto* (drop the OFF fixing
+of (t, g) whenever u_rel[t, g] > 1e-3, all units) and *rarely-on unit veto* (drop every OFF fixing of a unit that is on
+in < 1 % of training unit-hours — 33 units, a training statistic — if its u_rel exceeds 1e-3 in any hour). Selection
+on the original validation set only (`val`, 60 instances; hybrid and LtF-kNN): the lower mean validation gap to the
+dataset MILP's dual bound, within 0.02 pp the faster. Full-MILP and base-rule times are reused from the main run only
+after re-solving ≥ 10 of them on core 2 (2 per set) and confirming agreement within 10 % (median and ratio of means).
+`scripts/uc_ood_followup.py --stage retime / val / test`; outputs `results/uc12/ood_fu_*`.
+
 ## Summary
 
 Six shifts of the 12-hour RTS-GMLC benchmark — load +15 %, load −15 %, wind and solar × 1.5, 2–3 thermal units out,

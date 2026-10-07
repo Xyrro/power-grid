@@ -1,0 +1,174 @@
+{
+ "ref_bce_s0": [
+  [
+   "results/uc12/uc_model1_4.pt",
+   "gnn"
+  ]
+ ],
+ "ref_bce_s1": [
+  [
+   "results/uc12/hybrid_bce_s1.pt",
+   "gnn"
+  ]
+ ],
+ "ref_bce_s2": [
+  [
+   "results/uc12/hybrid_bce_s2.pt",
+   "gnn"
+  ]
+ ],
+ "ref_bce_ens3": [
+  [
+   "results/uc12/uc_model1_4.pt",
+   "gnn"
+  ],
+  [
+   "results/uc12/hybrid_bce_s1.pt",
+   "gnn"
+  ],
+  [
+   "results/uc12/hybrid_bce_s2.pt",
+   "gnn"
+  ]
+ ],
+ "lf_n500_gnn_s0": [
+  [
+   "data/generated/uc12_m1x/models/lf_n500_gnn_s0.pt",
+   "gnn"
+  ]
+ ],
+ "lf_n1000_gnn_s0": [
+  [
+   "data/generated/uc12_m1x/models/lf_n1000_gnn_s0.pt",
+   "gnn"
+  ]
+ ],
+ "lf_n2000_gnn_s0": [
+  [
+   "data/generated/uc12_m1x/models/lf_n2000_gnn_s0.pt",
+   "gnn"
+  ]
+ ],
+ "lf_n4000_gnn_s0": [
+  [
+   "data/generated/uc12_m1x/models/lf_n4000_gnn_s0.pt",
+   "gnn"
+  ]
+ ],
+ "pol_n1000_gnn_s0": [
+  [
+   "data/generated/uc12_m1x/models/pol_n1000_gnn_s0.pt",
+   "gnn"
+  ]
+ ],
+ "pol_n2000_gnn_s0": [
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnn_s0.pt",
+   "gnn"
+  ]
+ ],
+ "pol_n500_gnn_s0": [
+  [
+   "data/generated/uc12_m1x/models/pol_n500_gnn_s0.pt",
+   "gnn"
+  ]
+ ],
+ "pol_n500_gnn_s3": [
+  [
+   "data/generated/uc12_m1x/models/pol_n500_gnn_s3.pt",
+   "gnn"
+  ]
+ ],
+ "pol_n500_gnn_s4": [
+  [
+   "data/generated/uc12_m1x/models/pol_n500_gnn_s4.pt",
+   "gnn"
+  ]
+ ],
+ "milp500_gnn_ens5": [
+  [
+   "results/uc12/uc_model1_4.pt",
+   "gnn"
+  ],
+  [
+   "results/uc12/hybrid_bce_s1.pt",
+   "gnn"
+  ],
+  [
+   "results/uc12/hybrid_bce_s2.pt",
+   "gnn"
+  ],
+  [
+   "data/generated/uc12_m1x/models/pol_n500_gnn_s3.pt",
+   "gnn"
+  ],
+  [
+   "data/generated/uc12_m1x/models/pol_n500_gnn_s4.pt",
+   "gnn"
+  ]
+ ],
+ "pol_n500_gnnt_s0": [
+  [
+   "data/generated/uc12_m1x/models/pol_n500_gnnt_s0.pt",
+   "gnnt"
+  ]
+ ],
+ "pol_n500_mlp_s0": [
+  [
+   "data/generated/uc12_m1x/models/pol_n500_mlp_s0.pt",
+   "mlp"
+  ]
+ ],
+ "pol_n2000_gnnt_s0": [
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s0.pt",
+   "gnnt"
+  ]
+ ],
+ "pol_n2000_gnnt_s1": [
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s1.pt",
+   "gnnt"
+  ]
+ ],
+ "pol_n2000_gnnt_s2": [
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s2.pt",
+   "gnnt"
+  ]
+ ],
+ "pol_n2000_gnnt_s3": [
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s3.pt",
+   "gnnt"
+  ]
+ ],
+ "pol_n2000_gnnt_s4": [
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s4.pt",
+   "gnnt"
+  ]
+ ],
+ "pol_n2000_gnnt_ens5": [
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s0.pt",
+   "gnnt"
+  ],
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s1.pt",
+   "gnnt"
+  ],
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s2.pt",
+   "gnnt"
+  ],
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s3.pt",
+   "gnnt"
+  ],
+  [
+   "data/generated/uc12_m1x/models/pol_n2000_gnnt_s4.pt",
+   "gnnt"
+  ]
+ ]
+}
