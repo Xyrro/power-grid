@@ -1,11 +1,13 @@
 # No-learning baselines and fair solver budgets on networked RTS-GMLC (12 h and 24 h)
 
 *Code: [`otsl/base.py`](../../otsl/base.py) (LP-integral fixings, LP rounding + repair + LP screening, solver wrapper,
-incumbent-log helpers, paper metrics and bootstrap), `scripts/uc_base_{val,tune,eval,report,audit}.py`. Tests:
+incumbent-log helpers, paper metrics and bootstrap), `scripts/uc_base_{val,tune,eval,report,audit,fuse,stack_report}.py`. Tests:
 `tests/test_{ltfx,hybrid,b3,pglib,metrics}.py` (+ `tests/conftest.py`). Results:
 [`results/uc12/base_results.md`](../../results/uc12/base_results.md), [`results/uc24/base_results.md`](../../results/uc24/base_results.md)
 (+ `.json`), raw records `results/<bench>/base_eval_test.jsonl`, validation `results/<bench>/base_val.jsonl`,
-`base_val_select.json`, tuning `results/<bench>/base_tune_lp_1.{json,log}`, run logs `results/<bench>/base_*.log`.*
+`base_val_select.json`, tuning `results/<bench>/base_tune_lp_1.{json,log}`, run logs `results/<bench>/base_*.log`;
+stacking pass `results/<bench>/base_stack_test.jsonl`, `base_stack.json` (+ the `stacking` key of `base_results.json`),
+fused rule `results/uc12/base_tune_fused_1.{json,log}`, `_cuts.jsonl`.*
 
 ## Summary
 
@@ -28,6 +30,12 @@ core, and the re-run references reproduce their published paper metrics. Results
   solution yet, or a much worse one.
 * **Without a MILP, LP rounding + repair + 5 LPs beats the learned end-to-end pipelines.** 12 h: 1.59 % vs 2.64 %.
   24 h: 1.83 % vs 5.65 %.
+* **Fixing and a loose gap stack (§4.4).** Solving the reduced MILPs at the same 0.5 % / 1 % gap as a loosened full
+  MILP keeps every fixing rule 1.7–6× faster than it (geometric mean, significant on both benchmarks). The most
+  accurate rules do this at a gap the tests cannot tell apart from the loosened full MILP's: on 12 h the hybrid and a
+  new fused rule (error-cost score with an LP veto) at 0.5 % give 0.28 / 0.25 % at 8.6 / 9.2× (full MILP: 0.20 % at
+  2.9×); on 24 h learning-free LtF at 0.5 % gives 0.35 % at 15.7× (full MILP: 0.25 % at 5.1×). The loose gap alone is
+  not the frontier.
 * **Where learning still wins.** On 12 h, Learning to Fix on our BCE GNN matches the 1 %-gap MILP in gap at 1.55× its
   speed (significant). The learned rules at ~13× are 0.2–0.3 pp more accurate than LP-integral fixing (borderline).
   On 24 h no learned rule beats the best no-learning baseline.
@@ -254,6 +262,63 @@ higher-or-equal speed-up. Full tables: the "Stacking" sections of `results/<benc
   * LtF-kNN: 1 %;
   * the guarded rule: 0.5 % (0.63 % at 14.6×; the gain over 0.1 % is mainly in the median, 3.2× → 7.2×).
 
+**12 hours** (60 instances; the two passes agree to a median 0.94–0.95 on the re-run loose-gap full MILPs, 73–75 %
+within 10 %; the 12-hour pass was interrupted by a container restart after 9 instances and resumed in a new process,
+pairing being per instance). Two fused learned + LP rules were added, both at all three gaps:
+
+* **"LtF on the LP relaxation + guards":** the learning-free thresholds with our three guards applied at test. No
+  tuning.
+* **"Fused":** the hybrid's guard-aware LtF tuning (adequacy + row guards in the check, ε = 1 %, 180 validation
+  instances, 34 min, converged) on a fused score, `otsl.base.lp_veto_score`. The score is the hybrid's error-cost
+  score, except where the LP relaxation is integral and contradicts the learned rounding: those decisions are demoted
+  to the least confident level of their direction.
+  * The veto flags 5.0 decisions per validation instance. 65 % of them are actual GNN errors: 3.2 of its 14.7 wrong
+    decisions per instance.
+  * A literal max(learned confidence, LP integrality) would put 98 % of the scores at exactly 0 / 1. The learning-free
+    LtF showed that the calibration can release such point masses only one whole unit at a time.
+
+| rule | 0.1 % gap | 0.5 % gap | 1 % gap | vs full MILP at 0.5 %: Δ gap pp / Δ log speed-up |
+|---|---|---|---|---|
+| full MILP | 0.16 % · 1.0× | 0.20 % · 2.9× / 1.9× | 0.21 % · 4.2× / 2.4× | – |
+| LtF kNN ε = 1 % | 0.41 % · 4.6× / 2.1× | 0.44 % · 10.3× / 4.2× | **0.48 % · 12.1× / 5.1×** | **+0.24 [+0.10, +0.42]** / **+0.79 [+0.49, +1.08]** |
+| LtF on our BCE GNN | 0.28 % · 5.4× / 3.6× | 0.31 % · 8.0× / 5.3× | 0.34 % · 9.8× / 6.4× | +0.11 [−0.00, +0.23] / **+1.02 [+0.79, +1.26]** |
+| hybrid | 0.24 % · 5.2× / 2.9× | 0.28 % · 8.6× / 4.6× | 0.32 % · 9.4× / 5.2× | +0.08 [−0.01, +0.17] / **+0.89 [+0.67, +1.11]** |
+| ours: error-cost + adequacy 90 % | 0.42 % · 4.2× / 3.3× | 0.45 % · 6.9× / 4.7× | 0.50 % · 10.0× / 6.3× | **+0.25 [+0.13, +0.38]** / **+0.91 [+0.72, +1.09]** |
+| LtF on the LP relaxation | 0.23 % · 2.0× / 1.7× | 0.27 % · 5.3× / 3.6× | 0.33 % · 7.2× / 4.5× | +0.07 [−0.02, +0.20] / **+0.64 [+0.46, +0.82]** |
+| LtF on the LP relaxation + guards | 0.23 % · 2.0× / 1.7× | 0.27 % · 4.8× / 3.4× | 0.33 % · 6.4× / 4.2× | +0.07 [−0.02, +0.20] / **+0.57 [+0.40, +0.75]** |
+| **fused (error-cost + LP veto)** | **0.21 % · 5.6× / 3.2×** | **0.25 % · 9.2× / 4.9×** | **0.28 % · 10.7× / 6.0×** | +0.05 [−0.02, +0.13] / **+0.95 [+0.73, +1.17]** |
+| LP-integral + guards | 1.10 % · 11.0× / 8.5× | **1.12 % · 13.2× / 9.7×** | **1.13 % · 14.9× / 10.6×** | **+0.92 [+0.68, +1.15]** / **+1.63 [+1.43, +1.82]** |
+
+*(bold cells: on the Pareto frontier of mean gap vs mean speed-up; the full MILP at all three gaps is on it too)*
+
+* **Speed-ups stack on 12 h too.**
+  * At the same loose gap every fixing rule is 1.7–5× faster than the full MILP (geometric mean, all significant).
+  * The hybrid, LtF on the BCE GNN, the fused rule and learning-free LtF do so at a gap that cannot be told apart from
+    the full MILP's at 0.5 % (+0.05 to +0.11 pp, CIs include 0).
+  * Learned rules: the hybrid at 0.5 % gives 0.28 % at 8.6× against the full MILP's 0.20 % at 2.9×; the fused rule
+    gives 0.25 % at 9.2× (2.6× faster than the full MILP at the same gap).
+  * The loose gap alone is not the frontier: the fixing rules move it to roughly 2.5× the speed at +0.05–0.1 pp.
+* **The fused rule is the most accurate fixing rule at every gap and on the frontier at all three.**
+  * Against the hybrid: −0.03 pp [−0.08, +0.02] (0.5 %) and −0.04 [−0.11, +0.04] (1 %) at the same speed
+    (+0.06 [−0.06, +0.17] / +0.13 [0.00, +0.27] log). The gain over the hybrid is within noise.
+  * Against learning-free LtF it is 1.3–1.4× faster (+0.31 [+0.08, +0.52] log at 0.5 %).
+  * At 0.1 % it reaches 0.21 % at 5.6× (hybrid 0.24 % at 5.2×; cross-pass).
+  * Applying the guards to learning-free LtF at test changes nothing: no fixing is released, the guard LPs only add
+    time.
+* **Best setting per rule on 12 h:**
+  * full MILP: 1 % (0.21 % at 4.2×);
+  * fused and hybrid: 0.5 % (+0.04 pp for +65 % mean / +55 % geometric-mean speed against 0.1 %);
+  * LtF-BCE and learning-free LtF: 0.5–1 %;
+  * LtF-kNN: 1 %;
+  * LP-integral: 1 %.
+* **Learning versus no learning, with stacking.** On 12 h the learned rules keep their edge once both sides use a
+  loose gap.
+  * At 0.5 %: hybrid 0.28 % at 8.6× (geometric mean 4.6×), fused 0.25 % at 9.2× (4.9×), against learning-free LtF
+    0.27 % at 5.3× (3.6×).
+  * Fused vs learning-free LtF: level in gap, 1.36× faster.
+  * On 24 h learning-free LtF stays the best accurate rule after stacking (0.35 % at 15.7×), ahead of every learned
+    rule tested there.
+
 ## 5. Verdict
 
 * **Is RTS-GMLC as easy for the LP relaxation as California? Partly.** The relaxation is 6–9× looser at the median
@@ -279,6 +344,16 @@ higher-or-equal speed-up. Full tables: the "Stacking" sections of `results/<benc
 * **Same budget.** Stopping the 0.1 % MILP at a method's time is not the fair cheap alternative. The 12-hour MILP finds
   its good incumbent only at the end of the root, so a time-limited run has no solution or a poor one, and every
   method beats it. Time-to-quality speed-ups of the MILP-based rules are 1.2–2.3×; only the LP-only pipelines reach 5–10×.
+* **Do fixing and a loose gap stack? Yes, on both benchmarks** (§4.4). Every fixing rule keeps a 1.7–6× speed-up over
+  the full MILP at the same loose gap. The accurate ones (the hybrid, the fused rule and LtF on our BCE GNN on 12 h;
+  learning-free LtF on both) pay at most ~0.1 pp for it, not significant at 0.5 %. The practical frontier is
+  therefore "fixing rule + 0.5 % gap":
+  * 12 h: fused rule 0.25 % at 9.2× (hybrid 0.28 % at 8.6×);
+  * 24 h: learning-free LtF 0.35 % at 15.7×.
+  Learning keeps its edge on 12 h (the fused rule is 1.36× faster than learning-free LtF at equal gap). It does not on
+  24 h, where no learned rule tested reaches learning-free LtF's accuracy at any gap. The LP veto, a cheap
+  learned + LP fusion, is the most accurate rule on 12 h at every gap, but its gain over the hybrid (−0.03 pp) is
+  within noise.
 * **What this means for the study's claims** (RESEARCH.md §6):
   * "our models make Learning to Fix better" holds against the kNN, not against the LP relaxation itself (12 h);
   * on 24 h the learning-free calibration matches or beats every learned rule tested;
@@ -306,7 +381,7 @@ higher-or-equal speed-up. Full tables: the "Stacking" sections of `results/<benc
 
 ## 7. Test suite
 
-`taskset -c 1 python -m pytest` runs 52 tests (8 earlier + 44 new) in **16 s** on an otherwise idle core (36 s while a
+`taskset -c 1 python -m pytest` runs 53 tests (8 earlier + 45 new) in **18 s** on an otherwise idle core (36 s while a
 tuning job shared it). Deterministic: fixed seeds, single-threaded solvers, small instances (3-hour RTS-GMLC
 MILPs, 12-hour LPs, a synthetic 4-unit PGLib fleet).
 
@@ -317,7 +392,7 @@ MILPs, 12-hour LPs, a synthetic 4-unit PGLib fleet).
 | `tests/test_hybrid.py` (12) | error-cost score transform (rounding direction, monotone in the error cost, lo = hi = 0.5 rounds), `harm_norm`, mask ↔ fixing round trip, cut JSON round trip, ranking; adequacy guard (capacity restored every hour, minimal in merit order, identical copy in `uc24ltf`), min up/down row release (only infeasible rows), LP-relaxation guard (removes penalised slack, leaves LP-integral fixings alone), guard order and info, `HybridTuner` (guarded check, memoisation, cut log), `uc24ltf.guard_fix` (soft LP guard is a no-op on an infeasible relaxation; conflict release first) |
 | `tests/test_b3.py` (6) | `time_to_reach` (first crossing, tolerance, never), incumbent packing (first k−1 + last), repairs (min up/down feasible, fixed point, block repair covers net load + reserve), `solve_milp_hs` = scipy path on the same model, improving incumbent log, dispatch LP reproduces the MILP, fixings respected, contradictory fixings infeasible |
 | `tests/test_pglib.py` (5) | synthetic 4-unit PGLib fleet (must-run unit, hot / cold start-up categories, binding ramps, wind): free-unit view, **MILP = brute force over all 512 commitments**, LP relaxation ≤ MILP, dispatch LP = MILP, continuous = binary start-up categories, relaxed reduced LP at integral relaxation values = relaxation, reduced-MILP fixings, initial min-down rule, repairs, `time_to_reach` |
-| `tests/test_metrics.py` (9) | paper metrics and bootstraps wherever they live — `otsl.base` (gap to DB, feasibility filtering, mean of per-instance speed-ups vs ratio of means, bootstrap / paired CIs, incumbent-log helpers), `scripts/uc_hybrid_report.py` (`per_instance` on synthetic records incl. the fallback convention, `stats`, `paired`, `boot`), `scripts/uc_papereval_score.py` (`stats` incl. overheads), `scripts/uc_uc24ltf_report.py` (`first_below`, `boot_ci`), `scripts/uc_pglib_report.py` (`tq`, `hard_ok`, `paired`); the baselines of `otsl.base` (tolerances, repaired roundings, screening, solver record) |
+| `tests/test_metrics.py` (10) | paper metrics and bootstraps wherever they live — `otsl.base` (gap to DB, feasibility filtering, mean of per-instance speed-ups vs ratio of means, bootstrap / paired CIs, incumbent-log helpers), `scripts/uc_hybrid_report.py` (`per_instance` on synthetic records incl. the fallback convention, `stats`, `paired`, `boot`), `scripts/uc_papereval_score.py` (`stats` incl. overheads), `scripts/uc_uc24ltf_report.py` (`first_below`, `boot_ci`), `scripts/uc_pglib_report.py` (`tq`, `hard_ok`, `paired`); the baselines of `otsl.base` (tolerances, repaired roundings, screening, solver record) and the LP-veto fused score |
 
 **Bugs found: none** in the tested modules (no behaviour was changed; every test passed against the code as it is).
 Behaviours worth knowing, documented in the tests rather than changed: `fixpolicy.release_conflicting_rows` releases
@@ -350,23 +425,23 @@ audited scope: §3 U2 says the B1 LP relaxation is "1.3 % below the MILP on aver
 ## Status
 
 * First study **complete** (2026-10-06 22:10 UTC): validation, learning-free LtF tuning, test passes, reports, audit,
-  tests (see the reproduction order below).
-* **Stacking follow-up** (core 1). Done: the 24-hour stacking pass (`uc_base_eval.py --bench uc24 --idx 0-19
-  --full_ref 0 --gaps 0.005,0.01 --red_gaps 0.005,0.01 --rules "<4 rules>" --out results/uc24/base_stack_test.jsonl`,
-  20/20 instances) and its report (`uc_base_stack_report.py --bench uc24`); the 12-hour fused-rule tuning
-  (`uc_base_fuse.py --eps 0.01 --budget_min 60`: converged, 83.2 % fixed after the guards, 34 min;
-  `results/uc12/base_tune_fused_1.{json,log}`, cuts `_cuts.jsonl`). The container restarted at 00:18 UTC during the
-  12-hour stacking pass (9/60 instances done); resumed at 00:19 with the same command (it skips the instances already
-  in `results/uc12/base_stack_test.jsonl`): `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12>
-  --full_ref 0 --gaps 0.005,0.01 --red_gaps 0.005,0.01 --lp_guards 1 --fused results/uc12/base_tune_fused_1.json
-  --rules "<8 rules>" --ref_gap_rules "<2 new rules>" --out results/uc12/base_stack_test.jsonl`, then
-  `uc_base_stack_report.py --bench uc12` (log `results/uc12/base_stack_run.log`). Rule lists (`--rules`, ';'-separated):
-  uc24 "LtF kNN eps=1%;ours: guarded 95% (imitation GNN);LtF on LP relaxation eps=1%;LP-integral (tol 0.2) + guards";
-  uc12 "LtF kNN eps=1%;LtF BCE GNN eps=1%;hybrid (he_bce_s0_e1_n360);ours: error-cost + adequacy 90%;LtF on LP
-  relaxation eps=1%;LP-integral (tol 0.05) + guards;LtF on LP relaxation eps=1% + guards;fused: error-cost score + LP
-  veto, guard-aware LtF eps=1%", with `--ref_gap_rules` the last two. Pairing is per instance (the loose-gap full
-  MILPs are re-run in the same process), so instances before and after the restart are comparable; the report's
-  drift check covers the speed-up against the first pass.
+  tests (see the reproduction order below); 53 tests pass.
+* **Stacking follow-up complete** (2026-10-07 02:45 UTC, core 1):
+  * 24-hour stacking pass, 20/20 instances: `uc_base_eval.py --bench uc24 --idx 0-19 --full_ref 0 --gaps 0.005,0.01
+    --red_gaps 0.005,0.01 --rules "LtF kNN eps=1%;ours: guarded 95% (imitation GNN);LtF on LP relaxation eps=1%;LP-integral
+    (tol 0.2) + guards" --out results/uc24/base_stack_test.jsonl`.
+  * 12-hour fused-rule tuning: `uc_base_fuse.py --eps 0.01 --budget_min 60` (converged, 83.2 % fixed after the guards,
+    34 min).
+  * 12-hour stacking pass, 60/60 instances: `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12>
+    --full_ref 0 --gaps 0.005,0.01 --red_gaps 0.005,0.01 --lp_guards 1 --fused results/uc12/base_tune_fused_1.json --rules
+    "LtF kNN eps=1%;LtF BCE GNN eps=1%;hybrid (he_bce_s0_e1_n360);ours: error-cost + adequacy 90%;LtF on LP relaxation
+    eps=1%;LP-integral (tol 0.05) + guards;LtF on LP relaxation eps=1% + guards;fused: error-cost score + LP veto,
+    guard-aware LtF eps=1%" --ref_gap_rules "<the last two>" --out results/uc12/base_stack_test.jsonl`. A container
+    restart at 00:18 UTC interrupted it after 9 instances; it was resumed with the same command, which skips the
+    instances already recorded. Pairing is per instance, so this does not affect the comparisons.
+  * Reports: `uc_base_stack_report.py --bench uc24 / uc12`; run `uc_base_report.py` first if regenerating, because it
+    rewrites `base_results.{md,json}`.
+  * Logs: `results/<bench>/base_stack_run.log`, `results/uc12/base_fuse_run.log`.
 * Reproduction order of the first study: `uc_base_val.py --bench uc12 / uc24` (+ `--select`), `uc_base_tune.py --bench
   uc12 / uc24 --eps 0.01`, `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12>`, `uc_base_eval.py
   --bench uc24 --idx 0-19`, `uc_base_report.py --bench uc12 / uc24`, `uc_base_audit.py --lp 1 --out
