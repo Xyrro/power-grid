@@ -40,6 +40,10 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
   shifted sets (300 instances), three shards on cores 0, 1, 3 (one single-threaded process each), records
   `results/uc12/m1x_pipeline_eval_s{0,1,2}.jsonl`, logs `data/generated/uc12_m1x/pipe_s*.log`. Resume: rerun
   `taskset -c N python3 scripts/uc_m1x_pipeline.py --shard i --nshards 3` (finished instances skipped), then `--report`.
+- 04:17 supplementary pass queued per core after the main shard: B-hg + LP veto (the robustness study's unit-hour veto)
+  at both gaps, `--veto`, records `results/uc12/m1x_pipeline_veto_s{0,1,2}.jsonl`, logs `data/generated/uc12_m1x/veto_s*.log`;
+  it reuses the main pass's reference full MILP and re-solves every 10th one to confirm the timing. Resume: rerun with
+  `--veto` (finished instances skipped).
 - `scripts/uc_m1x_queue2.sh` was rewritten after the runs to the sequence actually executed (phase2, phase3, phase4).
 - To resume after a restart: `taskset -c 3 python3 scripts/uc_m1x_eval.py --runs hg_pol_n2000_gnnt_ens5 --skip_faithful
   --start 60 --n 60` then `python3 scripts/uc_m1x_report.py` (the evaluation skips finished instances; every tuning

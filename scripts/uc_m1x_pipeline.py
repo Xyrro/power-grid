@@ -34,7 +34,8 @@ from otsl.combo import harm_from_file, harm_scores  # noqa: E402
 from otsl.fixpolicy import FixFeaturizer  # noqa: E402
 from otsl.hybrid import apply_guards, harm_to_score  # noqa: E402
 from otsl.ltfx import fix_dict  # noqa: E402
-from otsl.ood import OODModel, OODScenario, avail_view, fixed_share, force_out, override_probs, solve_milp  # noqa: E402
+from otsl.ood import (OODModel, OODScenario, avail_view, fixed_share, force_out, lp_off_veto, override_probs,  # noqa: E402
+                      solve_milp)
 from otsl.uc import load_rts_gmlc  # noqa: E402
 from otsl.ucdata import load  # noqa: E402
 from uc_constrained import load_model1, strip  # noqa: E402
@@ -50,6 +51,8 @@ NAMES = {"tf": "test_fresh (120)", "id": "in-distribution (test_fresh 0-39)", "l
          "line_out": "1-2 lines out", "night": "windows across midnight"}
 R_FULL, R_FULL5, R_HYB, R_BLP, R_PIPE = ("full MILP", "full MILP gap 0.5%", "hybrid", "B-hg + LP guard",
                                          "pipeline: B-hg + LP guard, gap 0.5%")
+R_VETO, R_VPIPE, R_RETIME = "B-hg + LP veto", "pipeline-veto: B-hg + LP veto, gap 0.5%", "full MILP (re-time check)"
+VETO_TOL = 1e-3          # the robustness study's unit-hour LP veto (otsl.ood.lp_off_veto), chosen there on val only
 
 
 def timed(f, *a, **k):
@@ -143,6 +146,67 @@ def run(a):
               ", ".join(f"{r['rule'].split(':')[0]} {r['time']:.1f}s{'' if r['feasible'] else ' INF'}" for r in recs), flush=True)
 
 
+def run_veto(a):
+    """supplementary pass (added after the main pass): B-hg + LP veto at the reference gap and at 0.5 %, applied as in
+    scripts/uc_ood_followup.py (tuned guards adequacy + rows -> force OFF -> unit-hour veto: release the OFF fixing of
+    (t, g) whenever u_rel[t, g] > 1e-3 -> force OFF). The speed-up denominator is the reference full MILP of the main
+    pass (same instance, same core); every 10th instance of the shard re-solves it here to confirm the timing."""
+    torch.set_num_threads(1)
+    sysm = load_rts_gmlc()
+    m = OODModel(sysm, T=12)
+    T, G = 12, sysm.G
+    tf = load(os.path.join(ROOT, "test_fresh.npz"))
+    feat = featurizer(sysm)
+    reg = json.load(open(os.path.join(RES, "m1x_sources.json")))
+    find = lambda p: p if os.path.exists(p) else os.path.join(RES, "m1x_" + os.path.basename(p))
+    gnnt = [load_net(find(p), kind, sysm, feat) for p, kind in reg["pol_n2000_gnnt_ens5"]]
+    tu = json.load(open(os.path.join(RES, "m1x_tune_hg_pol_n2000_gnnt_ens5.json")))
+    b_lo, b_hi = np.array(tu["lo"]), np.array(tu["hi"])
+    out = os.path.join(RES, f"m1x_pipeline_veto_s{a.shard}.jsonl")
+    done = {(r["set"], r["k"]) for r in map(json.loads, open(out))} if os.path.exists(out) else set()
+    mine = jobs_all()[a.shard::a.nshards]
+    jobs = [(j, sk) for j, sk in enumerate(mine) if sk not in done]
+    sc0 = instance("tf", 0, tf)
+    r0 = m.solve_dispatch(sc0, None, relax=True)
+    d0 = dict(load=sc0.load[None], avail=sc0.avail[None], u0=sc0.u0[None], sr=sc0.sr[None], u_rel=r0.u[None],
+              lmp_rel=r0.lmp[None], flow_rel=r0.flow[None])
+    for m1 in gnnt:
+        m1.predict(d0)
+    print(f"veto shard {a.shard}/{a.nshards} on CPU {os.sched_getaffinity(0)}: {len(jobs)} instances to run", flush=True)
+    t_start = time.time()
+    for n, (j, (s, k)) in enumerate(jobs):
+        sc = instance(s, k, tf)
+        g_out = tuple(sc.g_out)
+        sv = avail_view(sysm, g_out)
+        base = dict(set=s, k=k, shard=a.shard, cpu=sorted(os.sched_getaffinity(0)), g_out=list(g_out), l_out=list(sc.l_out))
+        recs = []
+        if j % 10 == 0:
+            r = solve_milp(m, sc, {}, 60.0, REF_GAP)
+            r.pop("u", None)
+            recs.append(dict(base, rule=R_RETIME, mip_rel_gap=REF_GAP, pre_s=0.0, relax_s=0.0, guard_s=0.0, **r))
+        rel, relax_s = timed(m.solve_dispatch, sc, None, relax=True)
+        di = dict(load=sc.load[None], avail=sc.avail[None], u0=sc.u0[None], sr=sc.sr[None], u_rel=rel.u[None],
+                  lmp_rel=rel.lmp[None], flow_rel=rel.flow[None])
+        p_g, t_g = timed(lambda: override_probs(np.mean([m1.predict(di)[0].astype(np.float64) for m1 in gnnt], 0), g_out))
+        fixg, t_fg = timed(fix_dict, p_g, b_lo, b_hi)
+        (fix, info), guard_s = timed(apply_guards, m, sv, sc, dict(fixg), ("adeq", "rows"))
+        info = {kk: v for kk, v in info.items() if kk != "guard_s"}
+        fix = force_out(fix, g_out, T)
+        (fix, released), veto_s = timed(lp_off_veto, fix, rel.u, VETO_TOL, None, False)
+        fix = force_out(fix, g_out, T)
+        for rule, gap in ((R_VETO, REF_GAP), (R_VPIPE, LOOSE)):
+            r = solve_milp(m, sc, fix, 60.0, gap)
+            r.pop("u", None)
+            recs.append(dict(base, rule=rule, mip_rel_gap=gap, fixed_share=fixed_share(fix, g_out, T, G),
+                             fixed_pre_guard=fixed_share(fixg, g_out, T, G), pre_s=t_g + t_fg, relax_s=relax_s,
+                             guard_s=guard_s + veto_s, veto_s=veto_s, released_veto=released, **info, **r))
+        with open(out, "a") as f:
+            for r in recs:
+                f.write(json.dumps(r, default=float) + "\n")
+        print(f"[{n + 1}/{len(jobs)} {time.time() - t_start:.0f}s] {s} k={k} " +
+              ", ".join(f"{r['rule'].split(':')[0]} {r['time']:.1f}s{'' if r['feasible'] else ' INF'}" for r in recs), flush=True)
+
+
 # ============================================================================ report
 NB = 2000
 
@@ -198,7 +262,8 @@ def paired(a, b):
 
 def report():
     mine = {}
-    for path in sorted(glob.glob(os.path.join(RES, "m1x_pipeline_eval_s*.jsonl"))):
+    for path in sorted(glob.glob(os.path.join(RES, "m1x_pipeline_eval_s*.jsonl"))) + \
+            sorted(glob.glob(os.path.join(RES, "m1x_pipeline_veto_s*.jsonl"))):
         for r in map(json.loads, open(path)):
             mine.setdefault((r["set"], r["rule"]), {})[r["k"]] = r
     ood = {}
@@ -221,8 +286,18 @@ def report():
     tc = {str(c): dict(n=len(v), ratio_median=float(np.median([x[0] for x in v])),
                        within_10pct=float(np.mean([abs(x[0] - 1) <= 0.1 for x in v]) * 100),
                        same_objective=int(sum(x[1] for x in v))) for c, v in sorted(agree.items())}
-    res = dict(timing_vs_stored=tc, sets={})
-    rules = (R_FULL, R_FULL5, R_HYB, R_BLP, R_PIPE)
+    # supplementary veto pass: its re-timed reference full MILPs vs the main pass (same instance, same core)
+    rv = {}
+    for (s_, rule), rr in mine.items():
+        if rule == R_RETIME:
+            for k, r in rr.items():
+                f0 = mine[(s_, R_FULL)][k]
+                rv.setdefault(r["cpu"][0], []).append((r["time"] / f0["time"], abs(r["obj"] - f0["obj"]) <= 1e-6 * abs(f0["obj"])))
+    tv = {str(c): dict(n=len(v), ratio_median=float(np.median([x[0] for x in v])),
+                       ratio_of_means=None, within_10pct=float(np.mean([abs(x[0] - 1) <= 0.1 for x in v]) * 100),
+                       same_objective=int(sum(x[1] for x in v))) for c, v in sorted(rv.items())}
+    res = dict(timing_vs_stored=tc, timing_veto_pass=tv, sets={})
+    rules = (R_FULL, R_FULL5, R_HYB, R_BLP, R_PIPE) + tuple(r for r in (R_VETO, R_VPIPE) if any(k[1] == r for k in mine))
     L = ["# m1x recommended pipeline, end to end: results", "",
          "Generated by `scripts/uc_m1x_pipeline.py --report`; method: [`docs/methods/m1x.md`](../../docs/methods/m1x.md), section "
          "*Recommended pipeline, end to end*.", "",
@@ -235,7 +310,12 @@ def report():
          "against the full MILP of its own run.", "",
          "Reference full MILP of this run vs the stored references (information only, nothing reused): " +
          "; ".join(f"core {c}: n {v['n']}, time ratio median {v['ratio_median']:.2f}, {v['within_10pct']:.0f} % within 10 %, "
-                   f"identical objective {v['same_objective']} / {v['n']}" for c, v in tc.items()) + ".", "",
+                   f"identical objective {v['same_objective']} / {v['n']}" for c, v in tc.items()) + ".",
+         "" if not tv else "Supplementary LP-veto pass (B-hg + LP veto: tuned guards, then the robustness study's unit-hour LP "
+         "veto, u_rel > 1e-3 releases an OFF fixing; speed-up against the main pass's reference full MILP of the same instance "
+         "and core), re-timed reference full MILPs vs the main pass: " +
+         "; ".join(f"core {c}: n {v['n']}, time ratio median {v['ratio_median']:.2f}, {v['within_10pct']:.0f} % within 10 %, "
+                   f"identical objective {v['same_objective']} / {v['n']}" for c, v in tv.items()) + ".", "",
          "| set | rule | n | feasible % | gap mean % [95 % CI] | gap max % | served % | speed-up mean [95 % CI] | median | fixed % |",
          "|---|---|---|---|---|---|---|---|---|---|"]
     P = ["", "Paired differences (rule − reference, instances both solve; served over all instances; bootstrap 95 % CI). "
@@ -260,8 +340,9 @@ def report():
                      f"{st['gap_ci'][1]:.2f}] | {st['gap_max']:.2f} | {st['served']:.0f} | {st['sp_mean']:.1f} "
                      f"[{st['sp_ci'][0]:.1f}, {st['sp_ci'][1]:.1f}] | {st['sp_median']:.1f} | {st['fixed']:.1f} |")
         refs = [(R_FULL5, X[R_FULL5], ks), (R_HYB, X[R_HYB], ks)]
-        for r in (R_PIPE, R_BLP):
-            for refname, xref, kref in refs:
+        for r in (R_PIPE, R_BLP) + tuple(x for x in (R_VPIPE, R_VETO) if x in X):
+            extra = {R_VETO: [(R_BLP, X[R_BLP], ks)], R_VPIPE: [(R_PIPE, X[R_PIPE], ks), (R_BLP, X[R_BLP], ks)]}.get(r, [])
+            for refname, xref, kref in extra + refs:
                 p = paired(X[r], xref)
                 res["sets"][s]["paired"][f"{r} vs {refname}"] = p
                 P.append(row(s, r, refname, p))
@@ -288,9 +369,12 @@ if __name__ == "__main__":
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--nshards", type=int, default=1)
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--veto", action="store_true", help="supplementary pass: B-hg + LP veto at both gaps")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     if a.report:
         report()
+    elif a.veto:
+        run_veto(a)
     else:
         run(a)
