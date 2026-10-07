@@ -10,6 +10,12 @@ trust region; complete starts; local branching; gradient release), [`scripts/uc_
 
 (kept current; newest first)
 
+* 2026-10-07 00:20 — container restart at ≈ 00:18 killed uc24 pass B (no instance finished). **uc24 pass A is
+  complete** (40 instances, `results/uc24/solver_test.jsonl`). Pass B restarted detached on core 0:
+  `taskset -c 0 python3 -u scripts/uc_solver_eval.py --bench uc24 --split test --start 0 --n 12 --variants test24b
+  --out results/uc24/solver_test_b.jsonl` (resumable: completed instances are skipped). After it: build the uc24 report
+  (`python3 scripts/uc_solver_report.py --spec results/uc24/solver_selection.json`), fill the `PASS_B_*` placeholders in
+  the uc24 results below, finish Summary / Verdict. Not planned: test_fresh 60–119 (time).
 * 2026-10-06 20:15 — **uc12 test done** (60 instances, `results/uc12/solver_test_fresh.jsonl`; report
   `results/uc12/solver_results.{md,json}` + Pareto figure, rebuilt with
   `python3 scripts/uc_solver_report.py --spec results/uc12/solver_selection.json`). uc24 validation running
@@ -22,7 +28,30 @@ trust region; complete starts; local branching; gradient release), [`scripts/uc_
 
 ## Summary
 
-(pending)
+Hard fixing is fast but cannot recover from a wrong fix. Three solver-side alternatives that use the same
+probabilities / error-cost scores were implemented (`otsl/solver.py`) and evaluated with **paired timing** (every
+instance's full MILP re-solved cold in the same single-core process, right before every variant; highspy, one
+thread): Predict-and-Search trust regions, MIP warm starts (full and reduced MILP), and fix-and-polish (RINS around the
+LP relaxation, gradient release from the dispatch LP's reduced costs, local branching, warm full MILP). Parameters
+were chosen on validation only (12 uc12 / 6 uc24 instances); each test configuration was run once.
+
+* **Trust regions recover the quality but not the speed.** On the same 95 % set, the Predict-and-Search row turns
+  hard fixing's 3.55 % mean gap (one instance at 69 %) into 0.25 % (12 h), but the solve is as slow as the full MILP
+  (1.28× mean speed-up; the time is root-node work on the full-size network model, which a single row does not shrink).
+  Level with the hybrid in gap (−0.013 pp [−0.107, +0.099]) at a third of its speed. PASS_B_SUMMARY_PAS
+* **Warm starts are accepted (100 % of runs) but never shorten proofs**: full MILP 26.6 → 25.8 s, reduced MILPs
+  unchanged (median ratios 0.92–0.99). They only bring the full MILP's first 1 %-good schedule forward (median 10.8 →
+  3.2 s on 12 h). PASS_B_SUMMARY_WARM
+* **Polishing in a reduced space is the only lever that pays.** RINS (re-open the ≈ 2 % of decisions where the
+  incumbent disagrees with the LP relaxation that is computed anyway as GNN input) cuts the hybrid's gap from 0.263 to
+  0.220 % in 0.75 s (−0.043 pp [−0.076, −0.015]; 5.7× → 4.0×), the fast combined 98 % rule's from 0.84 to 0.66 %
+  (13.5× → 7.3×), and on 24 h the guarded 95 % rule's from 0.67 to 0.49 % (11.3× → 5.7×; gradient release: 0.43 % at
+  4.8×). Local branching and warm-full-MILP polish need the full-size root and are dominated.
+* **Verdict.** Against the hybrid (12 h): nothing beats it at equal speed-up; RINS moves along its frontier. Against
+  Learning to Fix with the paper's kNN: on 12 h, hybrid + RINS has a lower gap (−0.204 pp [−0.370, −0.065]) at a speed-up
+  that is not lower (4.0× vs 3.6×); on 24 h, guarded 95 % + RINS / + gradient release are level-to-better in gap
+  (−0.12 [−0.31, +0.07] / −0.17 [−0.38, +0.02] pp) at the same speed-up (5.7× / 4.8× vs 5.1×), and the guarded rule
+  alone is level in gap at 2.2× its speed.
 
 ## Method
 

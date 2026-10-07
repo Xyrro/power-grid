@@ -108,16 +108,16 @@ Paired against the reference hybrid (hybrid he_bce_s0_e1_n360, re-run in the sam
 | m1x hg_pol_n2000_gnnt_ens5 | -0.024 [-0.097, +0.045] | +1.97 [-0.56, +4.65] | +0.272 [+0.009, +0.550] | 1.31× [1.01, 1.73] | +3.33 [+2.05, +4.64] | -0.025 [-0.098, +0.046] | 60 |
 | faithful LtF BCE eps=1% | +0.034 [-0.059, +0.147] | +0.09 [-1.91, +1.75] | +0.183 [-0.027, +0.388] | 1.20× [0.97, 1.47] | -2.00 [-3.48, -0.46] | +0.034 [-0.058, +0.145] | 59 |
 
-### All instances evaluated with the reference and the selected rule: 97 instances; full MILP back to back 28.5 s mean (core 3)
+### All instances evaluated with the reference and the selected rule: 120 instances; full MILP back to back 29.5 s mean (core 3)
 
 | rule | feasible % | gap mean % [95 % CI] | gap median % | gap max % | runtime s | speed-up mean [95 % CI] | speed-up median | speed-up (ratio of means) | fixed % (pre-guard) | served % | # > 1 % (dataset ref.) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| full MILP | 100.0 | 0.23 [0.14, 0.33] | 0.094 | 2.47 | 28.5 | 1.0 [1.0, 1.0] | 1.0 | 1.00 | 0.0 (0.0) | 99.0 | 1 |
-| hybrid he_bce_s0_e1_n360 | 100.0 | 0.29 [0.23, 0.36] | 0.131 | 1.83 | 15.1 | 4.7 [3.6, 6.1] | 2.2 | 1.88 | 84.7 (85.3) | 96.9 | 1 |
-| m1x hg_pol_n2000_gnnt_ens5 | 100.0 | 0.26 [0.20, 0.34] | 0.101 | 1.54 | 12.1 | 5.8 [4.2, 7.6] | 2.8 | 2.35 | 88.6 (88.7) | 96.9 | 0 |
+| full MILP | 100.0 | 0.24 [0.16, 0.33] | 0.094 | 2.47 | 29.5 | 1.0 [1.0, 1.0] | 1.0 | 1.00 | 0.0 (0.0) | 98.3 | 1 |
+| hybrid he_bce_s0_e1_n360 | 100.0 | 0.28 [0.22, 0.35] | 0.125 | 1.83 | 15.4 | 4.8 [3.8, 6.0] | 2.3 | 1.91 | 84.8 (85.5) | 96.7 | 1 |
+| m1x hg_pol_n2000_gnnt_ens5 | 100.0 | 0.26 [0.20, 0.33] | 0.102 | 1.54 | 11.7 | 6.1 [4.6, 7.7] | 2.8 | 2.52 | 88.7 (88.8) | 95.0 | 0 |
 
 Paired against the reference hybrid (hybrid he_bce_s0_e1_n360, re-run in the same worker); instance bootstrap 95 % CI. Gap and speed-up on instances feasible for both rules.
 
 | rule | Δ gap to DB, pp | Δ mean speed-up | Δ log speed-up | time ratio ref / rule (geo. mean) | Δ fixed share, pp | Δ gap to dataset ref. (all inst., fallback), pp | n |
 |---|---|---|---|---|---|---|---|
-| m1x hg_pol_n2000_gnnt_ens5 | -0.025 [-0.081, +0.032] | +1.08 [-0.53, +2.70] | +0.146 [-0.062, +0.341] | 1.16× [0.94, 1.41] | +3.92 [+2.84, +5.07] | -0.025 [-0.082, +0.032] | 97 |
+| m1x hg_pol_n2000_gnnt_ens5 | -0.018 [-0.067, +0.031] | +1.23 [-0.23, +2.72] | +0.180 [+0.007, +0.359] | 1.20× [1.01, 1.43] | +3.92 [+2.95, +4.87] | -0.018 [-0.068, +0.031] | 120 |

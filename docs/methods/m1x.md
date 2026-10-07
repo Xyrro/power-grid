@@ -28,9 +28,13 @@ Data (git-ignored): `data/generated/uc12_m1x/`.
   error-cost scores ("he") and on the probabilities themselves ("hg", added because the error-cost model was trained on
   the plain GNN's errors), then the test.
 - 21:26 B-he converged: 84.6 % fixed on validation; 22:03 B-hg converged: 88.5 % (selected by the paper's criterion).
-- 22:03 test evaluation started (test_fresh 0–59, then 60–119), five rules per instance back to back with the full MILP.
-- To resume after a restart: `scripts/uc_m1x_queue2.sh phase4` (the evaluation skips finished instances; every tuning
-  run is done). Earlier phases: `scripts/uc_m1x_queue.sh phase1`, `scripts/uc_m1x_queue2.sh phase2`, `phase3b`
+- 22:03–23:27 test, first 60 instances, every rule. 23:28 instances 60–119 with the reference and the selected rule only
+  (budget). 00:18 a container restart killed the run after instance 103; resumed 00:20 (finished instances skipped,
+  `data/generated/uc12_m1x/queue_resume.log`).
+- `scripts/uc_m1x_queue2.sh` was rewritten after the runs to the sequence actually executed (phase2, phase3, phase4).
+- To resume after a restart: `taskset -c 3 python3 scripts/uc_m1x_eval.py --runs hg_pol_n2000_gnnt_ens5 --skip_faithful
+  --start 60 --n 60` then `python3 scripts/uc_m1x_report.py` (the evaluation skips finished instances; every tuning
+  run is done). Earlier phases: `scripts/uc_m1x_queue.sh phase1`, `scripts/uc_m1x_queue2.sh phase2|phase3|phase4`
   (finished steps are skipped or cheap).
 
 ## Summary
@@ -41,14 +45,14 @@ or ensembling alone.** Two changes improve Model 1's probabilities substantially
 around a teacher's confident decisions (4.7 s per label, no full MILP). Together, as a 5-member ensemble on 500 MILP +
 1,500 polished instances, they cut the validation log-loss from 0.057 to 0.046 and raise the share of unit-hours that
 can be fixed at 99.9 % precision from 0.49 (0.49–0.59 over 5 seeds) to 0.79. Learning to Fix's joint ε = 1 % tuning
-on these probabilities fixes 88.5 % of the validation decisions instead of 83.1 %, and on the first 60 fresh test
-instances it gives **0.23 % mean gap at 7.0× against the reference hybrid's 0.25 % at 5.0×** (re-run back to back on the
-same core): Δ gap −0.02 pp [−0.10, +0.05], Δ log speed-up +0.27 [+0.01, +0.55] (1.31× less time, geometric mean),
-+3.3 pp fixed [+2.1, +4.6]. The same probabilities through the error-cost transform give the lowest gap instead (0.19 %,
-−0.06 pp [−0.12, −0.01]) but at 3.2×. Negative results: label-free labels do not scale (4,000 instances: 9 % fixable
+on these probabilities fixes 88.5 % of the validation decisions instead of 83.1 %, and on all 120 fresh test
+instances it gives **0.26 % mean gap at 6.1× against the reference hybrid's 0.28 % at 4.8×** (re-run back to back on the
+same core): Δ gap −0.02 pp [−0.07, +0.03], Δ log speed-up +0.18 [+0.01, +0.36] (1.20× less time per instance,
+geometric mean), +3.9 pp fixed [+3.0, +4.9] (first 60: 0.23 % at 7.0× vs 0.25 % at 5.0×). The same probabilities through the error-cost transform give the lowest gap instead (0.19 %,
+−0.06 pp [−0.12, −0.01] on the first 60) but at 3.2×. Negative results: label-free labels do not scale (4,000 instances: 9 % fixable
 at 99.9 % precision); a 5-member ensemble alone improves the pooled metrics but not the tuned fixed share (81.4 %) or
 the test result; ensemble disagreement adds nothing as a filter; a flat MLP is worse. Single tuning run per rule,
-60 test instances with all rules (120 for the reference and the selected rule, below).
+60 test instances with all rules, 120 for the reference and the selected rule; about 10 core-hours in total.
 
 ## Method
 
@@ -246,27 +250,43 @@ Paired against the reference hybrid (same 60 instances, instance bootstrap 95 % 
 | **B-hg** | −0.024 [−0.097, +0.045] | +1.97 [−0.56, +4.65] | **+0.27 [+0.01, +0.55]** | **1.31× [1.01, 1.73]** | **+3.3 [+2.1, +4.6]** |
 | faithful LtF, BCE | +0.034 [−0.059, +0.147] | +0.09 [−1.91, +1.75] | +0.18 [−0.03, +0.39] | 1.20× [0.97, 1.47] | −2.0 [−3.5, −0.5] |
 
-TEST120_PLACEHOLDER
+**All 120 instances, reference and selected rule** (instances 60–119 were run with these two rules only, for time):
+
+| rule | feasible | gap to DB, mean [95 % CI] | gap max | speed-up mean [95 % CI] | median | ratio of means | fixed | served |
+|---|---|---|---|---|---|---|---|---|
+| full MILP (29.5 s mean) | 100 % | 0.24 % | 2.47 % | 1.0× | 1.0× | 1.00 | 0 % | 98.3 % |
+| reference hybrid | 100 % | 0.28 % [0.22, 0.35] | 1.83 % | 4.8× [3.8, 6.0] | 2.3× | 1.91 | 84.8 % | 96.7 % |
+| **B-hg (selected)** | 100 % | 0.26 % [0.20, 0.33] | 1.54 % | **6.1×** [4.6, 7.7] | **2.8×** | **2.52** | **88.7 %** | 95.0 % |
+
+Paired (120 instances): Δ gap −0.018 pp [−0.067, +0.031]; Δ mean speed-up +1.23 [−0.23, +2.72]; **Δ log speed-up
++0.18 [+0.01, +0.36]** (1.20× less time per instance, geometric mean, [1.01, 1.43]); **Δ fixed +3.9 pp [+3.0, +4.9]**.
+Instances 60–119 alone favour the selected rule less than the first 60 (the speed advantage shrinks from 1.31× to
+1.20× over all 120). B-hg leaves a priced reserve shortfall on 2 more instances than the reference (95.0 % vs 96.7 %
+served; the full MILP itself 98.3 %); the gap includes those penalties.
 
 ## Verdict
 
-* **Against the hybrid (0.24 % at 5.2× in its own run, 0.25 % at 5.0× re-run here): the goal is met — the same gap at a
-  higher speed-up.** The selected rule (Learning to Fix's tuning on the probabilities of a 5-member temporal-GNN
-  ensemble trained on 500 MILP + 1,500 polished labels) fixes 88.9 % instead of 85.6 % of the test decisions and is
-  1.31× faster per instance (geometric mean, CI [1.01, 1.73]) at an unchanged gap (−0.02 pp, CI ±0.07) on the first 60
-  instances; VERDICT120_PLACEHOLDER Its worst instance is better too (1.45 % vs 1.83 %). The mean per-instance speed-up
-  (7.0× vs 5.0×) has a wide CI because it is dominated by a few very fast instances.
+* **Against the hybrid (0.24 % at 5.2× in its own run, 0.28 % at 4.8× re-run here on 120 instances): the goal is met,
+  modestly — the same gap at a higher speed-up.** The selected rule (Learning to Fix's tuning on the probabilities of a
+  5-member temporal-GNN ensemble trained on 500 MILP + 1,500 polished labels) fixes 88.7 % instead of 84.8 % of the test
+  decisions (+3.9 pp [+3.0, +4.9]) at an unchanged gap (0.26 % vs 0.28 %, Δ −0.02 pp [−0.07, +0.03]) and takes 1.20× less
+  time per instance (geometric mean, [1.01, 1.43]; Δ log speed-up +0.18 [+0.01, +0.36]); mean per-instance speed-up
+  6.1× vs 4.8× (Δ +1.2×, CI [−0.2, +2.7], not significant on its own: it is dominated by a few very fast instances).
+  On the first 60 instances alone the advantage was larger (7.0× vs 5.0×, 1.31× less time). Worst instance 1.54 % vs
+  1.83 %; two more instances than the reference end with a priced reserve shortfall (95.0 % vs 96.7 % served).
 * **Where the gain comes from**: the temporal head (the largest single improvement at equal data) and the polished data
   (log-loss and the 99.9 % fixable share improve monotonically from 500 to 2,000 instances). Not from ensembling alone
   (run A is level with the reference on test and fixes less on validation), not from the disagreement filter, not from
   label-free data (systematically wrong labels make confident errors that more data does not remove), not from a flat MLP.
 * **Error-cost scores do not transfer to a new probability model without retraining.** On the better ensemble the
   error-cost transform (B-he) gives the lowest test gap of all rules (0.19 %, −0.06 pp [−0.12, −0.01] against the
-  reference) but at 3.2×; tuning on the probabilities themselves (B-hg) gives the speed. If the target is a lower gap at
-  the reference's speed, B-he is the better rule; the validation criterion fixed in advance (fixed share) picked B-hg.
-* **The tuned fixed share responds to probability quality only weakly**: the 99.9 %-fixable share 0.54 (5-seed mean) → 0.79
-  and the log-loss −19 % buy +5.4 pp of validation fixing. The joint ε-check is a worst case over 360 instances with one threshold
-  pair per generator, so a few confident errors per generator set the thresholds.
+  reference) but at 3.2× (slower than the reference, Δ log speed-up −0.24 [−0.43, −0.04]); tuning on the probabilities
+  themselves (B-hg) gives the speed. If a lower gap matters more than speed, B-he is the better rule; the validation
+  criterion fixed in advance (larger fixed share) picked B-hg. Retraining the error-cost model on the new model's
+  out-of-fold errors (≈ 1.6 core-h of dispatch LPs plus 4-fold cross-fitting) is the obvious next step.
+* **The tuned fixed share responds to probability quality only weakly**: the 99.9 %-fixable share 0.54 (5-seed mean)
+  → 0.79 and the log-loss −19 % buy +5.4 pp of validation fixing and +3.9 pp on test. The joint ε-check is a worst case
+  over 360 instances with one threshold pair per generator, so a few confident errors per generator set the thresholds.
 
 ## Caveats
 
@@ -286,5 +306,8 @@ TEST120_PLACEHOLDER
   6 s relaxation MILPs); the hybrid study saw 81–84 % across two BCE seeds.
 * **Shared machine**: one core of four, the other three busy with other agents' MILP jobs; absolute times are slower than
   in the hybrid study (see the timing check), so only the paired speed-ups (same core, back to back) are compared.
+* **Test coverage**: every rule on test_fresh 0–59; instances 60–119 only with the full MILP, the reference hybrid and
+  the selected rule (B-hg), for time. A container restart interrupted the second half after instance 103; it resumed
+  with the same code and core (finished instances kept).
 * Validation includes `val.npz`, which is also the early-stopping set of every model (as for the reference models).
 * The GNN feature normalisation uses the statistics of the 500 original instances for every model (same distribution).

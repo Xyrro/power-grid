@@ -351,14 +351,22 @@ audited scope: §3 U2 says the B1 LP relaxation is "1.3 % below the MILP on aver
 
 * First study **complete** (2026-10-06 22:10 UTC): validation, learning-free LtF tuning, test passes, reports, audit,
   tests (see the reproduction order below).
-* **Stacking follow-up running** (core 1): `uc_base_eval.py --bench uc24 --idx 0-19 --full_ref 0 --gaps 0.005,0.01
-  --red_gaps 0.005,0.01 --rules "<4 rules>" --out results/uc24/base_stack_test.jsonl` (started 22:14) → then
-  `uc_base_fuse.py --eps 0.01 --budget_min 60` (12-hour fused-rule tuning, `results/uc12/base_tune_fused_1.{json,log}`)
-  → `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12> --full_ref 0 --gaps 0.005,0.01 --red_gaps
-  0.005,0.01 --lp_guards 1 --fused results/uc12/base_tune_fused_1.json --rules "<8 rules>" --ref_gap_rules "<2 new
-  rules>" --out results/uc12/base_stack_test.jsonl` → `uc_base_stack_report.py --bench uc24 / uc12`. Logs
-  `results/<bench>/base_stack_run.log`, `results/uc12/base_fuse_run.log`. The eval passes are resumable per instance
-  (rerun the same command); the tuning is not.
+* **Stacking follow-up** (core 1). Done: the 24-hour stacking pass (`uc_base_eval.py --bench uc24 --idx 0-19
+  --full_ref 0 --gaps 0.005,0.01 --red_gaps 0.005,0.01 --rules "<4 rules>" --out results/uc24/base_stack_test.jsonl`,
+  20/20 instances) and its report (`uc_base_stack_report.py --bench uc24`); the 12-hour fused-rule tuning
+  (`uc_base_fuse.py --eps 0.01 --budget_min 60`: converged, 83.2 % fixed after the guards, 34 min;
+  `results/uc12/base_tune_fused_1.{json,log}`, cuts `_cuts.jsonl`). The container restarted at 00:18 UTC during the
+  12-hour stacking pass (9/60 instances done); resumed at 00:19 with the same command (it skips the instances already
+  in `results/uc12/base_stack_test.jsonl`): `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12>
+  --full_ref 0 --gaps 0.005,0.01 --red_gaps 0.005,0.01 --lp_guards 1 --fused results/uc12/base_tune_fused_1.json
+  --rules "<8 rules>" --ref_gap_rules "<2 new rules>" --out results/uc12/base_stack_test.jsonl`, then
+  `uc_base_stack_report.py --bench uc12` (log `results/uc12/base_stack_run.log`). Rule lists (`--rules`, ';'-separated):
+  uc24 "LtF kNN eps=1%;ours: guarded 95% (imitation GNN);LtF on LP relaxation eps=1%;LP-integral (tol 0.2) + guards";
+  uc12 "LtF kNN eps=1%;LtF BCE GNN eps=1%;hybrid (he_bce_s0_e1_n360);ours: error-cost + adequacy 90%;LtF on LP
+  relaxation eps=1%;LP-integral (tol 0.05) + guards;LtF on LP relaxation eps=1% + guards;fused: error-cost score + LP
+  veto, guard-aware LtF eps=1%", with `--ref_gap_rules` the last two. Pairing is per instance (the loose-gap full
+  MILPs are re-run in the same process), so instances before and after the restart are comparable; the report's
+  drift check covers the speed-up against the first pass.
 * Reproduction order of the first study: `uc_base_val.py --bench uc12 / uc24` (+ `--select`), `uc_base_tune.py --bench
   uc12 / uc24 --eps 0.01`, `uc_base_eval.py --bench uc12 --idx 0-59 --highs_path <highspy 1.12>`, `uc_base_eval.py
   --bench uc24 --idx 0-19`, `uc_base_report.py --bench uc12 / uc24`, `uc_base_audit.py --lp 1 --out

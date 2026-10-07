@@ -36,6 +36,12 @@ Not done: 24-hour shifts (each instance needs a ~154 s full MILP plus the uc24 m
 
 ### Follow-up (running; plan fixed before any run)
 
+*Progress*: timing check done 23:42 UTC (14 instances, full MILP new / stored median 0.95, 13 of 14 within
+±10 %, all objectives identical → stored times reused); validation stage 36 / 60 instances when the container
+restarted at ~00:18 UTC; resumed 00:19 (finished instances are skipped), then the test stage. Resume with
+`OTSL_THREADS=1 taskset -c 2 python3 scripts/uc_ood_followup.py --stage val` and then `--stage test` (both skip
+finished instances; the test stage needs `results/uc12/ood_fu_select.json` from the validation stage).
+
 Requested after the main study: on the same 7 instance sets, (1) Learning to Fix with the instance's LP-relaxation
 values as probabilities (thresholds of the baselines study, `results/uc12/base_tune_lp_1.json`); (2) the hybrid,
 LtF-BCE and LtF-kNN followed by the post-hoc LP-relaxation guard; (3) a cheap fix for collapsed thresholds: release OFF
