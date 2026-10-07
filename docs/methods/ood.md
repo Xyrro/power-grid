@@ -3,9 +3,10 @@
 Code: [`otsl/ood.py`](../../otsl/ood.py) (shifted scenarios, outage-aware UC model, overrides),
 [`scripts/uc_ood_gen.py`](../../scripts/uc_ood_gen.py) (training coverage, line pool, instance lists),
 [`scripts/uc_ood_eval.py`](../../scripts/uc_ood_eval.py) (full MILP + every method back to back, one core, resumable),
-[`scripts/uc_ood_report.py`](../../scripts/uc_ood_report.py) (tables, bootstrap). Results:
+[`scripts/uc_ood_report.py`](../../scripts/uc_ood_report.py) (tables, bootstrap),
+[`scripts/uc_ood_followup.py`](../../scripts/uc_ood_followup.py) (follow-up: LP-relaxation rules, LP guard, LP veto). Results:
 [`results/uc12/ood_results.md`](../../results/uc12/ood_results.md) (+ `.json`), raw records `results/uc12/ood_eval.jsonl`,
-recovery test `results/uc12/ood_ft_eval.jsonl`, `ood_ft_bce_line_out.json` ([`scripts/uc_ood_finetune.py`](../../scripts/uc_ood_finetune.py)),
+follow-up `results/uc12/ood_fu_{eval.jsonl,val.jsonl,select.json,retime.json}`, recovery test `results/uc12/ood_ft_eval.jsonl`, `ood_ft_bce_line_out.json` ([`scripts/uc_ood_finetune.py`](../../scripts/uc_ood_finetune.py)),
 run log `results/uc12/ood_eval.log`. Data (git-ignored): `data/generated/uc12_ood/` (`specs.json`, `coverage_train.json`,
 one `.npz` per instance with the scenario, the full-MILP schedule, the LP relaxation and every model's probabilities).
 
@@ -34,25 +35,11 @@ python3 scripts/uc_ood_report.py                            # results/uc12/ood_r
 Not done: 24-hour shifts (each instance needs a ~154 s full MILP plus the uc24 method stack; no budget left after the
 12-hour run), seeds, shift-severity sweeps.
 
-### Follow-up (running; plan fixed before any run)
-
-*Progress*: timing check done 23:42 UTC (14 instances, full MILP new / stored median 0.95, 13 of 14 within
-±10 %, all objectives identical → stored times reused); validation stage 36 / 60 instances when the container
-restarted at ~00:18 UTC; resumed 00:19 (finished instances are skipped) and finished 00:49 — chosen: the
-*unit-hour veto* (`results/uc12/ood_fu_select.json`); test stage started 00:49 (181 of 220 instances done at 03:37 UTC; ~55 s each). Resume with
-`OTSL_THREADS=1 taskset -c 2 python3 scripts/uc_ood_followup.py --stage val` and then `--stage test` (both skip
-finished instances; the test stage needs `results/uc12/ood_fu_select.json` from the validation stage).
-
-Requested after the main study: on the same 7 instance sets, (1) Learning to Fix with the instance's LP-relaxation
-values as probabilities (thresholds of the baselines study, `results/uc12/base_tune_lp_1.json`); (2) the hybrid,
-LtF-BCE and LtF-kNN followed by the post-hoc LP-relaxation guard; (3) a cheap fix for collapsed thresholds: release OFF
-fixings the instance's LP relaxation contradicts. Two variants, fixed a priori: *unit-hour veto* (drop the OFF fixing
-of (t, g) whenever u_rel[t, g] > 1e-3, all units) and *rarely-on unit veto* (drop every OFF fixing of a unit that is on
-in < 1 % of training unit-hours — 33 units, a training statistic — if its u_rel exceeds 1e-3 in any hour). Selection
-on the original validation set only (`val`, 60 instances; hybrid and LtF-kNN): the lower mean validation gap to the
-dataset MILP's dual bound, within 0.02 pp the faster. Full-MILP and base-rule times are reused from the main run only
-after re-solving ≥ 10 of them on core 2 (2 per set) and confirming agreement within 10 % (median and ratio of means).
-`scripts/uc_ood_followup.py --stage retime / val / test`; outputs `results/uc12/ood_fu_*`.
+**Follow-up complete** (2026-10-07 04:11 UTC; section *Follow-up* below): timing check 23:36–23:42, veto selection on
+`val` 23:42–00:49 (interrupted by a container restart at ~00:18 after 36 of 60 instances and resumed at 00:19; finished
+instances were skipped), test stage on all 220 instances 00:49–04:11. Logs `results/uc12/ood_fu_{chain,retime,val,test}.log`.
+Rerun: `OTSL_THREADS=1 taskset -c 2 python3 scripts/uc_ood_followup.py --stage retime / val / test` (val and test skip
+finished instances; test needs `results/uc12/ood_fu_select.json`), then `python3 scripts/uc_ood_report.py`.
 
 ## Summary
 
@@ -76,6 +63,12 @@ against 40 in-distribution instances. Nothing was retuned.
 * **The physics guard that generalises is the LP-relaxation guard**, not the copper-plate adequacy guard; with it the
   95 % rule stays ≤ 2.4 % mean gap and 100 % feasible on every shift at 6–13× mean speed-up.
 * End-to-end (no MILP, 7-threshold screening): 2.7 % → 4–7.5 % mean gap, 80–100 % served, 19–30× mean speed-up.
+* **Follow-up: one LP-based post-hoc step fixes the line-outage failure.** The LP-relaxation guard after the tuned
+  fixings takes the hybrid from 15.9 % to 0.25 %, LtF-BCE to 0.28 % and LtF-kNN to 0.41 %, and costs ~6 % speed in
+  distribution (it releases nothing there). Releasing the OFF fixings that the instance's LP relaxation contradicts
+  (chosen on validation) does the same (hybrid 0.24 %) and costs no speed. The hybrid with this veto stays at 0.18–1.65 %
+  on every set, 100 % feasible. Learning to Fix run on the LP relaxation itself reacts to load and unit-outage shifts,
+  but under line outages it fails like the others (13.3 %): its thresholds for the same rarely-on units collapsed at 0.5.
 
 ## Shifts
 
@@ -322,3 +315,93 @@ just new training data.
 * **Single seeds** of every model and threshold set (the hybrid is seed 0 of its family); no retraining for the main
   results, by design.
 * **Not done**: 24-hour shifts (budget), seeds, shift-severity sweeps.
+
+## Follow-up: LP-relaxation rules and fixes
+
+**Question.** The LP-relaxation guard was the one guard that held on every shift, and Learning to Fix's thresholds
+collapse for rarely-on units. Does (1) Learning to Fix run on the instance's own LP relaxation (the baselines study's
+"learning-free LtF", [`base.md`](base.md): 0.23 % at 2.0× on 12 h in distribution) react to the shifts; (2) does the LP
+guard added after the tuned fixings remove the line-outage catastrophes without costing speed in distribution; (3) does
+a cheap threshold fix chosen on the original validation set help?
+
+**Rules** (`scripts/uc_ood_followup.py`; same 220 instances, same overrides; nothing tuned on shifted data):
+
+* *LtF on the LP relaxation*: eq. (5) with π = the instance's LP-relaxation values and the thresholds of
+  `results/uc12/base_tune_lp_1.json` (joint ε = 1 % tuning on 180 validation instances; 55 % fixed; units 30 / 31 —
+  the bus-207 CTs of the line-outage failures — have collapsed [0.5, 0.5] grey zones here too). No guards, as tuned.
+* *+ LP guard*: the hybrid (after its tuned adequacy + row guards), LtF-BCE and LtF-kNN (after the row release), then
+  `otsl.fixpolicy.lp_guard`.
+* *+ LP veto* (`otsl.ood.lp_off_veto`): release OFF fixings the instance's LP relaxation contradicts. Two variants
+  fixed a priori, chosen on `val` (60 instances, hybrid and LtF-kNN, rule: lowest mean validation gap, within 0.02 pp
+  the faster): *unit-hour veto* (drop the OFF fixing of (t, g) when u_rel[t, g] > 1e-3) — **chosen**: 0.230 % mean
+  validation gap (unvetoed hybrid 0.232 %, LtF-kNN 0.247 %), +0.005 log speed-up, 1.2 fixings released per instance;
+  *rarely-on unit veto* (drop all OFF fixings of a unit on in < 1 % of training unit-hours if its u_rel > 1e-3 in any
+  hour): 0.238 %, −0.028. Applied to the hybrid, LtF-kNN and LtF on the LP relaxation.
+
+**Timing.** Full-MILP and base-rule times are reused from the main run after re-solving 14 of them (2 per set) on
+core 2: full MILP new / stored median 0.951, ratio of means 0.952, 13 of 14 within ±10 %, every objective identical; the
+hybrid's reduced MILP 0.945 (`results/uc12/ood_fu_retime.json`). A new rule whose final fixings equal its base rule's
+reuses that solve and adds the newly measured guard / veto time (in distribution the LP guard reuses 100 %); every
+other reduced MILP was solved here, under conditions ~5 % faster than the main run, so Δ log speed-ups within ±0.05
+are not interpretable.
+
+**Mean gap % [95 % CI], mean / median speed-up, served %** (feasible 100 % for every row below on every set; full
+table with fixed and reused shares: [`results/uc12/ood_results.md`](../../results/uc12/ood_results.md), *Follow-up*):
+
+| rule | in-distr. | load +15 % | load −15 % | wind+solar ×1.5 | units out | lines out | midnight |
+|---|---|---|---|---|---|---|---|
+| LtF kNN (reference) | 0.42 [0.27, 0.63], 2.9 / 1.6×, 95 | 4.04 [0.67, 10.1], 2.5 / 1.6×, 90 | 1.54, 4.9 / 1.7×, 97 | 1.15, 2.3 / 1.8×, 97 (97 % feasible) | 0.85, 2.6 / 1.3×, 97 | 26.0 [14.2, 38.8], 6.0 / 1.9×, 60 | 0.93, 4.5 / 1.4×, 93 |
+| hybrid (reference) | 0.31 [0.21, 0.43], 4.7 / 2.3×, 98 | 0.29, 3.4 / 1.9×, 97 | 0.97, 3.6 / 1.8×, 97 | 1.66, 4.3 / 2.7×, 97 | 0.82, 6.1 / 1.9×, 93 | 15.9 [8.8, 23.6], 7.4 / 4.8×, 63 | 0.30, 6.2 / 1.8×, 93 |
+| LtF on the LP relaxation | 0.29 [0.16, 0.43], 2.4 / 1.7×, 95 | **0.17** [0.08, 0.27], 2.3 / 1.6×, 100 | 0.71 [0.33, 1.17], 5.9 / 1.9×, 97 | 1.72 [0.65, 3.28], 2.7 / 2.2×, 93 | 0.73 [0.25, 1.31], 3.7 / 1.8×, 87 | 13.3 [7.0, 20.5], 3.2 / 2.4×, 63 | 0.29, 4.3 / 1.8×, 90 |
+| hybrid + LP guard | 0.31, 4.2 / 2.2×, 98 | 0.29, 3.1 / 1.9×, 97 | 0.97, 3.4 / 1.8×, 97 | 1.66, 4.2 / 2.6×, 97 | 0.60 [0.27, 1.02], 5.2 / 1.9×, 97 | **0.25** [0.16, 0.37], 4.1 / 1.9×, 93 | 0.30, 5.3 / 1.8×, 93 |
+| LtF BCE + rows + LP guard | 0.25, 4.1 / 2.4×, 98 | 0.46, 5.1 / 2.5×, 97 | 1.91, 3.6 / 1.9×, 97 | 5.88 [1.86, 11.8], 6.0 / 4.0×, 87 | 0.73, 4.2 / 2.8×, 93 | 0.28 [0.16, 0.44], 3.9 / 2.2×, 93 | 0.33, 4.7 / 2.5×, 93 |
+| LtF kNN + rows + LP guard | 0.42, 2.7 / 1.6×, 95 | 0.81 [0.43, 1.28], 1.8 / 1.4×, 97 | 1.54, 4.3 / 1.7×, 97 | 1.18, 2.2 / 1.8×, 97 | 0.85, 2.5 / 1.3×, 97 | 0.41 [0.27, 0.59], 2.7 / 1.4×, 90 | 0.93, 3.7 / 1.4×, 93 |
+| **hybrid + LP veto** | 0.30 [0.19, 0.42], 5.6 / 2.3×, 98 | 0.18 [0.10, 0.27], 4.6 / 2.3×, 100 | 0.89 [0.29, 1.74], 3.4 / 1.8×, 97 | 1.65 [0.70, 3.11], 4.2 / 2.2×, 97 | 0.44 [0.20, 0.77], 5.9 / 2.1×, 97 | 0.24 [0.15, 0.36], 5.3 / 2.5×, 93 | 0.21 [0.13, 0.33], 5.3 / 2.1×, 93 |
+| LtF kNN + LP veto | 0.28 [0.21, 0.36], 2.5 / 1.6×, 95 | 0.39, 1.7 / 1.4×, 97 | 1.48, 4.1 / 1.6×, 97 | **0.80** [0.48, 1.15], 2.4 / 1.8×, 93 | **0.40** [0.18, 0.68], 2.0 / 1.5×, 97 | 0.35 [0.23, 0.52], 3.1 / 1.7×, 90 | 0.47, 4.3 / 1.8×, 93 |
+| LtF on the LP relaxation + LP veto | 0.27, 2.5 / 1.5×, 95 | 0.15, 2.1 / 1.6×, 100 | **0.60** [0.26, 1.04], 5.1 / 1.9×, 97 | 1.65, 2.4 / 1.6×, 90 | 0.55, 3.3 / 1.8×, 93 | **0.18** [0.11, 0.27], 2.5 / 1.9×, 93 | 0.24, 3.7 / 1.6×, 90 |
+
+Paired differences (rule − reference, pp [95 % CI]; negative = better), selected:
+
+| rule | vs | in-distr. | load +15 % | load −15 % | wind+solar ×1.5 | units out | lines out | midnight |
+|---|---|---|---|---|---|---|---|---|
+| hybrid + LP guard | hybrid | 0.00 (log speed-up −0.06 [−0.08, −0.04]) | 0.00 | 0.00 | 0.00 | −0.22 [−0.67, 0.00] | **−15.6 [−23.5, −8.5]** | 0.00 |
+| hybrid + LP veto | hybrid | −0.02 [−0.04, 0.00] (log speed-up +0.04 [−0.09, +0.18]) | **−0.11 [−0.26, −0.03]** | **−0.09 [−0.18, −0.02]** | −0.02 [−0.06, +0.02] | **−0.38 [−0.91, −0.04]** | **−15.6 [−23.5, −8.5]** | **−0.08 [−0.14, −0.03]** |
+| hybrid + LP veto | LtF kNN | −0.12 [−0.36, +0.05] | **−3.85 [−9.89, −0.49]** | **−0.66 [−1.04, −0.32]** | +0.42 [−0.50, +1.86] | **−0.41 [−0.84, −0.07]** | **−25.8 [−38.6, −14.0]** | **−0.71 [−1.07, −0.41]** |
+| LtF on the LP relaxation | hybrid | −0.03 [−0.14, +0.12] (log speed-up −0.40 [−0.75, −0.08]) | **−0.13 [−0.26, −0.01]** | −0.26 [−1.23, +0.42] | +0.06 [−1.79, +1.93] | −0.09 [−0.69, +0.32] | −2.54 [−6.17, +0.32] | −0.01 [−0.08, +0.07] |
+| LtF on the LP relaxation | LtF kNN | −0.13 [−0.37, +0.07] | **−3.87 [−9.90, −0.49]** | **−0.83 [−1.90, −0.02]** | −0.14 [−0.71, +0.40] | −0.12 [−0.45, +0.27] | **−12.7 [−20.9, −5.6]** | **−0.64 [−1.01, −0.31]** |
+| LtF kNN + LP veto | LtF kNN | **−0.14 [−0.34, −0.01]** | **−3.65 [−9.75, −0.26]** | −0.06 [−0.17, 0.00] | **−0.39 [−0.93, −0.01]** | **−0.45 [−0.85, −0.14]** | **−25.7 [−38.4, −13.8]** | **−0.45 [−0.67, −0.27]** |
+
+**Answers.**
+
+1. **LtF on the LP relaxation reacts to every shift except line outages.** It is the most accurate rule under load
+   +15 % (0.17 %), better than LtF-kNN under load ±15 % and midnight windows, level with the hybrid under more
+   renewables (1.72 %) and unit outages, and never significantly worse than the hybrid in gap — but up to ~1.7× slower
+   (55 % fixed; paired log speed-up −0.40 in distribution, −0.21 to −0.51 on the shifts except load −15 %). Under line outages it fails like every other LtF rule (13.3 %, 37 % of instances
+   not served): its thresholds for units 30 / 31 collapsed at 0.5 on validation, so a fractional relaxation value
+   below 0.5 for a unit the outage makes necessary is fixed OFF. Seeing its own relaxation is not enough when the
+   calibration has decided a unit is never needed.
+2. **The post-hoc LP guard removes the line-outage catastrophes from every tuned rule at a small, fixed cost.** Hybrid
+   15.9 → 0.25 %, LtF-BCE 15.7 → 0.28 %, LtF-kNN 26.0 → 0.41 % (served 90–93 %, MILP 93 %); max gaps 1.6–2.2 %. In
+   distribution it releases nothing (identical fixings on 40 / 40 instances), so the gap is unchanged and the only
+   cost is its LPs: ~6 % speed (log speed-up −0.06 [−0.08, −0.04]; 4.7 → 4.2× mean). It does not repair what it cannot
+   see: LtF-BCE under 1.5× renewables stays at 5.9 % (the extra cost there carries no penalised slack in the relaxed
+   reduced problem).
+3. **A one-line LP veto is the cheaper fix, and it improves every rule.** Releasing the OFF fixings that the LP
+   relaxation contradicts (u_rel > 1e-3; ~1–4 fixings per instance) was chosen on validation, where it was also
+   slightly more accurate than no veto. On test it never hurts and removes the line catastrophe from all three rules
+   (hybrid 0.24 %, LtF-kNN 0.35 %, LtF on the LP relaxation 0.18 %), at no measurable speed cost. The hybrid with the
+   veto is better than the plain hybrid on five of seven sets (significant, −0.08 to −0.38 pp; −15.6 pp under line
+   outages). Against LtF-kNN it is better on five of six shifts and level in distribution and under more renewables
+   (+0.42 pp [−0.50, +1.86]). The veto also helps LtF-kNN itself (significant on six of seven sets), and with it
+   LtF-kNN is the most accurate rule under more renewables (0.80 %) and unit outages (0.40 %).
+
+**Net.** The calibration from the LtF paper fails out of distribution because some thresholds encode "never needed". Any
+instance-level check against the LP relaxation repairs that: the post-hoc LP guard, or the cheaper veto. The most
+robust fast rule measured is the **hybrid with the LP veto**: 0.18–1.65 % mean gap on every set, 100 % feasible,
+3.4–5.9× mean speed-up. LtF-kNN with the veto is a close, slower alternative and the better one under more renewables.
+
+**Caveats of the follow-up.** Same instance sets, so the same sample-size limits (30 per shift); the veto variant and
+tolerance were chosen on 60 in-distribution validation instances, where the veto rarely acts (1.2 fixings per instance),
+so the choice rests on small differences. Newly solved reduced MILPs ran ~5 % faster than the main run (timing check),
+which favours new rules over reused ones by up to that much. The LP guard and the veto were not combined.
+
