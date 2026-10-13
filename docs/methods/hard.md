@@ -60,6 +60,46 @@ served share, and for RTS-GMLC the line loading of the MILP schedule's dispatch 
 
 (Screening results and the choice: see §2.)
 
+## 2. Screening results and the chosen benchmark
+
+Screening table: [`results/hard/hard_screen.md`](../../results/hard/hard_screen.md). LP gap = (DB − LP) / DB to the
+full MILP's dual bound (median / mean over the screened instances); MILP = full MILP at 0.1 % on one thread.
+
+| setting | n | LP gap to DB median / mean % | integral % | MILP s (median / max) | verdict |
+|---|---|---|---|---|---|
+| RTS-GMLC 24 h, original ratings | 4 | 0.08 / 0.20 | 97.8 | 40 / 300 (limit) | reference |
+| 24 h, ratings × 0.8 | 4 | 0.14 / 0.20 | 97.2 | 36 / 70 | barely weaker |
+| 24 h, ratings × 0.7 | 4 | 0.24 / 0.37 | 96.7 | 102 / 251 | weaker |
+| 24 h, ratings × 0.6 | 4 (+5 val.) | 0.40 / 0.55 (val. 0.37 / 0.46) | 96.2 | 61 / 78 (val. 392 / 534) | weaker, but the MILP takes 6–9 min on most validation days |
+| 24 h, reserve 6 % / 10 % | 3 / 3 | 0.25 / 0.23, 0.32 / 0.31 | 97.3 / 97.1 | 176 / 300, 300 / 300 | slower, not weaker; 10 % has reserve shortfall |
+| 48 h (two days) | 1 | 0.30 | 98.3 | 600 (limit, 0.75 % gap) | too slow |
+| PGLib-UC FERC, first 24 h | 9 | 0.16 / 0.41 | 96.8 | 292 / 600 (limit) | weak on 2 of 9 files (Jan, Oct high wind: 1.75 %, 1.10 %), 0.02–0.25 % on the rest; root-node-dominated MILPs of 2.5–10 min, up to 3 GB |
+| RTS-GMLC 12 h, original ratings | 6 | 0.32 / 0.97 | 98.0 | 29 / 198 | reference (one 4.6 % outlier) |
+| **12 h, ratings × 0.6** | 6 | 0.58 / 0.91 | 95.9 | 22 / 255 | **chosen** |
+
+**Why 12 h × 0.6.** It has the weakest relaxation by median and by integral share among the settings whose full
+MILP stays in the 30 s – 5 min range. The 24 h × 0.6 setting has a similar gap but its MILP takes a median 392 s on
+validation days, which would put 120 reference MILPs plus the evaluation's re-timing well over the budget. FERC is
+weak only on 2 of 9 days and its MILPs are slower. The stress settings (reserve, 48 h) make the MILP slower without
+weakening the relaxation.
+
+**On the generated sets** (`results/hard/hard_results.md`; 60 validation + 60 test instances): LP below the MILP
+objective mean 0.83 / 0.74 %, median 0.71 / 0.63 %; below the dual bound median 0.61 / 0.54 %; 95.5 % of the
+relaxation values integral; 40 fractional values and 9–10 wrong integral values per instance (876 decisions); full
+MILP median 34 s, mean 66–73 s, one instance per set at the 600 s limit. The stored original-rating 12 h sets
+(uc12, `data/generated/uc12/{val,val_extra,test_fresh}.npz`) have median 0.23–0.40 % and 98.2 % integral, so the
+derated benchmark roughly doubles the median gap and the fractional share. Its mean gap is not much larger, though,
+because the original-rating sets have a heavy tail (max 4.6–6.9 %). The paired check of §5 solves the same
+validation scenarios at the original ratings.
+
+**Legitimacy.** RTS-GMLC is lightly congested. With the original continuous ratings only 0.36 % (24 h) / 0.46 %
+(12 h) of line-hours bind (1.7–2.5 lines per instance), and 3.3 % / 4.4 % of line-hours load above 60 % of the rating.
+At 60 % of the ratings, 1.5 % / 1.7 % of line-hours bind (6.5–6.7 lines per instance), so congestion becomes a regular
+part of every day, while load is still fully served: no shedding in any validation or test MILP, and a reserve
+shortfall of 0.3 MWh on 2 of 60 validation instances. Scaling line limits to create congestion is common practice
+for test systems that are otherwise uncongested. The benchmark keeps the RTS-GMLC data, the uc12 scenario generator
+and the 3 % reserve unchanged; only the ratings change.
+
 ## 3. Methods (everything validation-tuned; nothing chosen on test)
 
 All rules end in a reduced MILP (HiGHS 1.15 through highspy, one thread, 600 s limit) at mip_rel_gap 0.1 % or 0.5 %.
