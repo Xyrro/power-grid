@@ -21,8 +21,16 @@ instances skipped): rerun the step's command.*
   on label-free labels; logs `train_c2.log`), polishing pilot (`pilot_c2.log`, `data/generated/hard/pilot.json`);
   core 3 = training scenarios, all 60 test MILPs, then learning-free LtF tuning on the LP relaxation
   (`results/hard/hard_tune_lp.json`, log `tune_c3.log`).
-- Resume: rerun the phase (`scripts/uc_hard_q.sh run2|run3`); finished chunks, models and converged tuning runs are
-  skipped. Polishing workers share chunks through `polish_<kk>.npz.lock` files: delete stale locks after a restart.
+- 09:27 validation done (60; LP gap to C mean 0.83 %, median 0.71 %; 95.5 % integral; MILP median 34 s). 09:46
+  teacher t0 done; 09:51 pilot done (`data/generated/hard/pilot.json`): 90 % fixed + 5 s chosen (10 s gives the same
+  labels; 80 % is worse).
+- 09:55 `RATIO=0.9 TL=5 scripts/uc_hard_q.sh run2b` (core 2: polished labels for training chunks 0–39 = 2,000
+  instances, final 5-member ensemble `fin`, guard-aware tuning `hg_fin`, test shard 0) and `... run3b` (core 3: rest of
+  the test MILPs, LtF-LP tuning `lp`, joins the polishing, guard-aware LtF on the LP values `lp_g`, LtF-kNN `knn`, test
+  shard 1). Logs `results/hard/logs/{polish,train,tune,eval}_c{2,3}.log`.
+- Resume: rerun the phase (`scripts/uc_hard_q.sh run2b|run3b` with `RATIO=0.9 TL=5`); finished chunks, models,
+  converged tuning runs and finished test instances are skipped. Polishing workers share chunks through
+  `data/generated/hard/polish_<kk>.npz.lock` files: delete stale locks after a restart.
 
 ## Summary
 
