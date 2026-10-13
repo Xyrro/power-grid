@@ -28,9 +28,16 @@ instances skipped): rerun the step's command.*
   instances, final 5-member ensemble `fin`, guard-aware tuning `hg_fin`, test shard 0) and `... run3b` (core 3: rest of
   the test MILPs, LtF-LP tuning `lp`, joins the polishing, guard-aware LtF on the LP values `lp_g`, LtF-kNN `knn`, test
   shard 1). Logs `results/hard/logs/{polish,train,tune,eval}_c{2,3}.log`.
-- Resume: rerun the phase (`scripts/uc_hard_q.sh run2b|run3b` with `RATIO=0.9 TL=5`); finished chunks, models,
-  converged tuning runs and finished test instances are skipped. Polishing workers share chunks through
-  `data/generated/hard/polish_<kk>.npz.lock` files: delete stale locks after a restart.
+- 10:17 LtF-LP converged (64.6 % fixed on validation); 11:29 polishing done (2,000 labels, 5.1 s each); 11:41
+  `lp_g` converged (62.5 %); 11:37–11:53 final members fin_s0–s2 trained. ~12:00 the session stopped (API limit);
+  the container restarted several times (last 15:37). Restarts at 12:50 and 15:20 reran run2b / run3b, which died with
+  the container: on disk all 40 polished chunks, all val / test chunks, fin_s0–s2, `lp`, `lp_g`.
+- 15:38 resumed with `scripts/uc_hard_q.sh run2c` (core 2: fin_s3, fin_s4, ensemble, `hg_fin` tuning, test shard 0)
+  and `run3c` (core 3: `knn` tuning, paired original-rating check on the validation scenarios
+  `scripts/uc_hard_paired.py` → `results/hard/hard_paired_orig_val.jsonl`, test shard 1). Logs
+  `results/hard/logs/{train,tune,paired,eval}_c{2,3}.log`.
+- Resume: delete `data/generated/hard/*.lock`, rerun `scripts/uc_hard_q.sh run2c` and `run3c`; trained members,
+  converged tuning runs, finished paired / test instances are skipped (an unfinished tuning run restarts).
 
 ## Summary
 
