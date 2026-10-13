@@ -58,5 +58,50 @@ served share, and for RTS-GMLC the line loading of the MILP schedule's dispatch 
 * after the 24 h choice turned out too slow (below): RTS-GMLC 12 h windows (random start, as the uc12 benchmark) at
   ratings × 1.0 and × 0.6, 6 windows.
 
-(Screening results and the choice: pending the write-up.)
+(Screening results and the choice: see §2.)
+
+## 3. Methods (everything validation-tuned; nothing chosen on test)
+
+All rules end in a reduced MILP (HiGHS 1.15 through highspy, one thread, 600 s limit) at mip_rel_gap 0.1 % or 0.5 %.
+
+| rule | probabilities / score | thresholds | guards | learning |
+|---|---|---|---|---|
+| full MILP | – | – | – | none |
+| LtF-LP | LP-relaxation values u_rel | Learning to Fix, faithful (otsl.uc24ltf.StartLtFTuner), ε = 1 % | none | none |
+| LP-int+g | every integral u_rel value fixed (1e-6) | – | adequacy + minimal min up/down release + LP-relaxation guard | none |
+| LP pipeline | u_rel | guard-aware Learning to Fix (otsl.hard.HardTuner), ε = 1 % | as LP-int+g | none |
+| LtF-kNN | eq. 13, k = 50, Table II features, training scenarios with polished labels | faithful, ε = 1 % | none | kNN |
+| pipeline | 5-member temporal-GNN ensemble on polished labels | guard-aware (HardTuner), ε = 1 % | as LP-int+g | GNN |
+
+* **Guards** (`otsl.hard.guard_chain`, copied from otsl.m24): adequacy guard (release OFF fixings in merit order until
+  the units not fixed off cover net load + reserve + 5 % every hour), minimal min up/down conflict release (per unit,
+  release only the fixings that the nearest min up/down-feasible row contradicts), and the LP-relaxation guard
+  (release fixings in hours where the relaxed reduced problem sheds, over-generates or misses reserve).
+  Guard-aware tuning applies the first two inside Learning to Fix's check, cuts and verification.
+* **LP pipeline** is the learned pipeline with the LP relaxation in place of the network: it isolates what the
+  learned probabilities add over the LP.
+* **Learned pipeline** (the m1x recipe without any full-MILP training label): (1) teacher t0 = 3 temporal GNNs
+  (otsl.m1x.CommitGNNT) trained on 2,000 label-free labels (rounded LP relaxation → block adequacy repair → min up/down
+  repair); (2) polished labels: for each of 2,000 training scenarios, fix the teacher's 90 % most confident decisions,
+  apply the three guards, solve the reduced MILP for 5 s, keep the schedule if the dispatch LP prices it below the
+  label-free label (setting chosen on validation instances 0–19, `pilot.json`); (3) final model = 5 temporal GNNs
+  trained on the polished labels (BCE, 40 epochs, early stopping on the validation log-loss), mean probability;
+  (4) guard-aware Learning to Fix thresholds on validation; (5) at test: LP relaxation → ensemble → thresholds →
+  guards incl. LP-relaxation guard → reduced MILP at 0.5 %.
+
+## 4. Setup
+
+* Data (`scripts/uc_hard_data.py`, `otsl.b3.instance`): scenarios of calendar days by the split of
+  `scripts/uc_gen.py` (test: day % 5 = 0, validation: day % 5 = 2, training: the rest), 12-hour windows with a random
+  start, load ×U(0.92, 1.08) per area and ×U(0.97, 1.03) per bus, renewables ×U(0.8, 1.2) per unit, 3 % spinning
+  reserve, initial status by priority list. Training: 3,000 scenarios, LP relaxation + label-free labels only (no
+  MILP); validation 60 and test 60 with the full MILP (0.1 %, 600 s, bound trace every second).
+* Evaluation (`scripts/uc_hard_eval.py`): every run of a test instance back to back in one single-threaded process,
+  shards on cores 2 and 3; the full MILP at 0.1 % is re-solved there (speed-up denominator T_ref and dual bound DB).
+  Method time = reduced MILP + LP relaxation (if used) + inference + thresholding + guards.
+* Metrics (`scripts/uc_hard_report.py`): Learning to Fix's paper metrics (feasibility, gap (C − DB) / C over
+  feasible instances, mean of per-instance speed-ups, fixed share) plus median / geometric-mean speed-up, ratio of
+  mean times, served share, time to the same quality (the reference full MILP's time to first reach the method's
+  cost, over the method's time), paired bootstrap 95 % CIs (2,000 resamples, seed 0) for every comparison.
+
 
