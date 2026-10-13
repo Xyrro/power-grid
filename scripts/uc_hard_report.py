@@ -83,19 +83,31 @@ def main():
     L += ["## The benchmark's LP relaxation", "",
           "Full MILP of the data generation (HiGHS 1.15, one thread, 0.1 %, 600 s). Wrong integral values: LP-relaxation values "
           "within 1e-6 of 0 or 1 that disagree with the MILP schedule (aligned over identical units). Label-free label: "
-          "rounded relaxation → block adequacy repair → min up/down repair, priced by the dispatch LP. For comparison, the "
-          "original-rating 24 h benchmark (uc24, results/uc24/base_results.md): LP below the MILP objective mean / median "
-          "0.37 / 0.26 % (test), below the dual bound 0.21 / 0.17 %, 97.9 % integral, 11.7 wrong integral values per instance.",
+          "rounded relaxation → block adequacy repair → min up/down repair, priced by the dispatch LP. Last rows: the stored "
+          "original-rating 12 h sets of uc12 (same generator and splits, other seeds; MILP at 0.1 %, 60 s limit there; no "
+          "dual bound stored, so only the gap to C). The paired check below solves the same scenarios at both ratings.",
           "",
           "| set | n | LP below C: mean / median / p90 / max % | below DB: mean / median / max % | integral % | fractional / inst. | "
           "wrong integral / inst. (median) | full MILP s: mean / median / max | optimal | served % | label-free label above C, median % |",
           "|---|---|---|---|---|---|---|---|---|---|---|"]
+    from otsl.ucdata import load as load_uc
+    for nm in ("val", "val_extra", "test_fresh"):
+        f = os.path.join("data/generated/uc12", f"{nm}.npz")
+        if os.path.exists(f):
+            u = load_uc(f)
+            g = (u["obj"] - u["c_rel"]) / u["obj"] * 100
+            out.setdefault("uc12_original", {})[nm] = dict(n=len(g), gap_c_mean=float(g.mean()), gap_c_median=float(np.median(g)),
+                                                          gap_c_p90=float(np.percentile(g, 90)), gap_c_max=float(g.max()),
+                                                          integral=float((np.minimum(u["u_rel"], 1 - u["u_rel"]) <= 1e-6).mean() * 100))
     for k, s in out["lp"].items():
         L.append(f"| {k} | {s['n']} | {s['gap_c_mean']:.2f} / {s['gap_c_median']:.2f} / {s['gap_c_p90']:.2f} / {s['gap_c_max']:.2f} | "
                  f"{s['gap_db_mean']:.2f} / {s['gap_db_median']:.2f} / {s['gap_db_max']:.2f} | {s['integral']:.1f} | "
                  f"{s['frac_per_inst']:.0f} of {T * G} | {s['wrong_int_per_inst']:.1f} ({s['wrong_int_median']:.0f}) | "
                  f"{s['milp_time_mean']:.0f} / {s['milp_time_median']:.0f} / {s['milp_time_max']:.0f} | {s['milp_opt']} / {s['n']} | "
                  f"{s['served']:.0f} | {s['c_blk_gap_median']:.1f} |")
+    for k, s in out.get("uc12_original", {}).items():
+        L.append(f"| uc12 original ratings: {k} | {s['n']} | {s['gap_c_mean']:.2f} / {s['gap_c_median']:.2f} / {s['gap_c_p90']:.2f} / "
+                 f"{s['gap_c_max']:.2f} | – | {s['integral']:.1f} | | | | | | |")
     pp = os.path.join(RES, "hard_paired_orig_val.jsonl")
     if os.path.exists(pp):
         L += paired_orig(jl(pp), v, sysm, out)
@@ -225,7 +237,10 @@ def paired_orig(P, v, sysm, out):
             f"| full MILP s: mean / median / max | {r['milp_orig']['mean']:.0f} / {r['milp_orig']['median']:.0f} / "
             f"{r['milp_orig']['max']:.0f} | {r['milp_derated']['mean']:.0f} / {r['milp_derated']['median']:.0f} / "
             f"{r['milp_derated']['max']:.0f} | time ratio (geo. mean) {r['time_ratio_geo']:.2f} |",
-            f"| served % | {r['served_orig']:.0f} | {out['lp']['val']['served']:.0f} | |"]
+            f"| served % | {r['served_orig']:.0f} | {out['lp']['val']['served']:.0f} | |", "",
+            "MILP times are not comparable across the columns: the derated runs are the data generation's (before the container "
+            "restarts), the original-rating runs ran later on a host that re-times the same MILPs about 1.5× slower (see the "
+            "test section). Not served = a reserve shortfall of 0.3–1.1 MWh, no shedding, in both columns."]
 
 
 def test_tables(recs, te, out):
@@ -259,8 +274,10 @@ def test_tables(recs, te, out):
     L = ["", f"## Test ({n} instances; every run of an instance back to back in one single-threaded process, cores 2 and 3)", "",
          f"Reference: the full MILP at 0.1 % re-timed in the evaluation process; vs the data-generation run of the same "
          f"instance: time ratio median {np.median(ret):.2f} ({np.mean(np.abs(ret - 1) <= 0.1) * 100:.0f} % within 10 %), same "
-         f"objective on {same:.0f} %. Mean T_ref {t_ref.mean():.1f} s (median {np.median(t_ref):.1f} s). Method time includes "
-         "the LP relaxation (if used), inference, thresholding and guards.", "",
+         f"objective on {same:.0f} %. The evaluation ran after several container restarts on a host about 1.5× slower than "
+         "during data generation; every speed-up uses only times measured in the same evaluation process. Mean T_ref "
+         f"{t_ref.mean():.1f} s (median {np.median(t_ref):.1f} s). Method time includes the LP relaxation (if used), inference, "
+         "thresholding and guards. Time to the same quality is not defined for the reference itself (–).", "",
          "| rule | mip_rel_gap | feasible % | gap mean % [95 % CI] | median | max | speed-up mean [95 % CI] | median | geo. mean | "
          "ratio of means | time to the same quality: median / geo. mean | fixed % | served % |",
          "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -278,7 +295,8 @@ def test_tables(recs, te, out):
         out["test"]["rows"][f"{k[0]} @ {k[1] * 100:g}%"] = st
         L.append(f"| {k[0]} | {k[1] * 100:g} % | {st['feasible']:.0f} | {st['gap_mean']:.2f} [{st['gap_ci'][0]:.2f}, {st['gap_ci'][1]:.2f}] | "
                  f"{st['gap_median']:.2f} | {st['gap_max']:.2f} | {st['sp_mean']:.1f} [{st['sp_ci'][0]:.1f}, {st['sp_ci'][1]:.1f}] | "
-                 f"{st['sp_median']:.1f} | {st['sp_geo']:.1f} | {st['sp_ratio']:.1f} | {st['ttq_median']:.1f} / {st['ttq_geo']:.1f} | "
+                 f"{st['sp_median']:.1f} | {st['sp_geo']:.1f} | {st['sp_ratio']:.1f} | "
+                 f"{'–' if k == ('full MILP', 1e-3) else format(st['ttq_median'], '.1f') + ' / ' + format(st['ttq_geo'], '.1f')} | "
                  f"{st['fixed']:.1f} | {st['served']:.0f} |")
     L += ["", "Paired differences (row − reference, instances both solve; bootstrap 95 % CI). Time ratio = geometric mean of "
           "T_reference / T_row (> 1: the row is faster).", "",
