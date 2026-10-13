@@ -83,6 +83,7 @@ def stats(x):
                 gap_median=float(np.median(g)), gap_max=float(g.max()), sp_mean=float(sp.mean()), sp_ci=boot(sp),
                 sp_median=float(np.median(sp)), sp_geo=float(np.exp(np.log(sp).mean())),
                 ttq_median=float(np.median(tq)), ttq_geo=float(np.exp(np.log(tq).mean())),
+                n_gt_05=int((g > 0.5).sum()), n_gt_1=int((g > 1).sum()),
                 served=float(x["served"].mean() * 100), fixed=float(x["fixed"][f_].mean()),
                 time_mean=float(x["t_m"][f_].mean()))
 
@@ -240,11 +241,23 @@ if __name__ == "__main__":
                 continue
             s = S[nm]
             rows.append([NAMES.get(nm, nm), f(s["feasible"], 0), f"{f(s['gap_mean'])} [{f(s['gap_ci'][0])}, {f(s['gap_ci'][1])}]",
-                         f(s["gap_median"]), f(s["gap_max"]), f(s["served"], 0),
+                         f(s["gap_median"]), f(s["gap_max"]), s["n_gt_05"], s["n_gt_1"], f(s["served"], 0),
                          f"{f(s['sp_mean'], 1)} [{f(s['sp_ci'][0], 1)}, {f(s['sp_ci'][1], 1)}]", f(s["sp_median"], 1), f(s["sp_geo"], 1),
                          f(s["ttq_median"], 2), f(s["ttq_geo"], 2), f(s["fixed"], 1)])
-        L.append(table(["rule", "feasible %", "gap mean % [95 % CI]", "median", "max", "served %", "speed-up mean [CI]", "median",
+        L.append(table(["rule", "feasible %", "gap mean % [95 % CI]", "median", "max", "# > 0.5 %", "# > 1 %", "served %",
+                        "speed-up mean [CI]", "median",
                         "geo. mean", "TTQ speed-up median", "TTQ geo. mean", "fixed %"], rows))
+        uns = {nm: [(r["i"], r["runs"][nm].get("shed") or 0.0, r["runs"][nm].get("short") or 0.0) for r in recs
+                    if r["runs"][nm]["feasible"] and ((r["runs"][nm].get("shed") or 0) >= 1e-6 or (r["runs"][nm].get("short") or 0) >= 1e-6)]
+               for nm in ORDER if nm in X}
+        res["test"]["unserved"] = uns
+        mx = max([max(a, b) for v in uns.values() for _, a, b in v] or [0.0])
+        no_shed = all(a < 1e-6 for v in uns.values() for _, a, _ in v)
+        L.append("\nNot served (feasible, but shedding or reserve shortfall above 1e-6 MW; test instance indices): "
+                 + "; ".join(f"{NAMES.get(nm, nm).strip('*')}: {', '.join(str(i) for i, _, _ in v) or 'none'}"
+                             for nm, v in uns.items())
+                 + (f". All are reserve shortfalls, the largest {mx:.3f} MW; no load is shed.\n" if no_shed
+                    else f". Largest shed or shortfall {mx:.3f} MW.\n"))
         L.append("\nLtF-kNN: stored records of the uc24ltf test run (speed-up against the dataset run's full-MILP time, as published "
                  "there, i.e. not paired with this run's timing; cost scored against this run's dual bound; TTQ against this run's "
                  "incumbent log).\n")

@@ -11,6 +11,20 @@ Full MILP of the data generation (HiGHS 1.15, one thread, 0.1 %, 600 s). Wrong i
 | val | 60 | 0.83 / 0.71 / 1.47 / 2.95 | 0.74 / 0.61 / 2.85 | 95.5 | 40 of 876 | 9.7 (7) | 73 / 34 / 600 | 59 / 60 | 97 | 95.7 |
 | test | 60 | 0.74 / 0.63 / 1.23 / 2.21 | 0.65 / 0.54 / 2.12 | 95.6 | 38 of 876 | 8.6 (6) | 66 / 34 / 600 | 59 / 60 | 100 | 53.3 |
 
+## Paired check: the same 30 validation scenarios at the original ratings
+
+`scripts/uc_hard_paired.py`: identical load, renewables, reserve and initial status; LP relaxation and full MILP (0.1 %, 600 s) with line_scale 1.0. Differences derated − original with instance-bootstrap 95 % CIs.
+
+| quantity | original ratings | ratings × 0.6 | difference [95 % CI] |
+|---|---|---|---|
+| LP below DB: mean / median / max % | 0.645 / 0.238 / 6.98 | 0.720 / 0.551 / 2.21 | +0.075 pp [-0.421, +0.396] (median +0.276; derated weaker on 24 / 30) |
+| LP below C: mean / median % | 0.759 / 0.329 | 0.816 / 0.629 | |
+| integral values % | 98.1 | 95.9 | |
+| fractional values / instance | 16.8 | 36.3 | [+15.4, +23.8] |
+| wrong integral values / instance | 8.0 | 11.2 | [+0.3, +6.6] |
+| full MILP s: mean / median / max | 99 / 32 / 600 | 78 / 35 / 600 | time ratio (geo. mean) 1.21 |
+| served % | 97 | 97 | |
+
 ## Polished labels (pilot on validation instances 0–19, teacher t0)
 
 Label-free label (block-repaired) above the MILP objective: median 66.75 %, mean 169.41 %.
@@ -21,14 +35,77 @@ Label-free label (block-repaired) above the MILP objective: median 66.75 %, mean
 | 0.9, 10 | 9.7 | 0.31 / 0.62 / 2.23 | 7 | 6 | 16 | 100 | 85.8 | 97.15 |
 | 0.8, 5 | 5.2 | 0.39 / 0.73 / 2.37 | 9 | 6 | 18 | 100 | 78.5 | 97.52 |
 
-Polished training labels: 150 instances, 5.2 s each (0.2 core-h), 97 % from the reduced MILP, median -39.3 % vs the label-free label, setting {'teacher': 't0', 'members': 3, 'ratio': 0.9, 'tl': 5.0, 'gap': 0.001, 'guards': 'adeq+rowmin+lp'}.
+Polished training labels: 2000 instances, 5.1 s each (2.8 core-h), 97 % from the reduced MILP, median -39.1 % vs the label-free label, setting {'teacher': 't0', 'members': 3, 'ratio': 0.9, 'tl': 5.0, 'gap': 0.001, 'guards': 'adeq+rowmin+lp'}.
 
 ## Probability quality on validation (MILP schedules, aligned)
 
 | source | n train | labels | log-loss | Brier | AUC | wrong / inst. | fixable at 99 % precision % | at 99.9 % | train s |
 |---|---|---|---|---|---|---|---|---|---|
 | LP relaxation (no learning) | – | – | 0.1763 | 0.0187 | 0.9761 | 20.2 | 0.3 | 0.3 | – |
+| kNN (eq. 13, k = 50; polished labels) | 2000 | polished | 0.1349 | 0.0297 | 0.9837 | 33.3 | 86.2 | 0.0 | – |
 | t0_s0 | 2000 | lf | 0.0887 | 0.0205 | 0.9869 | 21.1 | 89.7 | 20.6 | 339 |
 | t0_s1 | 2000 | lf | 0.0907 | 0.0206 | 0.9865 | 20.9 | 89.5 | 13.4 | 336 |
 | t0_s2 | 2000 | lf | 0.0950 | 0.0218 | 0.9854 | 22.8 | 89.3 | 5.9 | 336 |
 | t0_ens |  | ens | 0.0886 | 0.0205 | 0.9869 | 21.1 | 90.5 | 21.0 | 0 |
+| fin_s0 | 2000 | pol | 0.0845 | 0.0184 | 0.9900 | 18.7 | 93.7 | 23.7 | 465 |
+| fin_s1 | 2000 | pol | 0.0858 | 0.0189 | 0.9888 | 19.6 | 93.5 | 15.7 | 459 |
+| fin_s2 | 2000 | pol | 0.0847 | 0.0194 | 0.9895 | 19.9 | 92.8 | 13.9 | 475 |
+| fin_s3 | 2000 | pol | 0.0850 | 0.0182 | 0.9904 | 18.6 | 94.4 | 25.9 | 711 |
+| fin_s4 | 2000 | pol | 0.0825 | 0.0184 | 0.9904 | 18.9 | 94.3 | 25.5 | 702 |
+| fin_ens |  | ens | 0.0818 | 0.0184 | 0.9904 | 18.8 | 94.1 | 23.3 | 0 |
+
+## Learning to Fix tuning (validation, ε = 1 %)
+
+| run | probabilities | tuner | converged | fixed before guards % | fixed after guards % | verification max % (above ε) | iterations | wall min |
+|---|---|---|---|---|---|---|---|---|
+| hg_fin | fin_ens | guarded | True | 84.1 | 84.1 | 0.981 (0) | 45 | 25 |
+| knn | knn | faithful | True | 56.0 | 56.0 | 0.994 (0) | 56 | 28 |
+| lp | lp | faithful | True | 64.6 | 64.6 | 0.999 (0) | 20 | 10 |
+| lp_g | lp | guarded | True | 62.5 | 62.5 | 0.963 (0) | 21 | 12 |
+
+## Test (7 instances; every run of an instance back to back in one single-threaded process, cores 2 and 3)
+
+Reference: the full MILP at 0.1 % re-timed in the evaluation process; vs the data-generation run of the same instance: time ratio median 1.70 (0 % within 10 %), same objective on 100 %. Mean T_ref 39.4 s (median 31.1 s). Method time includes the LP relaxation (if used), inference, thresholding and guards.
+
+| rule | mip_rel_gap | feasible % | gap mean % [95 % CI] | median | max | speed-up mean [95 % CI] | median | geo. mean | ratio of means | time to the same quality: median / geo. mean | fixed % | served % |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| full MILP | 0.1 % | 100 | 0.09 [0.09, 0.10] | 0.10 | 0.10 | 1.0 [1.0, 1.0] | 1.0 | 1.0 | 1.0 | 0.5 / 0.6 | 0.0 | 100 |
+| full MILP | 0.5 % | 100 | 0.12 [0.09, 0.16] | 0.10 | 0.22 | 2.4 [1.7, 3.3] | 1.9 | 2.2 | 2.0 | 1.0 / 1.1 | 0.0 | 100 |
+| full MILP | 1 % | 100 | 0.17 [0.09, 0.32] | 0.10 | 0.59 | 2.7 [1.9, 3.5] | 2.3 | 2.4 | 2.8 | 1.0 / 0.9 | 0.0 | 100 |
+| LtF-LP | 0.1 % | 100 | 0.19 [0.13, 0.26] | 0.17 | 0.37 | 2.3 [1.4, 3.4] | 2.1 | 2.0 | 2.3 | 0.6 / 1.0 | 65.7 | 100 |
+| LtF-LP | 0.5 % | 100 | 0.24 [0.16, 0.34] | 0.19 | 0.47 | 6.8 [4.1, 11.0] | 4.6 | 5.7 | 5.5 | 2.2 / 2.8 | 65.7 | 100 |
+| LP-int+g | 0.1 % | 100 | 0.29 [0.11, 0.61] | 0.14 | 1.19 | 5.6 [2.5, 9.6] | 3.2 | 4.0 | 4.3 | 2.0 / 1.7 | 96.6 | 100 |
+| LP-int+g | 0.5 % | 100 | 0.29 [0.11, 0.61] | 0.14 | 1.19 | 9.1 [6.3, 11.8] | 9.6 | 8.2 | 9.9 | 3.1 / 3.5 | 96.6 | 100 |
+| LP pipeline | 0.1 % | 100 | 0.16 [0.10, 0.24] | 0.11 | 0.37 | 2.9 [1.9, 3.9] | 3.4 | 2.6 | 2.4 | 1.3 / 1.5 | 63.5 | 100 |
+| LP pipeline | 0.5 % | 100 | 0.16 [0.10, 0.24] | 0.11 | 0.37 | 4.7 [3.5, 6.2] | 4.4 | 4.4 | 5.4 | 2.2 / 2.6 | 63.5 | 100 |
+| LtF-kNN | 0.1 % | 100 | 0.59 [0.25, 0.99] | 0.37 | 1.69 | 1.1 [0.6, 1.7] | 0.8 | 0.8 | 0.9 | 0.5 / 0.4 | 56.5 | 100 |
+| LtF-kNN | 0.5 % | 100 | 0.67 [0.33, 1.05] | 0.46 | 1.69 | 2.4 [1.6, 3.4] | 1.8 | 2.2 | 2.1 | 1.4 / 1.0 | 56.5 | 86 |
+| pipeline | 0.1 % | 100 | 0.29 [0.15, 0.45] | 0.23 | 0.68 | 2.4 [1.6, 3.5] | 1.9 | 2.1 | 2.7 | 1.0 / 1.2 | 87.0 | 100 |
+| pipeline | 0.5 % | 100 | 0.29 [0.15, 0.45] | 0.23 | 0.68 | 4.8 [3.3, 6.2] | 5.6 | 4.2 | 4.4 | 1.9 / 2.4 | 87.0 | 100 |
+
+Paired differences (row − reference, instances both solve; bootstrap 95 % CI). Time ratio = geometric mean of T_reference / T_row (> 1: the row is faster).
+
+| row | reference | n | Δ gap pp [CI] | Δ log speed-up [CI] | time ratio | row better / reference better (gap > 0.01 pp) |
+|---|---|---|---|---|---|---|
+| LtF-LP @ 0.1% | full MILP @ 0.1% | 7 | +0.091 [+0.033, +0.161] | +0.68 [+0.31, +1.11] | 1.97× | 0 / 5 |
+| LtF-LP @ 0.5% | full MILP @ 0.5% | 7 | +0.123 [+0.056, +0.216] | +0.96 [+0.63, +1.36] | 2.62× | 0 / 6 |
+| LP-int+g @ 0.1% | full MILP @ 0.1% | 7 | +0.199 [+0.018, +0.511] | +1.37 [+0.81, +2.04] | 3.95× | 0 / 4 |
+| LP-int+g @ 0.5% | full MILP @ 0.5% | 7 | +0.174 [+0.005, +0.455] | +1.33 [+0.97, +1.68] | 3.77× | 1 / 4 |
+| LP pipeline @ 0.1% | full MILP @ 0.1% | 7 | +0.063 [+0.012, +0.142] | +0.94 [+0.52, +1.32] | 2.57× | 0 / 4 |
+| LP pipeline @ 0.5% | full MILP @ 0.5% | 7 | +0.038 [-0.003, +0.088] | +0.71 [+0.42, +1.05] | 2.04× | 1 / 3 |
+| LtF-kNN @ 0.1% | full MILP @ 0.1% | 7 | +0.500 [+0.159, +0.894] | -0.21 [-0.73, +0.35] | 0.81× | 0 / 6 |
+| LtF-kNN @ 0.5% | full MILP @ 0.5% | 7 | +0.545 [+0.210, +0.926] | -0.00 [-0.46, +0.41] | 1.00× | 0 / 6 |
+| pipeline @ 0.1% | full MILP @ 0.1% | 7 | +0.191 [+0.058, +0.356] | +0.76 [+0.45, +1.14] | 2.15× | 0 / 5 |
+| pipeline @ 0.5% | full MILP @ 0.5% | 7 | +0.165 [+0.038, +0.333] | +0.66 [+0.39, +0.97] | 1.94× | 1 / 5 |
+| pipeline @ 0.1% | LtF-LP @ 0.1% | 7 | +0.100 [-0.026, +0.263] | +0.09 [-0.18, +0.35] | 1.09× | 2 / 4 |
+| pipeline @ 0.1% | LP-int+g @ 0.1% | 7 | -0.008 [-0.286, +0.231] | -0.61 [-1.17, -0.10] | 0.54× | 2 / 3 |
+| pipeline @ 0.1% | LP pipeline @ 0.1% | 7 | +0.128 [+0.028, +0.268] | -0.18 [-0.63, +0.35] | 0.84× | 1 / 5 |
+| pipeline @ 0.1% | LtF-kNN @ 0.1% | 7 | -0.309 [-0.758, +0.055] | +0.97 [+0.49, +1.55] | 2.64× | 5 / 2 |
+| pipeline @ 0.1% | full MILP @ 0.5% | 7 | +0.165 [+0.038, +0.333] | -0.01 [-0.46, +0.52] | 0.99× | 1 / 5 |
+| pipeline @ 0.1% | full MILP @ 1% | 7 | +0.112 [-0.028, +0.296] | -0.12 [-0.46, +0.26] | 0.89× | 2 / 4 |
+| pipeline @ 0.5% | LtF-LP @ 0.5% | 7 | +0.042 [-0.135, +0.229] | -0.30 [-0.81, +0.13] | 0.74× | 3 / 4 |
+| pipeline @ 0.5% | LP-int+g @ 0.5% | 7 | -0.008 [-0.286, +0.231] | -0.66 [-1.15, -0.26] | 0.52× | 2 / 3 |
+| pipeline @ 0.5% | LP pipeline @ 0.5% | 7 | +0.128 [+0.028, +0.268] | -0.05 [-0.31, +0.23] | 0.95× | 1 / 5 |
+| pipeline @ 0.5% | LtF-kNN @ 0.5% | 7 | -0.379 [-0.800, -0.032] | +0.67 [+0.33, +1.02] | 1.95× | 5 / 2 |
+| pipeline @ 0.5% | full MILP @ 0.5% | 7 | +0.165 [+0.038, +0.333] | +0.66 [+0.39, +0.97] | 1.94× | 1 / 5 |
+| pipeline @ 0.5% | full MILP @ 1% | 7 | +0.112 [-0.028, +0.296] | +0.56 [+0.32, +0.83] | 1.75× | 2 / 4 |

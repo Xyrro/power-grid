@@ -50,6 +50,15 @@ def timed(f, *a, **k):
     return r, time.time() - t0
 
 
+def done_any(out):
+    """instances finished in any records file of the evaluation (shards and helpers)"""
+    done = set()
+    for f in set(glob.glob(os.path.join(RES, "hard_eval_s*.jsonl")) + [out]):
+        if os.path.exists(f):
+            done |= {json.loads(x)["i"] for x in open(f) if x.strip()}
+    return done
+
+
 def thresholds(run):
     j = json.load(open(os.path.join(RES, f"hard_tune_{run}.json")))
     return np.array(j["lo"]), np.array(j["hi"]), bool(j["converged"])
@@ -110,7 +119,11 @@ def main(a):
         knn.predict(d0)
     print(f"shard {a.shard}/{a.nshards} on CPU {sorted(os.sched_getaffinity(0))}: {len(todo)} instances", flush=True)
     t_start = time.time()
+    if a.reverse:
+        todo = todo[::-1]
     for j, i in enumerate(todo):
+        if i in done_any(out):                 # finished meanwhile by another process (helper shard)
+            continue
         sc = sc_of(te, i)
         base = dict(i=i, day=int(te["day"][i]), seed=int(te["seed"][i]), shard=a.shard, cpu=sorted(os.sched_getaffinity(0)))
         recs = []
@@ -166,6 +179,7 @@ if __name__ == "__main__":
     ap.add_argument("--hg", default="hg_fin")
     ap.add_argument("--only", default="")
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--reverse", action="store_true", help="process the shard's instances from the end (helper)")
     ap.add_argument("--out", default="", help="records file (default results/hard/hard_eval_s<shard>.jsonl)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
