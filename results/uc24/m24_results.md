@@ -41,6 +41,17 @@ Polished labels: 780 instances (180 original training instances without MILP + 6
 | LtF-kNN (uc24ltf) | kNN | none | True | 68.5 | – | 24 | 0.30 |
 | m24 hg_fin | fin_ens | adeq+rowmin | True | 91.6 | 91.7 | 28 | 0.27 |
 
+## Validation-only diagnostic: does the validated ε hold out of sample? (2-fold cross-validation)
+
+Cost increase of the reduced MILP (0.1 %, 120 s; m24 with its test-time guards incl. the LP guard) over the validation instance's full-MILP objective C*. ε = 1 %.
+
+| score | thresholds | n | infeasible | fixed % | increase mean % | median % | max % | > 0.5 % | > 1 % (= ε violated) |
+|---|---|---|---|---|---|---|---|---|---|
+| m24 (ensemble, guards) | 40-instance thresholds on the same 40 instances | 40 | 0 | 91.6 | 0.149 | 0.042 | 0.68 | 6 / 40 | **0 / 40** |
+| m24 (ensemble, guards) | 2-fold: tuned on 20 (93.4, 95.2 % fixed there), applied to the other 20 | 40 | 0 | 94.2 | 0.747 | 0.393 | 4.67 | 17 / 40 | **11 / 40** |
+| learning-free LtF (LP relaxation) | 40-instance thresholds on the same 40 instances | 40 | 0 | 80.5 | 0.092 | 0.040 | 0.53 | 1 / 40 | **0 / 40** |
+| learning-free LtF (LP relaxation) | 2-fold: tuned on 20 (74.1, 83.9 % fixed there), applied to the other 20 | 40 | 1 | 79.0 | 0.280 | 0.135 | 1.62 | 7 / 40 | **3 / 40** |
+
 ## Test: 40 uc24 test instances; full MILP (0.1 %, 300 s) back to back 133 s mean (median 82 s), core 1
 
 | rule | feasible % | gap mean % [95 % CI] | median | max | # > 0.5 % | # > 1 % | served % | speed-up mean [CI] | median | geo. mean | TTQ speed-up median | TTQ geo. mean | fixed % |
