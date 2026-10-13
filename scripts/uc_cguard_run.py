@@ -58,7 +58,7 @@ def rec_of(r):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", choices=["val", "select", "retime", "test", "testB"], required=True)
+    ap.add_argument("--stage", choices=["val", "select", "retime", "test", "testB", "testfull"], required=True)
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     if a.stage == "select":
@@ -144,6 +144,55 @@ def main():
                                                                                 "pipe_ratio_median", "pipe_ratio_of_means")))
         json.dump(dict(summary=summ, instances=out), open(os.path.join(RES, "cguard_retime.json"), "w"), indent=1, default=float)
         print(json.dumps(summ, indent=1))
+        return
+    if a.stage == "testfull":
+        # the timing check failed (results/uc12/cguard_retime.json: this core now runs the same solves ~30 % faster than the
+        # m1x records), so nothing of the pipeline records is reused: per instance, back to back on this core, the full
+        # MILP at 0.1 % (dual bound, speed-up denominator) and at 0.5 %, the pipeline, and the checks. C2's polish is run
+        # wherever g > 1 % (the lowest grid value), so any d_post >= 1 % (main rule or arm B) is read from the records.
+        sel = json.load(open(os.path.join(RES, "cguard_select.json")))
+        d_pre = sel["d_pre"]
+        out = os.path.join(RES, "cguard_test_full.jsonl")
+        done = {(r["set"], r["k"]) for r in map(json.loads, open(out))} if os.path.exists(out) else set()
+        jobs = [j for j in test_jobs() if j not in done]
+        if jobs:
+            bhg.warm(m, get(*jobs[0]))
+        print(f"{len(jobs)} test instances (full re-run); d_pre {d_pre}", flush=True)
+        for n, (s, k) in enumerate(jobs):
+            sc = get(s, k)
+            full = solve_milp(m, sc, {}, TL, 1e-3)
+            full.pop("u", None)
+            full5 = solve_milp(m, sc, {}, TL, GAP5)
+            full5.pop("u", None)
+            rel, relax_s = timed(m.solve_dispatch, sc, None, relax=True)
+            _, fix, info = bhg.run(m, sc, rel)
+            red = solve_with_start(m, sc, fix, TL, GAP5)
+            g = float(bound_gap(red["obj"], rel.obj)) if red["feasible"] else np.inf
+            rrl = relaxed_reduced_lp(m, sc, fix)
+            delta = float(lp_increase(rrl["cost"], rel.obj))
+            old_rec = R.get((s, k), {})
+            rec = dict(set=s, k=k, z_lp=float(rel.obj), relax_s=relax_s, pre_s=info["pre_s"], guard_s=info["guard_s"],
+                       released_lp=info.get("released_lp"), fixed=fixed_share(fix, sc.g_out, 12, G), delta=delta,
+                       rr_s=rrl["seconds"], g=g, d_pre=d_pre, full=full, full5=full5, pipe=rec_of(red),
+                       same_as_m1x=dict(full=abs(full["obj"] - old_rec[R_FULL]["obj"]) <= 1e-6 * abs(full["obj"]) if old_rec else None,
+                                        pipe=abs(red["obj"] - old_rec[R_PIPE]["obj"]) <= 1e-6 * abs(red["obj"]) if old_rec else None))
+            if delta > d_pre:
+                fix1, i1 = release_by_saving(m, sc, fix, rel.obj, d_pre)
+                r1 = solve_milp(m, sc, fix1, TL, GAP5)
+                r1.pop("u", None)
+                rec["c1"] = dict(r1, fixed_share=fixed_share(fix1, sc.g_out, 12, G), extra_s=i1["seconds"], info=i1)
+            else:
+                rec["c1"] = None
+            if g > GRID_POST[0] and red["feasible"]:
+                pol, pinfo = gradient_polish(m, sc, fix, red["x"], red["u"], N_POLISH, TL, GAP5)
+                rec["polish"] = dict(rec_of(pol), **pinfo)
+            else:
+                rec["polish"] = None
+            with open(out, "a") as f:
+                f.write(json.dumps(rec, default=float) + "\n")
+            print(f"[{n + 1}/{len(jobs)}] {s} {k} full {full['time']:.1f}s full5 {full5['time']:.1f}s pipe {red['time']:.1f}s "
+                  f"g {g * 100:.2f}% delta {delta * 100:.3f}% c1 {rec['c1'] is not None} polish {rec['polish'] is not None}",
+                  flush=True)
         return
     if a.stage == "testB":
         # arm B (recalibrated on in-distribution + shifted validation, scripts/uc_cguard_shiftval.py): C2's polish on the

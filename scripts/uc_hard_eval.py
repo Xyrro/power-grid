@@ -10,6 +10,8 @@ Per test instance (data/generated/hard/test_<kk>.npz; nothing is tuned here):
   LtF-LP     Learning to Fix on the LP-relaxation values, faithful thresholds of results/hard/hard_tune_lp.json;
   LP-int+g   every integral LP-relaxation value fixed, then adequacy guard + minimal min up/down conflict release +
              LP-relaxation guard (otsl.hard.guard_chain, lp=True);
+  LP pipeline  the learned pipeline without learning: guard-aware thresholds on the LP-relaxation values
+             (hard_tune_lp_g.json) -> adequacy + minimal conflict release -> LP-relaxation guard;
   LtF-kNN    Learning to Fix's kNN (eq. 13, k = 50, training scenarios with polished labels), faithful thresholds of
              hard_tune_knn.json (no LP relaxation needed);
   pipeline   temporal-GNN ensemble (data/generated/hard/models/<ens>_s*.pt) -> guard-aware thresholds of
@@ -76,6 +78,8 @@ def main(a):
     if os.path.exists(os.path.join(RES, "hard_tune_lp.json")):
         rules.append("LtF-LP")
     rules.append("LP-int+g")
+    if os.path.exists(os.path.join(RES, "hard_tune_lp_g.json")):
+        rules.append("LP pipeline")
     if os.path.exists(os.path.join(RES, "hard_tune_knn.json")):
         rules.append("LtF-kNN")
     members = sorted(glob.glob(os.path.join(DATA_DIR, "models", f"{a.ens}_s*.pt")))
@@ -84,7 +88,8 @@ def main(a):
     print(f"rules: {rules}; ensemble {a.ens} ({len(members)} members), thresholds hard_tune_{a.hg}.json", flush=True)
     if a.dry:
         return
-    th = {r: thresholds(x) for r, x in (("LtF-LP", "lp"), ("LtF-kNN", "knn"), ("pipeline", a.hg)) if r in rules}
+    th = {r: thresholds(x) for r, x in (("LtF-LP", "lp"), ("LP pipeline", "lp_g"), ("LtF-kNN", "knn"), ("pipeline", a.hg))
+          if r in rules}
     knn = knn_model(sysm) if "LtF-kNN" in rules else None
     nets = []
     if "pipeline" in rules:
@@ -122,6 +127,9 @@ def main(a):
             specs.append(("LtF-LP", fx, s, relax_s, False))
         fx, s = timed(lp_integral_fixings, rel.u)
         specs.append(("LP-int+g", fx, s, relax_s, True))
+        if "LP pipeline" in rules:
+            fx, s = timed(fix_dict, rel.u, *th["LP pipeline"][:2])
+            specs.append(("LP pipeline", fx, s, relax_s, True))
         if "LtF-kNN" in rules:
             p, s1 = timed(lambda: knn.predict(di)[0])
             fx, s2 = timed(fix_dict, p, *th["LtF-kNN"][:2])

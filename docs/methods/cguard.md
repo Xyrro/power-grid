@@ -8,10 +8,13 @@ Results: `results/uc12/cguard_results.{md,json}` (when written), diagnostics `re
 *Kept current for resumption.* Started 2026-10-13 06:41 UTC on core 0 (`taskset -c 0`, HiGHS and torch one thread).
 
 * Diagnosis (LPs only, `scripts/uc_cguard_diag.py --sets test / val`): done (300 test, 360 validation).
-* Chain (`scripts/uc_cguard_run.py --stage val → select → retime → test`, each resumable; log
-  `results/uc12/cguard_chain.log`): validation stage running since 06:51 UTC (~13 s per instance). Queued after it:
-  `scripts/uc_cguard_deep.py` (failure anatomy), then the shifted-validation arm (`scripts/uc_cguard_shiftval.py --n 20`,
-  `--select`, then `uc_cguard_run.py --stage testB`). Resume any stage by re-running it (all skip finished instances).
+* Validation stage done 06:51–08:25 UTC (360 instances, `scripts/uc_cguard_run.py --stage val`); selection
+  (`--stage select`): d_pre = 0.75 %, d_post = 4 % (`results/uc12/cguard_select.json`).
+* Timing check (`--stage retime`, 08:25–08:30): the m1x pipeline records are **not** reusable — the same solves now run
+  ~30 % faster on core 0 (full MILP ratio median 0.69, pipeline 0.67; objectives identical on 14 / 14). So the test
+  pass re-solves everything (`--stage testfull`, started 08:31, ~26 s per instance, ~2.2 h; resumable, log
+  `results/uc12/cguard_testfull.log`). Queued after it (`cguard_chain.log`): `scripts/uc_cguard_deep.py`, then the
+  shifted-validation arm (`scripts/uc_cguard_shiftval.py --n 20`, then `--select`). Resume by re-running the stage.
 * Report: `python3 scripts/uc_cguard_report.py` → `results/uc12/cguard_results.{md,json}`.
 
 **Plan, fixed before the validation and test passes.** The diagnosis (below) showed that the relaxed-reduced-LP
@@ -62,4 +65,57 @@ Ten instances are more than 1 pp worse than the full MILP at 0.5 % (load −15 %
 
 So the check has to look at the integer solution: a post-solve bound check with a response, not a pre-solve LP check.
 The pre-solve LP check (the obvious design) is kept as a control (C1).
+
+## Candidates and calibration
+
+Three candidates (`otsl/cguard.py`, `scripts/uc_cguard_run.py`), fixed after the diagnosis and before any validation or
+test pass; z_LP is the LP relaxation already solved as model input.
+
+* **C1, pre-solve LP-cost check** (the obvious design; control): Δ = (z_RR − z_LP) / z_LP. If Δ > d_pre, release the
+  fixings with the largest first-order saving in the relaxed reduced LP (bound marginals of the fixed u; batches of 10 %
+  of the fixings with positive saving, at least 5, at most 6 LPs) until Δ ≤ d_pre, then solve the reduced MILP. Its LP
+  is an added cost on every instance.
+* **C2, post-solve bound check + gradient polish**: g = (C_red − z_LP) / C_red of the reduced MILP's solution. If
+  g > d_post: the dispatch LP's exact derivative at the solution (`otsl.solver.flip_savings`, as in the polish study,
+  [`solver.md`](solver.md)) predicts the saving of flipping each decision; the 60 fixings with the largest predicted
+  saving (60 = that study's uc12 setting) are released and the reduced MILP is re-solved from the incumbent at 0.5 %;
+  the better solution is kept.
+* **C3, post-solve bound check + full-MILP fallback**: if g > d_post, solve the full MILP at 0.5 % (cold) and keep the
+  better solution. Costly where it fires, safe by construction.
+
+**Calibration on the original validation set only** (val + val_extra + val_extra2, 360 instances, no shift; the B-hg
+thresholds were tuned on the same instances): per instance the pipeline's fixings, Δ, the reduced MILP at 0.5 %, g;
+where g > 1 % also C2's polish and C3's full MILP. Rule, fixed in advance: the smallest value of a fixed grid that fires
+on at most 5 % of the 360 instances (the in-distribution speed budget). Result: **d_pre = 0.75 %** (fires on 3.9 %;
+grid 0.25–5 %), **d_post = 4 %** (fires on 3.1 %; grid 1–10 %). On validation the pipeline has a 0.265 % mean gap to the
+dataset MILP's bound; the 11 instances where the bound check fires average 1.32 % (pipeline), 1.22 % with C2's polish and
+0.87 % with C3's fallback.
+
+**Separate arm B: recalibration on shifted validation data** (`scripts/uc_cguard_shiftval.py`). The six shifts of the
+robustness study ([`ood.md`](ood.md)) drawn on *validation* calendar days (day % 5 = 2) with new seeds (401–406),
+20 instances each; per instance the pipeline and the full MILP at 0.5 %. Rule, fixed before that pass: d_post_B = the
+largest grid value that fires on every shifted-validation instance where the pipeline is more than 1 pp above the full
+MILP at 0.5 %, subject to firing on at most 10 % of the original validation instances (else the smallest value with at
+most 10 %). C2's polish is run on every test instance with g > 1 %, so both thresholds are evaluated from the same test
+records.
+
+## Setup
+
+* **Test sets**: test_fresh 0–119 and the robustness study's six shifted sets (30 each; outages handled as there:
+  `otsl.ood.OODModel`, probabilities of unavailable units 0, guards on the available fleet, fixings of unavailable units
+  forced OFF); 300 instances.
+* **Paired timing.** The m1x pipeline records could not be reused: re-solving 14 of them on core 0 gave the same
+  objectives but ~30 % shorter times (full MILP ratio median 0.69, ratio of means 0.77; pipeline 0.67 / 0.69;
+  `results/uc12/cguard_retime.json`). Everything was therefore re-solved here, per instance back to back in one process
+  on core 0 (HiGHS through highspy, one thread; torch one thread; the other three cores busy with other agents' jobs):
+  full MILP at 0.1 % (dual bound DB, speed-up denominator), full MILP at 0.5 %, LP relaxation, B-hg inference and guards,
+  the pipeline's reduced MILP at 0.5 %, C1 (relaxed reduced LP; release LPs and reduced MILP where it fires), C2's
+  dispatch-LP gradient and polish MILP (where g > 1 %).
+* **Method time** = inference + LP relaxation + guards (incl. the LP guard's LPs) + reduced MILP; plus C1's LPs and, where
+  it fires, its new reduced MILP; plus, where the bound check fires, C2's gradient LP and polish MILP or C3's full MILP
+  at 0.5 %. The bound check itself costs nothing.
+* **Metrics** (as in the m1x study): gap = (C − DB) / C, mean [95 % CI] and max; served share (no shedding,
+  over-generation or reserve shortfall); speed-up T_full(0.1 %) / T_method, mean and median; fixed share; firing rate.
+  Paired instance-bootstrap 95 % CIs (2,000 resamples) of Δ gap, Δ log speed-up and Δ served against the pipeline and
+  against the full MILP at 0.5 %. All reduced problems were feasible.
 

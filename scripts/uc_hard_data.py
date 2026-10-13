@@ -124,6 +124,11 @@ if __name__ == "__main__":
             path, src = os.path.join(DATA_DIR, f"polish_{k:02d}.npz"), os.path.join(DATA_DIR, f"train_{k:02d}.npz")
             if os.path.exists(path) or not os.path.exists(src):
                 continue
+            lock = path + ".lock"          # several processes share the chunk list (remove stale locks after a restart)
+            try:
+                os.close(os.open(lock, os.O_CREAT | os.O_EXCL))
+            except FileExistsError:
+                continue
             d = load_b3(src)
             t0 = time.time()
             P = pred({kk: d[kk] for kk in KEYS})
@@ -141,6 +146,7 @@ if __name__ == "__main__":
                                 hit_limit=np.array([r["status"] != "optimal" for r in recs]),
                                 served=np.array([r.get("shed", 1) < 1e-6 and r.get("short", 1) < 1e-6 for r in recs]),
                                 t_inf=t_inf, cfg=json.dumps(cfg))
+            os.remove(lock)
             print(f"polish {k}: {len(P)} in {time.time() - t0:.0f}s, from MILP "
                   f"{np.mean([r['used'] == 'milp' for r in recs]) * 100:.0f}%, mean {np.mean([r['total_s'] for r in recs]):.1f}s, "
                   f"vs y_blk median {np.median(cost / d['c_blk'] - 1) * 100:.2f}%", flush=True)
