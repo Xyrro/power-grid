@@ -177,26 +177,38 @@ def followup(L, res):
           "solution); d per rule = the smallest grid value (0.5–10 %) firing on ≤ 5 % of the 40 validation instances "
           "(reduced MILP at 0.5 %): " + "; ".join(f"{k}: d = {v['d_post'] * 100:g} % (fires on {v['rate'][str(v['d_post'])] * 100:.1f} %, "
                                                    f"g median {v['g_median'] * 100:.2f} %)" for k, v in cg["rules"].items()) + ".\n"]
-    if not os.path.exists(p_te):
+    pp = sorted(glob.glob(os.path.join(RES, "m24_fu_paired_*.jsonl")))
+    if not os.path.exists(p_te) or not pp:
         return
-    T_ = {json.loads(x)["i"]: json.loads(x) for x in open(p_te)}
+    T_ = {json.loads(x)["i"]: json.loads(x) for x in open(p_te)}            # first pass: drift check, m24cal objectives
     E = {json.loads(x)["i"]: json.loads(x) for x in open(os.path.join(RES, "m24_eval_test.jsonl"))}
-    idx = sorted(i for i in T_ if i in E)
-    F = [E[i]["runs"]["full"] for i in idx]
-    F5 = [E[i]["runs"]["full gap=0.5%"] for i in idx]
-    zl = [E[i]["c_rel"] for i in idx]
+    Q = {}
+    for x in pp:
+        for line in open(x):
+            r = json.loads(line)
+            Q[r["i"]] = r
+    idx = sorted(Q)
+    F = [Q[i]["runs"]["full"] for i in idx]
+    F5 = [Q[i]["runs"]["full gap=0.5%"] for i in idx]
+    zl = [Q[i]["c_rel"] for i in idx]
     d_ = {k: v["d_post"] for k, v in cg["rules"].items()}
-    R = {"full gap=0.5%": F5, "LtF-LP gap=0.5%": [E[i]["runs"]["LtF-LP gap=0.5%"] for i in idx],
-         "m24": [E[i]["runs"][PIPE] for i in idx], "m24cal": [T_[i]["runs"]["m24cal"] for i in idx]}
+    R = {k: [Q[i]["runs"][k] for i in idx] for k in ("full gap=0.5%", "LtF-LP gap=0.5%", "m24", "m24cal")}
     fired = {}
     for k, rule in (("LtF-LP gap=0.5%", "lp"), ("m24", "m24"), ("m24cal", "m24cal")):
         R[k + " + check"], fired[k + " + check"] = with_check(R[k], F5, zl, d_[rule])
-    # timing check: the original m24 pipeline re-solved in the follow-up process vs its stored record
-    re_ = [T_[i]["runs"]["m24"] for i in idx]
-    same = [abs(a["obj"] - b["obj"]) <= 1e-6 * abs(b["obj"]) for a, b in zip(re_, R["m24"]) if a["feasible"] and b["feasible"]]
-    ratio = np.array([a["t_method"] / b["t_method"] for a, b in zip(re_, R["m24"])])
-    fu["retime"] = dict(n=len(idx), same_obj=int(sum(same)), t_method_ratio_median=float(np.median(ratio)),
-                        t_method_ratio_geo=float(np.exp(np.log(ratio).mean())))
+    # reproducibility and timing drift against the stored run (m24_eval_test.jsonl) and the first follow-up pass
+    eq = lambda a, b: a["feasible"] == b["feasible"] and (not a["feasible"] or abs(a["obj"] - b["obj"]) <= 1e-6 * abs(b["obj"]))
+    rt = {}
+    for nm, src in (("m24", PIPE), ("LtF-LP gap=0.5%", "LtF-LP gap=0.5%"), ("full gap=0.5%", "full gap=0.5%"), ("full", "full")):
+        a_ = [Q[i]["runs"][nm] for i in idx]
+        b_ = [E[i]["runs"][src] for i in idx]
+        ra = np.array([x["t_method"] / y["t_method"] for x, y in zip(a_, b_)])
+        early = np.array([i < 26 for i in idx])
+        rt[nm] = dict(same_obj=int(sum(eq(x, y) for x, y in zip(a_, b_))), n=len(idx),
+                      ratio_median_0_25=float(np.median(ra[early])), ratio_median_26_39=float(np.median(ra[~early])))
+    rt["m24cal"] = dict(same_obj=int(sum(eq(Q[i]["runs"]["m24cal"], T_[i]["runs"]["m24cal"]) for i in idx if i in T_)),
+                        n=int(sum(i in T_ for i in idx)))
+    fu["retime"] = rt
     X = {k: arrays(v, F) for k, v in R.items()}
     names = {"full gap=0.5%": "full MILP, 0.5 %", "LtF-LP gap=0.5%": "LtF-LP, 0.5 %", "LtF-LP gap=0.5% + check": "LtF-LP + check",
              "m24": "m24 pipeline (original)", "m24 + check": "m24 pipeline + check", "m24cal": f"m24 calibrated ({sel['tag']})",
@@ -211,9 +223,14 @@ def followup(L, res):
                      f"{f(s['sp_mean'], 1)} / {f(s['sp_geo'], 1)}", f"{f(s['ttq_median'], 2)} / {f(s['ttq_geo'], 2)}",
                      f(s["fixed"], 1), "–" if s["fired"] is None else f(s["fired"], 0) + " %", f(s["served"], 0)])
     fu["test"] = S
-    L += [f"\nTest ({len(idx)} instances; m24 calibrated: new runs on core 1, paired with the stored records of the same "
-          f"instance; the original m24 pipeline re-solved in the same pass reproduces its stored objective on "
-          f"{fu['retime']['same_obj']} / {len(idx)}, method-time ratio new / stored median {fu['retime']['t_method_ratio_median']:.2f}):\n",
+    L += [f"\nTest ({len(idx)} instances, fully paired re-solve: per instance every rule back to back in one process, "
+          f"even instances on core 0, odd on core 1; full MILP at 0.1 % {np.mean([x['time'] for x in F]):.0f} s mean). "
+          f"Same objective as the stored run: m24 {rt['m24']['same_obj']} / {len(idx)}, LtF-LP {rt['LtF-LP gap=0.5%']['same_obj']} / {len(idx)}, "
+          f"full MILP at 0.5 % {rt['full gap=0.5%']['same_obj']} / {len(idx)}, at 0.1 % {rt['full']['same_obj']} / {len(idx)}; "
+          f"m24 calibrated as in the first follow-up pass {rt['m24cal']['same_obj']} / {rt['m24cal']['n']}. Time ratio new / stored "
+          f"(median): instances 0–25 (stored before a container restart) m24 {rt['m24']['ratio_median_0_25']:.2f}, full MILP "
+          f"{rt['full']['ratio_median_0_25']:.2f}; instances 26–39 m24 {rt['m24']['ratio_median_26_39']:.2f}, full MILP "
+          f"{rt['full']['ratio_median_26_39']:.2f}.\n",
           table(["rule", "feasible", "gap mean % [95 % CI]", "max", "# > 1 %", "# > 0.5 %", "speed-up mean / geo",
                  "TTQ median / geo", "fixed %", "check fired", "served %"], rows)]
     P_ = ["\nPaired, rule − reference (Δ gap pp [CI]; time ratio and TTQ ratio = geometric mean of reference / rule, > 1 = "
