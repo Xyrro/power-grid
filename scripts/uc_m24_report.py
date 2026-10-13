@@ -129,6 +129,113 @@ def prob_section(L, res):
                  "fixable @99.9 %"], rows)]
 
 
+def with_check(R, F5, c_rel, d):
+    """cguard C3 on a rule's records: g = (C_red - z_LP) / C_red; if g > d or the reduced problem is infeasible, the
+    full MILP at 0.5 % (the stored record of the same instance) is added to the method time and the better solution
+    kept. Returns (records, fired)."""
+    out, fired = [], []
+    for r, f5, z in zip(R, F5, c_rel):
+        g = (r["obj"] - z) / r["obj"] if r["feasible"] else np.inf
+        fire = bool(g > d)
+        fired.append(fire)
+        x = dict(r)
+        if fire:
+            x["t_method"] = r["t_method"] + f5["time"]
+            if f5["feasible"] and (not r["feasible"] or f5["obj"] < r["obj"]):
+                x.update(obj=f5["obj"], feasible=True, shed=f5.get("shed"), short=f5.get("short"))
+        out.append(x)
+    return out, np.array(fired)
+
+
+def followup(L, res):
+    """follow-up: calibrated m24 rule and the cguard bound check (scripts/uc_m24_fu.py)"""
+    p_sel, p_cg, p_te = (os.path.join(RES, f) for f in ("m24_fu_select.json", "m24_fu_cguard.json", "m24_fu_test.jsonl"))
+    if not os.path.exists(p_sel):
+        return
+    sel = json.load(open(p_sel))
+    fu = res["followup"] = {"select": sel}
+    cv = [json.loads(x) for x in open(os.path.join(RES, "m24_cv.jsonl"))]
+    rows = []
+    for score, nm in (("m24", "m24, tuned thresholds (no change)"), ("lp", "learning-free LtF (reference)")):
+        rr = [r for r in cv if r["kind"] == "heldout" and r["score"] == score]
+        v = sum(1 for r in rr if not r["feasible"] or r["rel_inc"] > 0.01)
+        rows.append([nm, f"{v} / {len(rr)}", f(np.mean([r["n_fixed"] for r in rr]) / TG * 100, 1)])
+    for fam, v in sel["families"].items():
+        for r in v["grid"]:
+            lab = (f"m24, logit margin δ = {r['param']:g}" if fam == "margin" else f"m24, tuned at ε = {r['param'] * 100:g} %")
+            star = " **(chosen)**" if (fam == sel["family"] and r["param"] == sel["param"]) else ""
+            rows.append([lab + star, f"{r['violations']} / {r['n']}", f(r["heldout_fixed"] * 100, 1)])
+    L += ["\n## Follow-up: calibrated m24 rule and the cost-aware bound check\n",
+          "Calibration (validation only, the 2-fold CV above; target ≤ 3 of 40 held-out ε violations, learning-free LtF's "
+          "rate; per family the smallest change meeting it, across families the larger held-out fixed share):\n",
+          table(["thresholds", "held-out cases above 1 %", "held-out fixed %"], rows)]
+    if not os.path.exists(p_cg):
+        return
+    cg = json.load(open(p_cg))
+    fu["cguard"] = cg
+    L += ["\nBound check (cguard C3: g = (C_red − z_LP) / C_red; if g > d or infeasible, full MILP at 0.5 % and the better "
+          "solution); d per rule = the smallest grid value (0.5–10 %) firing on ≤ 5 % of the 40 validation instances "
+          "(reduced MILP at 0.5 %): " + "; ".join(f"{k}: d = {v['d_post'] * 100:g} % (fires on {v['rate'][str(v['d_post'])] * 100:.1f} %, "
+                                                   f"g median {v['g_median'] * 100:.2f} %)" for k, v in cg["rules"].items()) + ".\n"]
+    if not os.path.exists(p_te):
+        return
+    T_ = {json.loads(x)["i"]: json.loads(x) for x in open(p_te)}
+    E = {json.loads(x)["i"]: json.loads(x) for x in open(os.path.join(RES, "m24_eval_test.jsonl"))}
+    idx = sorted(i for i in T_ if i in E)
+    F = [E[i]["runs"]["full"] for i in idx]
+    F5 = [E[i]["runs"]["full gap=0.5%"] for i in idx]
+    zl = [E[i]["c_rel"] for i in idx]
+    d_ = {k: v["d_post"] for k, v in cg["rules"].items()}
+    R = {"full gap=0.5%": F5, "LtF-LP gap=0.5%": [E[i]["runs"]["LtF-LP gap=0.5%"] for i in idx],
+         "m24": [E[i]["runs"][PIPE] for i in idx], "m24cal": [T_[i]["runs"]["m24cal"] for i in idx]}
+    fired = {}
+    for k, rule in (("LtF-LP gap=0.5%", "lp"), ("m24", "m24"), ("m24cal", "m24cal")):
+        R[k + " + check"], fired[k + " + check"] = with_check(R[k], F5, zl, d_[rule])
+    # timing check: the original m24 pipeline re-solved in the follow-up process vs its stored record
+    re_ = [T_[i]["runs"]["m24"] for i in idx]
+    same = [abs(a["obj"] - b["obj"]) <= 1e-6 * abs(b["obj"]) for a, b in zip(re_, R["m24"]) if a["feasible"] and b["feasible"]]
+    ratio = np.array([a["t_method"] / b["t_method"] for a, b in zip(re_, R["m24"])])
+    fu["retime"] = dict(n=len(idx), same_obj=int(sum(same)), t_method_ratio_median=float(np.median(ratio)),
+                        t_method_ratio_geo=float(np.exp(np.log(ratio).mean())))
+    X = {k: arrays(v, F) for k, v in R.items()}
+    names = {"full gap=0.5%": "full MILP, 0.5 %", "LtF-LP gap=0.5%": "LtF-LP, 0.5 %", "LtF-LP gap=0.5% + check": "LtF-LP + check",
+             "m24": "m24 pipeline (original)", "m24 + check": "m24 pipeline + check", "m24cal": f"m24 calibrated ({sel['tag']})",
+             "m24cal + check": f"m24 calibrated + check"}
+    S, rows = {}, []
+    for k in ("full gap=0.5%", "LtF-LP gap=0.5%", "LtF-LP gap=0.5% + check", "m24", "m24 + check", "m24cal", "m24cal + check"):
+        s = stats(X[k])
+        s["fired"] = float(fired[k].mean() * 100) if k in fired else None
+        S[k] = s
+        rows.append([names[k], f"{int(round(s['feasible'] * s['n'] / 100))} / {s['n']}",
+                     f"{f(s['gap_mean'])} [{f(s['gap_ci'][0])}, {f(s['gap_ci'][1])}]", f(s["gap_max"]), s["n_gt_1"], s["n_gt_05"],
+                     f"{f(s['sp_mean'], 1)} / {f(s['sp_geo'], 1)}", f"{f(s['ttq_median'], 2)} / {f(s['ttq_geo'], 2)}",
+                     f(s["fixed"], 1), "–" if s["fired"] is None else f(s["fired"], 0) + " %", f(s["served"], 0)])
+    fu["test"] = S
+    L += [f"\nTest ({len(idx)} instances; m24 calibrated: new runs on core 1, paired with the stored records of the same "
+          f"instance; the original m24 pipeline re-solved in the same pass reproduces its stored objective on "
+          f"{fu['retime']['same_obj']} / {len(idx)}, method-time ratio new / stored median {fu['retime']['t_method_ratio_median']:.2f}):\n",
+          table(["rule", "feasible", "gap mean % [95 % CI]", "max", "# > 1 %", "# > 0.5 %", "speed-up mean / geo",
+                 "TTQ median / geo", "fixed %", "check fired", "served %"], rows)]
+    P_ = ["\nPaired, rule − reference (Δ gap pp [CI]; time ratio and TTQ ratio = geometric mean of reference / rule, > 1 = "
+          "the rule is faster):\n", "| rule | reference | n | Δ gap pp [CI] | time ratio [CI] | TTQ ratio [CI] |",
+          "|---|---|---|---|---|---|"]
+    fu["paired"] = {}
+    ex = lambda v: f"{np.exp(v):.2f}×"
+    for a_ in ("m24cal", "m24cal + check", "m24 + check", "LtF-LP gap=0.5% + check", "m24"):
+        for b_ in ("LtF-LP gap=0.5%", "full gap=0.5%"):
+            if a_ == b_:
+                continue
+            p = paired(X[a_], X[b_])
+            fu["paired"][f"{a_} vs {b_}"] = p
+            P_.append(f"| {names[a_]} | {names[b_]} | {p['n']} | {p['d_gap']:+.2f} [{p['d_gap_ci'][0]:+.2f}, {p['d_gap_ci'][1]:+.2f}] | "
+                      f"{ex(p['d_logsp'])} [{ex(p['d_logsp_ci'][0])}, {ex(p['d_logsp_ci'][1])}] | "
+                      f"{ex(p['d_logttq'])} [{ex(p['d_logttq_ci'][0])}, {ex(p['d_logttq_ci'][1])}] |")
+    L += P_
+    tail = {k: [int(i) for i, g in zip(idx, X[k]["gap"]) if np.isfinite(g) and g > 1] for k in X}
+    fu["above_1pct"] = tail
+    L.append("\nInstances above 1 %: " + "; ".join(f"{names[k]}: {', '.join(map(str, v)) or 'none'}" for k, v in tail.items()) + ".")
+
+
 if __name__ == "__main__":
     os.chdir(os.path.dirname(HERE))
     res = {}
@@ -287,6 +394,7 @@ if __name__ == "__main__":
         same = [abs(r["runs"]["guarded 95%"]["obj"] - (r["runs"]["guarded 95%"].get("stored_obj") or np.nan)) <= 1e-6 * r["runs"]["guarded 95%"]["obj"]
                 for r in recs if r["runs"]["guarded 95%"]["feasible"]]
         res["test"]["guarded_reproduces_stored_obj_pct"] = float(np.mean(same) * 100) if same else None
+    followup(L, res)
     open(os.path.join(RES, "m24_results.md"), "w").write("\n".join(L) + "\n")
     json.dump(res, open(os.path.join(RES, "m24_results.json"), "w"), indent=1, default=float)
     print("\n".join(L))
