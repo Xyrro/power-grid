@@ -308,6 +308,35 @@ def test_tables(recs, te, out):
         L.append(f"| {nm(a)} | {nm(b)} | {p['n']} | {p['d_gap']:+.3f} [{p['d_gap_ci'][0]:+.3f}, {p['d_gap_ci'][1]:+.3f}] | "
                  f"{p['d_log']:+.2f} [{p['d_log_ci'][0]:+.2f}, {p['d_log_ci'][1]:+.2f}] | {p['ratio']:.2f}× | "
                  f"{p['a_better']} / {p['b_better']} |")
+    # where the LP relaxation is weak: test instances split at the median LP gap to the reference dual bound
+    lpg = np.array([(DB[q] - te["c_rel"][i]) / DB[q] * 100 for q, i in enumerate(idx)])
+    hi = lpg > np.median(lpg)
+    L += ["", f"By LP-relaxation gap (test instances split at the median LP gap to DB, {np.median(lpg):.2f} %): mean gap % "
+          "(feasible instances) and geometric-mean speed-up of each rule; and the learned pipeline minus the LP pipeline at "
+          "0.5 % (Δ gap pp and Δ log speed-up [95 % CI]).", "",
+          "| rule | mip_rel_gap | weak half: gap % | speed-up | strong half: gap % | speed-up |", "|---|---|---|---|---|---|"]
+    out["test"]["by_lp_gap"] = dict(median_lp_gap=float(np.median(lpg)), rows={})
+    gm = lambda x: float(np.exp(np.mean(np.log(x)))) if len(x) else np.nan
+    for k in order:
+        x = X[k]
+        row = {}
+        for nm_, msk in (("weak", hi), ("strong", ~hi)):
+            f = x["feas"] & msk
+            row[nm_] = dict(gap=float(x["gap"][f].mean()), sp_geo=gm(x["sp"][f]), n=int(f.sum()), n_all=int(msk.sum()))
+        out["test"]["by_lp_gap"]["rows"][f"{k[0]} @ {k[1] * 100:g}%"] = row
+        L.append(f"| {k[0]} | {k[1] * 100:g} % | {row['weak']['gap']:.2f} | {row['weak']['sp_geo']:.1f} | "
+                 f"{row['strong']['gap']:.2f} | {row['strong']['sp_geo']:.1f} |")
+    a, b = ("pipeline", 5e-3), ("LP pipeline", 5e-3)
+    if a in X and b in X:
+        for nm_, msk in (("weak half", hi), ("strong half", ~hi)):
+            both = X[a]["feas"] & X[b]["feas"] & msk
+            dg = (X[a]["gap"] - X[b]["gap"])[both]
+            dl = (np.log(X[a]["sp"]) - np.log(X[b]["sp"]))[both]
+            p = dict(n=int(both.sum()), d_gap=float(dg.mean()), d_gap_ci=boot_ci(dg), d_log=float(dl.mean()), d_log_ci=boot_ci(dl))
+            out["test"]["by_lp_gap"][f"pipeline - LP pipeline @ 0.5%, {nm_}"] = p
+            L.append(f"\nPipeline − LP pipeline at 0.5 %, {nm_} (n = {p['n']}): Δ gap {p['d_gap']:+.3f} pp "
+                     f"[{p['d_gap_ci'][0]:+.3f}, {p['d_gap_ci'][1]:+.3f}], Δ log speed-up {p['d_log']:+.2f} "
+                     f"[{p['d_log_ci'][0]:+.2f}, {p['d_log_ci'][1]:+.2f}].")
     return L
 
 
