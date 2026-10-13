@@ -96,6 +96,9 @@ def main():
                  f"{s['frac_per_inst']:.0f} of {T * G} | {s['wrong_int_per_inst']:.1f} ({s['wrong_int_median']:.0f}) | "
                  f"{s['milp_time_mean']:.0f} / {s['milp_time_median']:.0f} / {s['milp_time_max']:.0f} | {s['milp_opt']} / {s['n']} | "
                  f"{s['served']:.0f} | {s['c_blk_gap_median']:.1f} |")
+    pp = os.path.join(RES, "hard_paired_orig_val.jsonl")
+    if os.path.exists(pp):
+        L += paired_orig(jl(pp), v, sysm, out)
     # ------------------------------------------------------------------ labels, models, tuning
     pj = os.path.join(DATA, "pilot.json")
     if os.path.exists(pj):
@@ -173,6 +176,56 @@ def main():
     json.dump(out, open(os.path.join(RES, "hard_results.json"), "w"), indent=1, default=float)
     open(os.path.join(RES, "hard_results.md"), "w").write("\n".join(L) + "\n")
     print("\n".join(L))
+
+
+def paired_orig(P, v, sysm, out):
+    """the same validation scenarios at the original ratings vs 60 % (scripts/uc_hard_paired.py)"""
+    from otsl.hard import relax_stats
+    P = sorted(P, key=lambda r: r["i"])
+    idx = [r["i"] for r in P]
+    g_o = np.array([r["lp_gap_db"] for r in P])
+    g_d = np.array([(v["bound"][i] - v["c_rel"][i]) / v["bound"][i] * 100 for i in idx])
+    gc_o = np.array([r["lp_gap_obj"] for r in P])
+    gc_d = np.array([(v["obj"][i] - v["c_rel"][i]) / v["obj"][i] * 100 for i in idx])
+    rs_d = [relax_stats(v["u_rel"][i], v["u"][i], sysm, v["u0"][i]) for i in idx]
+    fr_o, fr_d = np.array([r["n_frac"] for r in P]), np.array([x["n_frac"] for x in rs_d])
+    wr_o, wr_d = np.array([r["n_wrong"] for r in P]), np.array([x["n_wrong"] for x in rs_d])
+    t_o, t_d = np.array([r["milp_time"] for r in P]), np.array([v["time"][i] for i in idx])
+    served_o = np.mean([(r.get("shed") or 0) + (r.get("short") or 0) < 1e-6 for r in P]) * 100
+    d = g_d - g_o
+    res = dict(n=len(idx), gap_db_orig=dict(mean=float(g_o.mean()), median=float(np.median(g_o)), max=float(g_o.max())),
+               gap_db_derated=dict(mean=float(g_d.mean()), median=float(np.median(g_d)), max=float(g_d.max())),
+               gap_c_orig=dict(mean=float(gc_o.mean()), median=float(np.median(gc_o))),
+               gap_c_derated=dict(mean=float(gc_d.mean()), median=float(np.median(gc_d))),
+               d_gap_db=float(d.mean()), d_gap_db_ci=boot_ci(d), d_gap_db_median=float(np.median(d)),
+               derated_weaker=int((d > 1e-6).sum()), frac_orig=float(fr_o.mean()), frac_derated=float(fr_d.mean()),
+               d_frac_ci=boot_ci(fr_d - fr_o), wrong_orig=float(wr_o.mean()), wrong_derated=float(wr_d.mean()),
+               d_wrong_ci=boot_ci(wr_d - wr_o), int_orig=float(np.mean([r["int_share"] for r in P]) * 100),
+               int_derated=float(np.mean([x["int_share"] for x in rs_d]) * 100),
+               milp_orig=dict(mean=float(t_o.mean()), median=float(np.median(t_o)), max=float(t_o.max())),
+               milp_derated=dict(mean=float(t_d.mean()), median=float(np.median(t_d)), max=float(t_d.max())),
+               time_ratio_geo=float(np.exp(np.mean(np.log(t_d / t_o)))), served_orig=float(served_o))
+    out["paired_orig"] = res
+    r = res
+    return ["", f"## Paired check: the same {r['n']} validation scenarios at the original ratings", "",
+            "`scripts/uc_hard_paired.py`: identical load, renewables, reserve and initial status; LP relaxation and full MILP "
+            "(0.1 %, 600 s) with line_scale 1.0. Differences derated − original with instance-bootstrap 95 % CIs.", "",
+            "| quantity | original ratings | ratings × 0.6 | difference [95 % CI] |", "|---|---|---|---|",
+            f"| LP below DB: mean / median / max % | {r['gap_db_orig']['mean']:.3f} / {r['gap_db_orig']['median']:.3f} / "
+            f"{r['gap_db_orig']['max']:.2f} | {r['gap_db_derated']['mean']:.3f} / {r['gap_db_derated']['median']:.3f} / "
+            f"{r['gap_db_derated']['max']:.2f} | {r['d_gap_db']:+.3f} pp [{r['d_gap_db_ci'][0]:+.3f}, {r['d_gap_db_ci'][1]:+.3f}] "
+            f"(median {r['d_gap_db_median']:+.3f}; derated weaker on {r['derated_weaker']} / {r['n']}) |",
+            f"| LP below C: mean / median % | {r['gap_c_orig']['mean']:.3f} / {r['gap_c_orig']['median']:.3f} | "
+            f"{r['gap_c_derated']['mean']:.3f} / {r['gap_c_derated']['median']:.3f} | |",
+            f"| integral values % | {r['int_orig']:.1f} | {r['int_derated']:.1f} | |",
+            f"| fractional values / instance | {r['frac_orig']:.1f} | {r['frac_derated']:.1f} | "
+            f"[{r['d_frac_ci'][0]:+.1f}, {r['d_frac_ci'][1]:+.1f}] |",
+            f"| wrong integral values / instance | {r['wrong_orig']:.1f} | {r['wrong_derated']:.1f} | "
+            f"[{r['d_wrong_ci'][0]:+.1f}, {r['d_wrong_ci'][1]:+.1f}] |",
+            f"| full MILP s: mean / median / max | {r['milp_orig']['mean']:.0f} / {r['milp_orig']['median']:.0f} / "
+            f"{r['milp_orig']['max']:.0f} | {r['milp_derated']['mean']:.0f} / {r['milp_derated']['median']:.0f} / "
+            f"{r['milp_derated']['max']:.0f} | time ratio (geo. mean) {r['time_ratio_geo']:.2f} |",
+            f"| served % | {r['served_orig']:.0f} | {out['lp']['val']['served']:.0f} | |"]
 
 
 def test_tables(recs, te, out):
