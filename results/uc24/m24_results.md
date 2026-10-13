@@ -105,31 +105,31 @@ Calibration (validation only, the 2-fold CV above; target ≤ 3 of 40 held-out �
 Bound check (cguard C3: g = (C_red − z_LP) / C_red; if g > d or infeasible, full MILP at 0.5 % and the better solution); d per rule = the smallest grid value (0.5–10 %) firing on ≤ 5 % of the 40 validation instances (reduced MILP at 0.5 %): lp: d = 1 % (fires on 2.5 %, g median 0.37 %); m24: d = 1.5 % (fires on 2.5 %, g median 0.45 %); m24cal: d = 1 % (fires on 2.5 %, g median 0.40 %).
 
 
-Test (5 instances, fully paired re-solve: per instance every rule back to back in one process, even instances on core 0, odd on core 1; full MILP at 0.1 % 82 s mean). Same objective as the stored run: m24 5 / 5, LtF-LP 5 / 5, full MILP at 0.5 % 5 / 5, at 0.1 % 5 / 5; m24 calibrated as in the first follow-up pass 5 / 5. Time ratio new / stored (median): instances 0–25 (stored before a container restart) m24 1.67, full MILP 1.65; instances 26–39 m24 nan, full MILP nan.
+Test (40 instances, fully paired re-solve: per instance every rule back to back in one process, even instances on core 0, odd on core 1; full MILP at 0.1 % 150 s mean). Same objective as the stored run: m24 40 / 40, LtF-LP 40 / 40, full MILP at 0.5 % 39 / 40, at 0.1 % 36 / 40; m24 calibrated as in the first follow-up pass 40 / 40. Time ratio new / stored (median): instances 0–25 (stored before a container restart) m24 1.48, full MILP 1.45; instances 26–39 m24 0.89, full MILP 0.95.
 
 | rule | feasible | gap mean % [95 % CI] | max | # > 1 % | # > 0.5 % | speed-up mean / geo | TTQ median / geo | fixed % | check fired | served % |
 |---|---|---|---|---|---|---|---|---|---|---|
-| full MILP, 0.5 % | 5 / 5 | 0.12 [0.02, 0.25] | 0.37 | 0 | 0 | 3.3 / 2.4 | 1.01 / 1.00 | 0.0 | – | 100 |
-| LtF-LP, 0.5 % | 5 / 5 | 0.23 [0.05, 0.52] | 0.82 | 0 | 1 | 10.1 / 6.9 | 1.77 / 3.84 | 81.1 | – | 100 |
-| LtF-LP + check | 5 / 5 | 0.09 [0.05, 0.13] | 0.14 | 0 | 0 | 7.3 / 5.1 | 1.60 / 3.27 | 81.1 | 20 % | 100 |
-| m24 pipeline (original) | 5 / 5 | 0.20 [0.05, 0.36] | 0.45 | 0 | 0 | 14.5 / 14.2 | 8.09 / 5.97 | 95.3 | – | 100 |
-| m24 pipeline + check | 5 / 5 | 0.20 [0.05, 0.36] | 0.45 | 0 | 0 | 14.5 / 14.2 | 8.09 / 5.97 | 95.3 | 0 % | 100 |
-| m24 calibrated (margin1) | 5 / 5 | 0.12 [0.02, 0.29] | 0.44 | 0 | 0 | 8.7 / 7.3 | 3.87 / 4.02 | 89.7 | – | 100 |
-| m24 calibrated + check | 5 / 5 | 0.12 [0.02, 0.29] | 0.44 | 0 | 0 | 8.7 / 7.3 | 3.87 / 4.02 | 89.7 | 0 % | 100 |
+| full MILP, 0.5 % | 40 / 40 | 0.25 [0.19, 0.34] | 1.01 | 2 | 6 | 4.2 / 2.6 | 0.99 / 0.84 | 0.0 | – | 98 |
+| LtF-LP, 0.5 % | 39 / 40 | 0.35 [0.25, 0.46] | 1.36 | 2 | 8 | 11.1 / 6.9 | 2.41 / 2.56 | 80.6 | – | 92 |
+| LtF-LP + check | 40 / 40 | 0.26 [0.20, 0.34] | 1.01 | 1 | 5 | 9.7 / 5.0 | 2.08 / 2.06 | 80.6 | 20 % | 95 |
+| m24 pipeline (original) | 40 / 40 | 0.57 [0.41, 0.76] | 2.37 | 8 | 17 | 15.8 / 11.0 | 3.24 / 3.49 | 91.1 | – | 92 |
+| m24 pipeline + check | 40 / 40 | 0.39 [0.30, 0.48] | 1.30 | 2 | 12 | 14.1 / 8.3 | 2.86 / 2.81 | 91.1 | 18 % | 90 |
+| m24 calibrated (margin1) | 40 / 40 | 0.29 [0.21, 0.37] | 0.95 | 0 | 7 | 10.7 / 7.5 | 2.91 / 3.46 | 85.0 | – | 92 |
+| m24 calibrated + check | 40 / 40 | 0.27 [0.20, 0.34] | 0.95 | 0 | 5 | 10.1 / 6.3 | 2.65 / 2.91 | 85.0 | 12 % | 92 |
 
 Paired, rule − reference (Δ gap pp [CI]; time ratio and TTQ ratio = geometric mean of reference / rule, > 1 = the rule is faster):
 
 | rule | reference | n | Δ gap pp [CI] | time ratio [CI] | TTQ ratio [CI] |
 |---|---|---|---|---|---|
-| m24 calibrated (margin1) | LtF-LP, 0.5 % | 5 | -0.11 [-0.24, -0.03] | 1.05× [0.68×, 1.72×] | 1.05× [0.68×, 1.72×] |
-| m24 calibrated (margin1) | full MILP, 0.5 % | 5 | +0.00 [-0.19, +0.19] | 3.06× [1.63×, 7.30×] | 4.03× [1.53×, 10.17×] |
-| m24 calibrated + check | LtF-LP, 0.5 % | 5 | -0.11 [-0.24, -0.03] | 1.05× [0.68×, 1.72×] | 1.05× [0.68×, 1.72×] |
-| m24 calibrated + check | full MILP, 0.5 % | 5 | +0.00 [-0.19, +0.19] | 3.06× [1.63×, 7.30×] | 4.03× [1.53×, 10.17×] |
-| m24 pipeline + check | LtF-LP, 0.5 % | 5 | -0.02 [-0.25, +0.19] | 2.05× [1.02×, 4.38×] | 1.55× [0.43×, 4.65×] |
-| m24 pipeline + check | full MILP, 0.5 % | 5 | +0.08 [+0.02, +0.18] | 6.00× [2.76×, 11.78×] | 6.00× [2.76×, 11.78×] |
-| LtF-LP + check | LtF-LP, 0.5 % | 5 | -0.14 [-0.41, +0.00] | 0.74× [0.41×, 1.00×] | 0.85× [0.62×, 1.00×] |
-| LtF-LP + check | full MILP, 0.5 % | 5 | -0.03 [-0.14, +0.04] | 2.17× [1.03×, 6.18×] | 3.28× [1.17×, 9.37×] |
-| m24 pipeline (original) | LtF-LP, 0.5 % | 5 | -0.02 [-0.25, +0.19] | 2.05× [1.02×, 4.38×] | 1.55× [0.43×, 4.65×] |
-| m24 pipeline (original) | full MILP, 0.5 % | 5 | +0.08 [+0.02, +0.18] | 6.00× [2.76×, 11.78×] | 6.00× [2.76×, 11.78×] |
+| m24 calibrated (margin1) | LtF-LP, 0.5 % | 39 | -0.06 [-0.14, +0.03] | 1.14× [0.94×, 1.38×] | 1.38× [1.03×, 1.89×] |
+| m24 calibrated (margin1) | full MILP, 0.5 % | 40 | +0.03 [-0.04, +0.11] | 2.87× [2.31×, 3.64×] | 4.15× [2.97×, 5.87×] |
+| m24 calibrated + check | LtF-LP, 0.5 % | 39 | -0.07 [-0.15, -0.00] | 0.94× [0.71×, 1.22×] | 1.15× [0.84×, 1.59×] |
+| m24 calibrated + check | full MILP, 0.5 % | 40 | +0.01 [-0.06, +0.08] | 2.38× [1.86×, 3.07×] | 3.48× [2.51×, 4.90×] |
+| m24 pipeline + check | LtF-LP, 0.5 % | 39 | +0.05 [-0.04, +0.14] | 1.24× [0.88×, 1.72×] | 1.09× [0.77×, 1.53×] |
+| m24 pipeline + check | full MILP, 0.5 % | 40 | +0.13 [+0.05, +0.22] | 3.15× [2.34×, 4.27×] | 3.36× [2.48×, 4.60×] |
+| LtF-LP + check | LtF-LP, 0.5 % | 39 | -0.08 [-0.15, -0.02] | 0.76× [0.61×, 0.91×] | 0.82× [0.69×, 0.94×] |
+| LtF-LP + check | full MILP, 0.5 % | 40 | +0.01 [-0.05, +0.06] | 1.90× [1.46×, 2.51×] | 2.46× [1.80×, 3.48×] |
+| m24 pipeline (original) | LtF-LP, 0.5 % | 39 | +0.24 [+0.10, +0.41] | 1.65× [1.28×, 2.14×] | 1.37× [1.02×, 1.82×] |
+| m24 pipeline (original) | full MILP, 0.5 % | 40 | +0.32 [+0.17, +0.48] | 4.19× [3.30×, 5.40×] | 4.17× [3.21×, 5.53×] |
 
-Instances above 1 %: full MILP, 0.5 %: none; LtF-LP, 0.5 %: none; m24 pipeline (original): none; m24 calibrated (margin1): none; LtF-LP + check: none; m24 pipeline + check: none; m24 calibrated + check: none.
+Instances above 1 %: full MILP, 0.5 %: 7, 15; LtF-LP, 0.5 %: 7, 34; m24 pipeline (original): 1, 7, 10, 17, 22, 28, 32, 34; m24 calibrated (margin1): none; LtF-LP + check: 7; m24 pipeline + check: 7, 22; m24 calibrated + check: none.
