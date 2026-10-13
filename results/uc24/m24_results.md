@@ -43,16 +43,19 @@ Polished labels: 780 instances (180 original training instances without MILP + 6
 
 ## Test: 40 uc24 test instances; full MILP (0.1 %, 300 s) back to back 133 s mean (median 82 s), core 1
 
-| rule | feasible % | gap mean % [95 % CI] | median | max | served % | speed-up mean [CI] | median | geo. mean | TTQ speed-up median | TTQ geo. mean | fixed % |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| full MILP, 0.1 % (reference) | 100 | 0.14 [0.10, 0.18] | 0.10 | 0.57 | 98 | 1.0 [1.0, 1.0] | 1.0 | 1.0 | 0.86 | 0.62 | 0.0 |
-| full MILP, 0.5 % gap | 100 | 0.24 [0.18, 0.31] | 0.17 | 0.99 | 98 | 4.6 [3.0, 6.7] | 2.1 | 2.8 | 0.99 | 0.86 | 0.0 |
-| learning-free LtF on the LP relaxation, 0.5 % | 98 | 0.34 [0.25, 0.45] | 0.22 | 1.28 | 92 | 12.6 [7.1, 21.6] | 6.1 | 7.1 | 2.31 | 2.55 | 80.6 |
-| guarded 95 % rule (0.1 %) | 100 | 0.66 [0.49, 0.87] | 0.45 | 2.36 | 95 | 12.2 [8.1, 16.9] | 5.3 | 6.2 | 1.83 | 1.78 | 85.4 |
-| guarded 95 % rule, 0.5 % | 100 | 0.69 [0.52, 0.89] | 0.51 | 2.53 | 92 | 14.9 [11.0, 19.4] | 8.7 | 9.4 | 2.44 | 2.53 | 85.4 |
-| m24 fixings + LP guard (0.1 %) | 100 | 0.54 [0.38, 0.72] | 0.41 | 2.37 | 98 | 11.5 [7.6, 16.8] | 5.6 | 6.9 | 2.62 | 2.31 | 91.1 |
-| **m24 pipeline (LP guard, 0.5 %)** | 100 | 0.57 [0.41, 0.75] | 0.43 | 2.37 | 92 | 17.3 [12.6, 23.0] | 12.0 | 11.4 | 3.24 | 3.42 | 91.1 |
-| LtF-kNN ε = 1 % (stored run) | 100 | 0.60 [0.42, 0.81] | 0.28 | 2.70 | 98 | 7.1 [4.5, 10.2] | 4.1 | 4.1 | 0.94 | 1.33 | 67.4 |
+| rule | feasible % | gap mean % [95 % CI] | median | max | # > 0.5 % | # > 1 % | served % | speed-up mean [CI] | median | geo. mean | TTQ speed-up median | TTQ geo. mean | fixed % |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| full MILP, 0.1 % (reference) | 100 | 0.14 [0.10, 0.18] | 0.10 | 0.57 | 1 | 0 | 98 | 1.0 [1.0, 1.0] | 1.0 | 1.0 | 0.86 | 0.62 | 0.0 |
+| full MILP, 0.5 % gap | 100 | 0.24 [0.18, 0.31] | 0.17 | 0.99 | 4 | 0 | 98 | 4.6 [3.0, 6.7] | 2.1 | 2.8 | 0.99 | 0.86 | 0.0 |
+| learning-free LtF on the LP relaxation, 0.5 % | 98 | 0.34 [0.25, 0.45] | 0.22 | 1.28 | 8 | 2 | 92 | 12.6 [7.1, 21.6] | 6.1 | 7.1 | 2.31 | 2.55 | 80.6 |
+| guarded 95 % rule (0.1 %) | 100 | 0.66 [0.49, 0.87] | 0.45 | 2.36 | 19 | 9 | 95 | 12.2 [8.1, 16.9] | 5.3 | 6.2 | 1.83 | 1.78 | 85.4 |
+| guarded 95 % rule, 0.5 % | 100 | 0.69 [0.52, 0.89] | 0.51 | 2.53 | 20 | 9 | 92 | 14.9 [11.0, 19.4] | 8.7 | 9.4 | 2.44 | 2.53 | 85.4 |
+| m24 fixings + LP guard (0.1 %) | 100 | 0.54 [0.38, 0.72] | 0.41 | 2.37 | 16 | 8 | 98 | 11.5 [7.6, 16.8] | 5.6 | 6.9 | 2.62 | 2.31 | 91.1 |
+| **m24 pipeline (LP guard, 0.5 %)** | 100 | 0.57 [0.41, 0.75] | 0.43 | 2.37 | 17 | 8 | 92 | 17.3 [12.6, 23.0] | 12.0 | 11.4 | 3.24 | 3.42 | 91.1 |
+| LtF-kNN ε = 1 % (stored run) | 100 | 0.60 [0.42, 0.81] | 0.28 | 2.70 | 15 | 9 | 98 | 7.1 [4.5, 10.2] | 4.1 | 4.1 | 0.94 | 1.33 | 67.4 |
+
+Not served (feasible, but shedding or reserve shortfall above 1e-6 MW; test instance indices): full MILP, 0.1 % (reference): 10; full MILP, 0.5 % gap: 10; learning-free LtF on the LP relaxation, 0.5 %: 13, 15; guarded 95 % rule (0.1 %): 18, 27; guarded 95 % rule, 0.5 %: 17, 18, 27; m24 fixings + LP guard (0.1 %): 18; m24 pipeline (LP guard, 0.5 %): 13, 18, 33. All are reserve shortfalls, the largest 0.045 MW; no load is shed.
+
 
 LtF-kNN: stored records of the uc24ltf test run (speed-up against the dataset run's full-MILP time, as published there, i.e. not paired with this run's timing; cost scored against this run's dual bound; TTQ against this run's incumbent log).
 
