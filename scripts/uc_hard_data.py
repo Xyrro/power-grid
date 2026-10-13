@@ -1,9 +1,9 @@
-"""hard benchmark, data: RTS-GMLC 24 h with line ratings at 60 % (otsl.hard: CFG, bench_jobs).
+"""hard benchmark, data: RTS-GMLC 12 h with line ratings at 60 % (otsl.hard: CFG, bench_jobs).
 
-    python scripts/uc_hard_data.py --gen train --chunks 0-29     # LP relaxation + label-free labels, no MILP (50 / chunk)
+    python scripts/uc_hard_data.py --gen train --chunks 0-59     # LP relaxation + label-free labels, no MILP (50 / chunk)
     python scripts/uc_hard_data.py --gen val --chunks 0,2,4      # + full MILP (0.1 %, 600 s, bound trace) (5 / chunk)
     python scripts/uc_hard_data.py --pilot --teacher t0          # polishing settings on validation instances 0-19
-    python scripts/uc_hard_data.py --polish --teacher t0 --chunks 0-14 --tl 10
+    python scripts/uc_hard_data.py --polish --teacher t0 --chunks 0-39 --tl 5
 
 Every instance: otsl.b3.instance (scenario of a calendar day of the split, LP relaxation, label-free labels y_lf /
 y_blk with their dispatch LPs; validation and test also the full MILP through highspy, one thread). Polished labels:
@@ -23,7 +23,7 @@ import torch
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from otsl.b3 import instance, load_b3, save_b3, to_arrays  # noqa: E402
-from otsl.hard import CFG, DATA_DIR, SPLIT_N, bench_jobs, bench_system, polish, sc_of  # noqa: E402
+from otsl.hard import CFG, DATA_DIR, SPLIT_N, T_H, bench_jobs, bench_system, polish, sc_of  # noqa: E402
 
 CHUNK = {"train": 50, "val": 5, "test": 5}
 
@@ -59,9 +59,9 @@ if __name__ == "__main__":
     ap.add_argument("--pilot", action="store_true")
     ap.add_argument("--polish", action="store_true")
     ap.add_argument("--teacher", default="t0")
-    ap.add_argument("--tl", type=float, default=10.0)
+    ap.add_argument("--tl", type=float, default=5.0)
     ap.add_argument("--ratio", type=float, default=0.9)
-    ap.add_argument("--pilot_cfgs", default="0.9:10,0.9:20,0.8:10")
+    ap.add_argument("--pilot_cfgs", default="0.9:5,0.9:10,0.8:5")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     torch.set_num_threads(1)
@@ -113,7 +113,7 @@ if __name__ == "__main__":
                          "n_gt_0.5%": int((g > 0.5).sum()), "n_gt_1%": int((g > 1).sum()),
                          "hit_limit": int(sum(r["status"] != "optimal" for r in recs)),
                          "used_milp_%": float(np.mean([r["used"] == "milp" for r in recs]) * 100),
-                         "fixed_%": float(np.mean([r["n_fixed"] for r in recs]) / (24 * sysm.G) * 100),
+                         "fixed_%": float(np.mean([r["n_fixed"] for r in recs]) / (T_H * sysm.G) * 100),
                          "agree_milp_%": float(np.mean([(Y[k] == v["u"][i]).mean() for k, i in enumerate(idx)]) * 100)}
             print(spec, out[spec], flush=True)
         json.dump(out, open(os.path.join(DATA_DIR, "pilot.json"), "w"), indent=1)

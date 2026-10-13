@@ -152,15 +152,15 @@ def pg_milp_trace(m, sc, time_limit=600.0, mip_gap=1e-3, z_fix=None, threads=1, 
 
 
 # ============================================================================ the chosen benchmark
-# RTS-GMLC, networked DC model, 24 hours from midnight, continuous line ratings derated to 60 % (see docs/methods/hard.md
-# for the screening that chose it). Instances: otsl.b3.instance (make_scenario noise, 3 % spinning reserve, LP
-# relaxation, label-free labels, optionally the full MILP with an incumbent log and a bound trace).
+# RTS-GMLC, networked DC model, 12-hour windows (random start within a calendar day, as otsl.ucdata), continuous line
+# ratings derated to 60 % (docs/methods/hard.md: the screening that chose it; 24 hours at 60 % gives a similar LP gap
+# but full MILPs of 6-9 minutes). Instances: otsl.b3.instance (make_scenario noise, 3 % spinning reserve, LP relaxation,
+# label-free labels, optionally the full MILP with an incumbent log and a bound trace).
 LINE_SCALE = 0.6
-T_H = 24
-CFG = {"T": T_H, "start": 0, "network": True, "line_scale": LINE_SCALE, "time_limit": 600.0, "mip_gap": 1e-3,
-       "trace_every": 1.0}
-SPLIT_SEED = {"train": 611, "val": 612, "test": 613}
-SPLIT_N = {"train": 1500, "val": 60, "test": 40}
+T_H = 12
+CFG = {"T": T_H, "network": True, "line_scale": LINE_SCALE, "time_limit": 600.0, "mip_gap": 1e-3, "trace_every": 1.0}
+SPLIT_SEED = {"train": 621, "val": 622, "test": 623}
+SPLIT_N = {"train": 3000, "val": 60, "test": 60}
 DATA_DIR = "data/generated/hard"
 
 
@@ -175,7 +175,7 @@ def bench_jobs(split):
     from .b3 import make_jobs
     from .uc import load_rts_gmlc
     days = split_days(load_rts_gmlc(), 24)[split]
-    return make_jobs(days, SPLIT_N[split], SPLIT_SEED[split], T=T_H, start=0)
+    return make_jobs(days, SPLIT_N[split], SPLIT_SEED[split], T=T_H, start=None)
 
 
 def load_split(split, data_dir=DATA_DIR, with_traces=False):
@@ -290,8 +290,8 @@ def polish(m, sysm, sc, p, y_ref, c_ref, ratio=0.9, time_limit=10.0, gap=1e-3, l
     return np.asarray(y_ref, np.int8), rec
 
 
-def build_gnnt(sysm, feat, T=T_H, seed=0, dilations=(1, 2, 4, 8)):
-    """otsl.m1x.CommitGNNT with dilations 1, 2, 4, 8 (every hour of a 24-hour row sees every other; otsl.m24)"""
+def build_gnnt(sysm, feat, T=T_H, seed=0, dilations=(1, 2, 4)):
+    """otsl.m1x.CommitGNNT (dilations 1, 2, 4: every hour of a 12-hour row sees every other), as in otsl.m1x"""
     import torch
     from .m1x import CommitGNNT
     from .ucml import UCModel1
