@@ -151,6 +151,8 @@ if __name__ == "__main__":
     ap.add_argument("--stage", required=True,
                     choices=["cv_margin", "cv_eps", "select", "val", "cguard", "test", "paired"])
     ap.add_argument("--part", default="0/1", help="paired stage: k/n = instances with i % n == k")
+    ap.add_argument("--reverse", action="store_true", help="paired stage: take the part's instances from the end, "
+                    "write to m24_fu_paired_<k>r.jsonl and skip instances any paired file already has (load balancing)")
     ap.add_argument("--eps", default="0.005,0.0025")
     ap.add_argument("--rules", default="m24,lp,m24cal")
     ap.add_argument("--budget_min", type=float, default=60.0)
@@ -280,7 +282,13 @@ if __name__ == "__main__":
         # in 1.35-1.65x the time), so every comparator is re-solved here, per instance back to back in one process
         from uc_m24_train import featurizer, load_member
         k_, n_ = (int(x) for x in a.part.split("/"))
-        path = os.path.join(RES, f"m24_fu_paired_{k_}.jsonl")
+        path = os.path.join(RES, f"m24_fu_paired_{k_}{'r' if a.reverse else ''}.jsonl")
+
+        def done_any():
+            out = set()
+            for q in glob.glob(os.path.join(RES, "m24_fu_paired_*.jsonl")):
+                out |= {json.loads(x)["i"] for x in open(q)}
+            return out
         d = load_b3(os.path.join(U24, "test.npz"))
         feat = featurizer(sysm)
         members = [load_member(p, sysm, feat) for p in sorted(glob.glob(os.path.join(DATA, "models", "fin_s*.pt")))]
@@ -292,9 +300,14 @@ if __name__ == "__main__":
         for m1 in members:
             m1.predict(one)
         todo = [i for i in range(40) if i % n_ == k_ and i not in done]
+        if a.reverse:
+            todo = [i for i in todo[::-1] if i not in done_any()]
         print(f"paired part {k_}/{n_}: {len(todo)} instances on cpu {sorted(os.sched_getaffinity(0))}", flush=True)
         t_start = time.time()
         for n, i in enumerate(todo):
+            if a.reverse and i in done_any():
+                print(f"i={i} done by the other process; stopping", flush=True)
+                break
             sc = sc_of(d, i)
             rec = dict(i=i, loadavg0=os.getloadavg()[0], cpu=sorted(os.sched_getaffinity(0)))
             t0 = time.time()
