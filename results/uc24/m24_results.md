@@ -40,6 +40,7 @@ Polished labels: 780 instances (180 original training instances without MILP + 6
 | learning-free LtF on the LP relaxation (base) | u_rel | none | True | 80.5 | – | 15 | 0.23 |
 | LtF-kNN (uc24ltf) | kNN | none | True | 68.5 | – | 24 | 0.30 |
 | m24 hg_fin | fin_ens | adeq+rowmin | True | 91.6 | 91.7 | 28 | 0.27 |
+| m24 hg_fin_e2.5 | fin_ens | adeq+rowmin | True | 89.2 | 89.3 | 37 | 0.32 |
 
 ## Validation-only diagnostic: does the validated ε hold out of sample? (2-fold cross-validation)
 
@@ -87,3 +88,48 @@ Paired, rule − reference (instances both solve; Δ log speed-up > 0: the rule 
 | m24 fixings + LP guard (0.1 %) | guarded 95 % rule (0.1 %) | 40 | -0.13 [-0.36, +0.10] | +0.11 [-0.26, +0.47] | 1.12× | +0.26 [-0.14, +0.64] |
 | m24 fixings + LP guard (0.1 %) | LtF-kNN ε = 1 % (stored run) | 40 | -0.06 [-0.28, +0.14] | +0.53 [+0.16, +0.90] | 1.70× | +0.55 [+0.15, +0.94] |
 | learning-free LtF on the LP relaxation, 0.5 % | full MILP, 0.5 % gap | 39 | +0.10 [+0.01, +0.20] | +0.92 [+0.65, +1.19] | 2.51× | +1.09 [+0.80, +1.43] |
+
+## Follow-up: calibrated m24 rule and the cost-aware bound check
+
+Calibration (validation only, the 2-fold CV above; target ≤ 3 of 40 held-out ε violations, learning-free LtF's rate; per family the smallest change meeting it, across families the larger held-out fixed share):
+
+| thresholds | held-out cases above 1 % | held-out fixed % |
+|---|---|---|
+| m24, tuned thresholds (no change) | 11 / 40 | 94.2 |
+| learning-free LtF (reference) | 3 / 40 | 79.0 |
+| m24, logit margin δ = 0.5 | 7 / 40 | 92.8 |
+| m24, logit margin δ = 1 **(chosen)** | 2 / 40 | 90.2 |
+| m24, tuned at ε = 0.5 % | 4 / 40 | 93.3 |
+| m24, tuned at ε = 0.25 % | 6 / 40 | 91.9 |
+
+Bound check (cguard C3: g = (C_red − z_LP) / C_red; if g > d or infeasible, full MILP at 0.5 % and the better solution); d per rule = the smallest grid value (0.5–10 %) firing on ≤ 5 % of the 40 validation instances (reduced MILP at 0.5 %): lp: d = 1 % (fires on 2.5 %, g median 0.37 %); m24: d = 1.5 % (fires on 2.5 %, g median 0.45 %); m24cal: d = 1 % (fires on 2.5 %, g median 0.40 %).
+
+
+Test (5 instances, fully paired re-solve: per instance every rule back to back in one process, even instances on core 0, odd on core 1; full MILP at 0.1 % 82 s mean). Same objective as the stored run: m24 5 / 5, LtF-LP 5 / 5, full MILP at 0.5 % 5 / 5, at 0.1 % 5 / 5; m24 calibrated as in the first follow-up pass 5 / 5. Time ratio new / stored (median): instances 0–25 (stored before a container restart) m24 1.67, full MILP 1.65; instances 26–39 m24 nan, full MILP nan.
+
+| rule | feasible | gap mean % [95 % CI] | max | # > 1 % | # > 0.5 % | speed-up mean / geo | TTQ median / geo | fixed % | check fired | served % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| full MILP, 0.5 % | 5 / 5 | 0.12 [0.02, 0.25] | 0.37 | 0 | 0 | 3.3 / 2.4 | 1.01 / 1.00 | 0.0 | – | 100 |
+| LtF-LP, 0.5 % | 5 / 5 | 0.23 [0.05, 0.52] | 0.82 | 0 | 1 | 10.1 / 6.9 | 1.77 / 3.84 | 81.1 | – | 100 |
+| LtF-LP + check | 5 / 5 | 0.09 [0.05, 0.13] | 0.14 | 0 | 0 | 7.3 / 5.1 | 1.60 / 3.27 | 81.1 | 20 % | 100 |
+| m24 pipeline (original) | 5 / 5 | 0.20 [0.05, 0.36] | 0.45 | 0 | 0 | 14.5 / 14.2 | 8.09 / 5.97 | 95.3 | – | 100 |
+| m24 pipeline + check | 5 / 5 | 0.20 [0.05, 0.36] | 0.45 | 0 | 0 | 14.5 / 14.2 | 8.09 / 5.97 | 95.3 | 0 % | 100 |
+| m24 calibrated (margin1) | 5 / 5 | 0.12 [0.02, 0.29] | 0.44 | 0 | 0 | 8.7 / 7.3 | 3.87 / 4.02 | 89.7 | – | 100 |
+| m24 calibrated + check | 5 / 5 | 0.12 [0.02, 0.29] | 0.44 | 0 | 0 | 8.7 / 7.3 | 3.87 / 4.02 | 89.7 | 0 % | 100 |
+
+Paired, rule − reference (Δ gap pp [CI]; time ratio and TTQ ratio = geometric mean of reference / rule, > 1 = the rule is faster):
+
+| rule | reference | n | Δ gap pp [CI] | time ratio [CI] | TTQ ratio [CI] |
+|---|---|---|---|---|---|
+| m24 calibrated (margin1) | LtF-LP, 0.5 % | 5 | -0.11 [-0.24, -0.03] | 1.05× [0.68×, 1.72×] | 1.05× [0.68×, 1.72×] |
+| m24 calibrated (margin1) | full MILP, 0.5 % | 5 | +0.00 [-0.19, +0.19] | 3.06× [1.63×, 7.30×] | 4.03× [1.53×, 10.17×] |
+| m24 calibrated + check | LtF-LP, 0.5 % | 5 | -0.11 [-0.24, -0.03] | 1.05× [0.68×, 1.72×] | 1.05× [0.68×, 1.72×] |
+| m24 calibrated + check | full MILP, 0.5 % | 5 | +0.00 [-0.19, +0.19] | 3.06× [1.63×, 7.30×] | 4.03× [1.53×, 10.17×] |
+| m24 pipeline + check | LtF-LP, 0.5 % | 5 | -0.02 [-0.25, +0.19] | 2.05× [1.02×, 4.38×] | 1.55× [0.43×, 4.65×] |
+| m24 pipeline + check | full MILP, 0.5 % | 5 | +0.08 [+0.02, +0.18] | 6.00× [2.76×, 11.78×] | 6.00× [2.76×, 11.78×] |
+| LtF-LP + check | LtF-LP, 0.5 % | 5 | -0.14 [-0.41, +0.00] | 0.74× [0.41×, 1.00×] | 0.85× [0.62×, 1.00×] |
+| LtF-LP + check | full MILP, 0.5 % | 5 | -0.03 [-0.14, +0.04] | 2.17× [1.03×, 6.18×] | 3.28× [1.17×, 9.37×] |
+| m24 pipeline (original) | LtF-LP, 0.5 % | 5 | -0.02 [-0.25, +0.19] | 2.05× [1.02×, 4.38×] | 1.55× [0.43×, 4.65×] |
+| m24 pipeline (original) | full MILP, 0.5 % | 5 | +0.08 [+0.02, +0.18] | 6.00× [2.76×, 11.78×] | 6.00× [2.76×, 11.78×] |
+
+Instances above 1 %: full MILP, 0.5 %: none; LtF-LP, 0.5 %: none; m24 pipeline (original): none; m24 calibrated (margin1): none; LtF-LP + check: none; m24 pipeline + check: none; m24 calibrated + check: none.
