@@ -1,0 +1,55 @@
+{
+ "family": "margin",
+ "param": 1.0,
+ "tag": "margin1",
+ "heldout_violations": 2,
+ "heldout_fixed": 0.9021261415525115,
+ "target": 3,
+ "families": {
+  "margin": {
+   "grid": [
+    {
+     "param": 0.5,
+     "tag": "margin0.5",
+     "violations": 7,
+     "n": 40,
+     "heldout_fixed": 0.9278253424657534
+    },
+    {
+     "param": 1.0,
+     "tag": "margin1",
+     "violations": 2,
+     "n": 40,
+     "heldout_fixed": 0.9021261415525115
+    }
+   ],
+   "chosen": {
+    "param": 1.0,
+    "tag": "margin1",
+    "violations": 2,
+    "n": 40,
+    "heldout_fixed": 0.9021261415525115
+   }
+  },
+  "eps": {
+   "grid": [
+    {
+     "param": 0.005,
+     "tag": "eps0.5",
+     "violations": 4,
+     "n": 40,
+     "heldout_fixed": 0.9331621004566211
+    },
+    {
+     "param": 0.0025,
+     "tag": "eps0.25",
+     "violations": 6,
+     "n": 40,
+     "heldout_fixed": 0.9194349315068493
+    }
+   ],
+   "chosen": null
+  }
+ },
+ "rule": "per family the smallest change with <= 3 / 40 held-out violations; across families the larger held-out fixed share"
+}
