@@ -1,7 +1,7 @@
 # A cost-aware check for fixed commitments (B2, 12-hour UC)
 
 Code: [`otsl/cguard.py`](../../otsl/cguard.py), `scripts/uc_cguard_{common,diag,deep,run,shiftval,report}.py`.
-Results: `results/uc12/cguard_results.{md,json}` (when written), diagnostics `results/uc12/cguard_diag_{test,val}.jsonl`.
+Results: [`results/uc12/cguard_results.md`](../../results/uc12/cguard_results.md) (+ `.json`); records `results/uc12/cguard_{diag_test,diag_val,val,test_full,shiftval}.jsonl`, `cguard_{select,select_B,retime,deep}.json`.
 
 ## Status
 
@@ -11,12 +11,14 @@ Results: `results/uc12/cguard_results.{md,json}` (when written), diagnostics `re
 * Validation stage done 06:51–08:25 UTC (360 instances, `scripts/uc_cguard_run.py --stage val`); selection
   (`--stage select`): d_pre = 0.75 %, d_post = 4 % (`results/uc12/cguard_select.json`).
 * Timing check (`--stage retime`, 08:25–08:30): the m1x pipeline records are **not** reusable — the same solves ran
-  ~30 % faster on core 0 (full MILP ratio median 0.69, pipeline 0.67; objectives identical on 14 / 14). So the test
-  pass re-solves everything (`--stage testfull`, started 08:31; resumable, log `results/uc12/cguard_testfull.log`).
-  Interrupted by an API spend limit (~12:00) and container restarts (12:49, 15:20, 15:37); resumed each time, finished
-  instances are skipped. At 15:38: 246 of 300 done (all six shifted sets, test_fresh 0–65); resumed with
-  `scratchpad/cguard_resume2.sh` (testfull → `scripts/uc_cguard_deep.py` → `scripts/uc_cguard_shiftval.py --n 20` →
-  `--select`; log `results/uc12/cguard_chain.log`). Resume by re-running the same commands.
+  ~30 % faster on core 0 (full MILP ratio median 0.69, pipeline 0.67; objectives identical on 14 / 14). The test pass
+  therefore re-solved everything (`--stage testfull`, 08:31–16:45 with interruptions: an API spend limit at ~12:00 and
+  container restarts at 12:49, 15:20 and 15:37; each time resumed, finished instances skipped). **Done**: 300 / 300.
+* Failure anatomy (`scripts/uc_cguard_deep.py`, 16:45–16:55) done; shifted-validation arm (`scripts/uc_cguard_shiftval.py
+  --n 20` and `--select`, 16:55–18:07) done: d_post_B = 2 % (`results/uc12/cguard_select_B.json`).
+* **Study complete** (18:10 UTC). To reproduce: `scripts/uc_cguard_diag.py --sets test / val`, `scripts/uc_cguard_run.py
+  --stage val / select / retime / testfull`, `scripts/uc_cguard_deep.py`, `scripts/uc_cguard_shiftval.py --n 20` and
+  `--select`, `scripts/uc_cguard_report.py` (each pass resumable; all on one core with `taskset`).
 * Report: `python3 scripts/uc_cguard_report.py` → `results/uc12/cguard_results.{md,json}`.
 
 **Plan, fixed before the validation and test passes.** The diagnosis (below) showed that the relaxed-reduced-LP
@@ -29,7 +31,22 @@ val_extra2); nothing else is tuned. Pipeline records are reused only after re-so
 
 ## Summary
 
-(pending)
+The recommended pipeline (B-hg fixings → guards → LP-relaxation guard → reduced MILP at 0.5 %) loses to the full MILP at
+0.5 % under wind + solar ×1.5 and load −15 % because some wrong commitments are expensive without shedding anything.
+
+* **Diagnosis**: the relaxed reduced LP does not see these errors (Δ < 0.07 % on half of them), nor do per-fixing reduced
+  costs or disagreement with the LP relaxation: the wrong fixings mostly *agree* with the relaxation's integral values
+  (mid-size steam units it also keeps off). The reduced MILP's cost against the LP relaxation bound,
+  g = (C_red − z_LP) / C_red, does (≥ 2 % on every bad instance), and costs nothing to compute.
+* **Check that works (C3)**: if g exceeds 4 % (chosen on the original validation set: fires on 3.1 % there), solve the
+  full MILP at 0.5 % and keep the better solution. On test it fires on 1 % of test_fresh (0.30 % at 10.1×, unchanged)
+  and fixes both failures: load −15 % 1.59 → 0.40 %, wind + solar ×1.5 1.36 → 0.43 %, level with the full MILP at 0.5 %
+  (−0.01 / +0.02 pp) at 1.9–2.3× its speed. No other set changes.
+* **Negative results**: the pre-solve LP-cost check with reduced-cost release (C1) costs 6–17 % speed everywhere and
+  leaves wind + solar significantly worse than the full MILP (+0.73 pp [+0.07, +1.64]); gradient polish after the bound
+  check (C2) recovers only 15–30 % of the excess.
+* **Recalibration on shifted validation data** (separate arm, validation days): threshold 2 %; also removes the units-out
+  residual, every set within 0.06 pp of the full MILP at 0.5 %, for ~10 % of the in-distribution speed (9.9×).
 
 ## Question
 
@@ -173,4 +190,65 @@ problem was feasible. Thresholds as selected on validation: d_pre = 0.75 %, d_po
   90 fixings by reduced cost gives 2.1 % instead of 27 %), so load −15 % improves (−1.02 pp, CI touching 0), but it
   leaves wind + solar significantly worse than the full MILP (+0.73 pp [+0.07, +1.64]) and costs speed everywhere
   (an extra LP on every instance and false alarms on 6–20 %: Δ log speed-up −0.06 to −0.19, all CIs below 0).
+
+**Arm B: recalibration on shifted validation data.** On the 120 shifted validation instances (validation days) the
+pipeline is more than 1 pp above the full MILP at 0.5 % on 11 (up to 21.9 pp); their g ranges from 1.4 % to 22.7 %, so
+no threshold at most 10 %-firing in distribution catches all of them (1 % would, at a 20 % in-distribution firing rate).
+The fallback of the rule gives **d_post_B = 2 %** (in-distribution validation firing 8.6 %, catches 9 of the 11). On test,
+C3 at 2 %:
+
+| set | gap mean [CI] (max), speed-up mean / median, fires | Δ vs pipeline (gap / log speed-up) | Δ vs full MILP 0.5 % (gap / time ratio) |
+|---|---|---|---|
+| test_fresh | 0.28 [0.22, 0.35] (2.71), 9.9 / 5.4×, 8 % | −0.01 [−0.03, −0.00] / −0.11 [−0.19, −0.05] | −0.01 [−0.07, +0.04] / 2.54× |
+| load −15 % | 0.37 [0.19, 0.55] (2.00), 6.1 / 4.1×, 30 % | −1.23 [−3.12, −0.05] / −0.48 | −0.05 [−0.16, +0.06] / 1.82× |
+| wind + solar ×1.5 | 0.36 [0.21, 0.52] (1.67), 5.9 / 3.3×, 33 % | −1.00 [−1.98, −0.29] / −0.52 | −0.05 [−0.10, +0.01] / 1.88× |
+| 2–3 units out | 0.52 [0.25, 0.82] (3.30), 8.0 / 5.9×, 17 % | −0.10 [−0.25, +0.00] / −0.25 | +0.02 [−0.13, +0.16] / 2.96× |
+| load +15 %, lines out, midnight | unchanged gaps, fires 0–10 % | 0.00 / −0.03 to 0.00 | +0.00 to +0.06 (n.s.) / 2.69–2.89× |
+
+Recalibrating on shifted validation data buys the last residuals (units out, the 1.7-pp wind + solar instance) and a
+slightly lower in-distribution gap, for about 10 % of the in-distribution speed (9.9× instead of 10.1×; geometric time
+ratio −0.11) and ~10 % more under shift; every set is then level with the full MILP at 0.5 % while 1.8–3.0× faster than
+it. C2's polish at 2 % stays partial (wind + solar 1.07 %, load −15 % 1.38 %).
+
+## Verdict
+
+* **A cost-aware check that works has to look at the integer solution, not the LP.** The obvious pre-solve check — the
+  relaxed reduced LP against the full LP relaxation, with release by reduced cost — does not see the failures: the wrong
+  fixings mostly *agree* with the LP relaxation's integral values (mid-size steam units the relaxation also keeps off),
+  so the relaxed reduced problem is as cheap as the full relaxation. As C1 it costs 6–17 % speed everywhere and repairs
+  only the one instance it happens to see.
+* **The post-solve bound check with a full-MILP fallback (C3) does what was asked.** g = (C_red − z_LP) / C_red needs no
+  extra LP (z_LP is the model input). With the threshold chosen on the original validation set only (4 %, 3.1 % firing
+  there), it leaves the pipeline untouched in distribution (fires on 1 of 120 test_fresh instances; 0.30 % at 10.1× mean
+  / 5.5× median, Δ log speed-up −0.01 [−0.03, 0.00]) and closes both failures: load −15 % 1.59 → 0.40 % (full MILP at
+  0.5 %: 0.41 %), wind + solar ×1.5 1.36 → 0.43 % (0.41 %), each level with the loosened full MILP (−0.01 and +0.02 pp)
+  and still 1.9× / 2.3× faster than it. Nothing else changes on the other shifts.
+* **Cheaper responses do not suffice.** Releasing 60 fixings by the dispatch-LP gradient (C2) recovers 15–30 % of the
+  excess; the culprits rank too low among ~700 fixings. The cost of C3 is paid only where it fires:
+  23 % of instances under those two shifts, 1 % in distribution.
+* **Recalibration on shifted validation data (arm B) helps a little more, at a price.** A 2 % threshold (8.6 % firing in
+  distribution) also removes the units-out residual and brings every set to within 0.06 pp of the full MILP at
+  0.5 %, at ~10 % of the in-distribution speed (9.9× vs 10.1×). Neither threshold catches everything: excesses of
+  1–2 pp on instances whose relaxation gap is itself 2–4 % are indistinguishable from a weak relaxation by this signal.
+* **Recommendation**: add the bound check with a full-MILP fallback (threshold 4 %, or 2 % if robustness to unknown
+  shifts is worth ~10 % of the in-distribution speed) to the recommended pipeline. It turns the pipeline's two known
+  failure modes into a bounded cost and keeps it 1.8–3.3× faster than the loosened full MILP on every set tested.
+
+## Caveats
+
+* **Small failure counts.** 11 of 300 test instances have the pipeline more than 1 pp above the full MILP at 0.5 %; the
+  conclusions on the two failure sets rest on 30 instances each and a handful of large errors (CIs in the tables).
+* **The bound gap g is an upper bound** that mixes a bad fixing with a weak relaxation; under shifts with large
+  relaxation gaps (wind + solar ×1.5: ~5 % at the 90th percentile) it fires on harmless instances too, which costs time
+  but not accuracy. The threshold was chosen on validation instances on which the B-hg thresholds were themselves tuned
+  (in-sample for the fixings, not for g).
+* **Timing.** The pass ran over ten hours with interruptions, under varying machine load (load average ~4 most of the
+  time). Every comparison is paired within an instance (all its solves back to back on core 0), so speed-ups are
+  per-instance ratios; absolute times are not comparable across instances solved at different times. The m1x
+  pipeline records were not reused (they were ~30 % slower than this core now).
+* **Full-MILP fallback is cold.** A warm start from the pipeline's solution would make it faster; not tried.
+* **One gradient-release size** (60, the polish study's uc12 setting) and one batch rule for C1; not tuned.
+* **Arm B** used 20 shifted validation instances per shift (120), with the same shift generators as the test sets
+  (only the calendar days and seeds differ), so it is an optimistic test of "recalibration on shifted data": the
+  shifts are the same kind as those it is tested on.
 

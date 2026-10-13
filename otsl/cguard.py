@@ -1,21 +1,18 @@
-"""Cost-aware checks for fixed commitments before the reduced MILP (12-hour UC).
+"""Cost-aware checks for fixed commitments before / after the reduced MILP (12-hour UC).
 
 The recommended pipeline (docs/methods/m1x.md, last section) fixes B-hg decisions, applies the adequacy guard, the min
 up/down row release and the LP-relaxation guard, and solves the reduced MILP at a 0.5 % gap. The guards catch fixings
 that make the relaxed reduced problem shed load or miss reserve. They cannot catch a wrong fixing that is merely
 expensive: the reduced problem stays feasible without penalties but its optimum is far above the full problem's.
 
-This module measures that cost directly with one extra LP: the LP relaxation of the reduced problem (fixed decisions
-at their values, the rest relaxed) against the full LP relaxation that is solved anyway as model input. The relative
-increase Delta = (z_RR - z_LP) / z_LP compares two lower bounds: z_RR bounds the reduced MILP, z_LP the full MILP.
-A large Delta means the fixings themselves raise the cost the relaxation can reach. Responses:
+Pre-solve (LP) check: Delta = (z_RR - z_LP) / z_LP, the LP relaxation of the reduced problem against the full LP
+relaxation solved anyway as model input (z_RR bounds the reduced MILP, z_LP the full MILP); response: release fixings by
+their first-order saving in the relaxed reduced LP (release_by_saving), or keep only the fixings that agree with the
+relaxation (consensus_fixings). The study (docs/methods/cguard.md) found that this check does not see the failures.
 
-* release by reduced cost ("gradient release" on the relaxed reduced LP): the bound marginals of the fixed u give the
-  first-order saving of releasing each fixing; release the largest savings in batches and re-solve the relaxed reduced
-  LP until Delta <= delta (or a cap);
-* fallback: keep only the fixings that agree with the LP relaxation's integral values ("consensus"), or none.
-
-Also a per-decision signal (reduced cost of each fixing, relative to the instance cost) for a threshold rule.
+Post-solve bound check: g = (C_red - z_LP) / C_red of the reduced MILP's solution (bound_gap; free to compute);
+responses: gradient polish around the solution (gradient_polish, otsl.solver's dispatch-LP derivative) or the full
+MILP (solved by the caller). The bound check with a full-MILP fallback is the check that works.
 """
 from __future__ import annotations
 
