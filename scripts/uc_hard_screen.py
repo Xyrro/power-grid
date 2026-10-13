@@ -70,7 +70,7 @@ def run_rts(a):
     m = UCModel(s, T=a.T, network=True)
     case = a.label or f"rts{a.T}_ls{a.line_scale:g}_rf{a.reserve:g}"
     days = split_days(s, a.T)["train"]
-    jobs = make_jobs(days, a.n, a.seed, T=24, start=0)
+    jobs = make_jobs(days, a.n, a.seed, T=min(a.T, 24), start=0 if a.T >= 24 else None)   # < 24 h: random start
     done = done_keys(a.out)
     for i, (day, st, seed) in enumerate(jobs):
         if (case, i) in done:
