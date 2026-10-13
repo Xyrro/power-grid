@@ -1,0 +1,1563 @@
+{
+ "run": "hg_fin_e2.5",
+ "src": "fin_ens",
+ "eps": 0.0025,
+ "guards": [
+  "adeq",
+  "rowmin"
+ ],
+ "converged": true,
+ "lo": [
+  0.0012802649289369583,
+  0.0009324343991465867,
+  0.6743633151054382,
+  0.008628332987427711,
+  0.6609814167022705,
+  0.01877410337328911,
+  0.5370550155639648,
+  0.00033164507476612926,
+  0.037973884493112564,
+  0.8830676078796387,
+  0.7708821296691895,
+  0.5594286918640137,
+  0.3043529689311981,
+  0.5,
+  0.5,
+  0.20525173842906952,
+  0.7521808743476868,
+  0.026533646509051323,
+  0.027518508955836296,
+  0.013616122305393219,
+  0.8691692352294922,
+  0.8192494511604309,
+  0.4322681725025177,
+  0.4542000889778137,
+  0.07782527059316635,
+  0.7016708254814163,
+  0.003935408312827349,
+  0.0017276846338063478,
+  0.0003306739672552794,
+  0.10810600221157074,
+  0.00455555971711874,
+  0.0016787400236353278,
+  0.7563831806182861,
+  0.6609901189804077,
+  0.4248161315917969,
+  0.0017899315571412444,
+  0.5,
+  0.022972822189331055,
+  0.5,
+  0.025361036881804466,
+  0.7447919178754095,
+  0.6182390451431274,
+  0.00641873013228178,
+  0.5,
+  0.5,
+  0.5,
+  0.0006879966822452843,
+  0.0006875843391753733,
+  0.5,
+  0.5,
+  0.5120647007279331,
+  0.12793371081352234,
+  0.5,
+  0.5,
+  0.00965833943337202,
+  0.0007908062543720007,
+  0.27132439613342285,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.031055394560098648,
+  0.002936052856966853,
+  0.0034365965984761715,
+  0.00035819754702970386,
+  0.11421694606542587,
+  0.08757772296667099,
+  0.016925055533647537,
+  0.004974996205419302,
+  0.18028365075588226,
+  0.025259945541620255,
+  0.5
+ ],
+ "hi": [
+  0.5146242380142212,
+  0.5,
+  0.6743633151054382,
+  0.991136372089386,
+  0.6609814167022705,
+  0.04837538301944733,
+  0.99798983335495,
+  0.9954834580421448,
+  0.889345645904541,
+  0.8830676078796387,
+  0.7708821296691895,
+  0.5594286918640137,
+  0.5,
+  0.5,
+  0.5,
+  0.9839062094688416,
+  0.7521808743476868,
+  0.922801673412323,
+  0.027518508955836296,
+  0.6512892842292786,
+  0.8691692352294922,
+  0.8192494511604309,
+  0.4322681725025177,
+  0.4542000889778137,
+  0.3215891122817993,
+  0.7016708254814163,
+  0.09091556817293167,
+  0.37231943011283875,
+  0.10693944990634918,
+  0.3693424463272095,
+  0.03151025250554085,
+  0.5,
+  0.7563831806182861,
+  0.6609901189804077,
+  0.4248161315917969,
+  0.017379501834511757,
+  0.5,
+  0.9944277405738831,
+  0.5,
+  0.7826797366142273,
+  0.7447919178754095,
+  0.7972080707550049,
+  0.9775599837303162,
+  0.5,
+  0.5,
+  0.5,
+  0.01917562447488308,
+  0.5,
+  0.5,
+  0.5,
+  0.5120647007279331,
+  0.12793371081352234,
+  0.5,
+  0.5,
+  0.8419886231422424,
+  0.9351646900177002,
+  0.8727796673774719,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.5,
+  0.9456427693367004,
+  0.89900803565979,
+  0.7858650088310242,
+  0.1190136969089508,
+  0.8313520550727844,
+  0.9296954274177551,
+  0.8886362910270691,
+  0.03295049071311951,
+  0.9164263606071472,
+  0.8678502440452576,
+  0.5
+ ],
+ "n_val": 40,
+ "val_fixed_share_pre_guard": 0.892537100456621,
+ "val_fixed_share": 0.8921518264840183,
+ "val_fixed_off": 0.7294092465753425,
+ "val_fixed_on": 0.1627425799086758,
+ "n_iter": 37,
+ "n_cut_sets": 36,
+ "verify_rel_increase": [
+  -1.8497078026034663e-12,
+  0.0018532155841019468,
+  4.787533972707582e-06,
+  0.0007580170130691892,
+  6.412608337125288e-07,
+  -1.1328266856138673e-05,
+  0.0020904854344832528,
+  -7.310555383811744e-05,
+  0.0024843618460763297,
+  -2.263897939128394e-12,
+  -3.673811058709167e-14,
+  0.0023651144456990182,
+  0.0020080943708869516,
+  0.0021937362071162737,
+  0.0024222332345467815,
+  1.7007341522056605e-05,
+  7.49291090722951e-05,
+  0.002494910790493041,
+  0.0024889732434516115,
+  0.002074835907606522,
+  0.002419328311382276,
+  0.0002858560855685228,
+  6.956611119075459e-05,
+  0.0010578095771098634,
+  0.00026220929593972337,
+  -1.8107632047233912e-12,
+  -0.00048260044401990105,
+  -1.9414899717446077e-12,
+  0.002008908893020101,
+  0.0018346565295616834,
+  0.00207621104992674,
+  -1.3891561014091558e-12,
+  0.002388841392096834,
+  -0.0003063185895000292,
+  -1.7721148685412803e-12,
+  0.002236703004007161,
+  -7.51804008915254e-13,
+  -2.5810894516035036e-13,
+  0.00011611910229983058,
+  0.000699046452698781
+ ],
+ "verify_max": 0.002494910790493041,
+ "verify_ok": true,
+ "n_verify_fail": 0,
+ "stats": {
+  "n_check_solves": 93,
+  "n_check_cached": 380,
+  "t_check": 447.33147644996643,
+  "n_relax": 73,
+  "t_relax": 595.1124196052551,
+  "n_master": 37,
+  "t_master": 11.667998552322388,
+  "n_addcuts": 36,
+  "n_start_cand": 5,
+  "t_start_cand": 44.78417491912842,
+  "start_used": {
+   "label": 36,
+   "None": 36,
+   "conflict-release+guards": 1
+  },
+  "n_guard": 314,
+  "t_guard": 4.5211241245269775,
+  "n_guard_cached": 275,
+  "wall_s": 1122.0463316440582
+ },
+ "history": [
+  {
+   "it": 0,
+   "master_s": 0.15768003463745117,
+   "master_status": "Optimal",
+   "master_gap": Infinity,
+   "n_cut_sets": 0,
+   "n_bin": 0,
+   "approx_fixed": 0.9969445358226363,
+   "val_fixed": 1.0,
+   "wall": 0.5855979919433594,
+   "failed": 0,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1752,
+   "release_sizes": [
+    22
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.096761465072632,
+     "n_nu": 22,
+     "size": 22,
+     "bound": -Infinity,
+     "cost": 574301.4167824985,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.424124956130981,
+     "n_nu": null,
+     "bound": -20.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 1,
+   "master_s": 0.3326869010925293,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 1,
+   "n_bin": 1,
+   "approx_fixed": 0.9907218376395057,
+   "val_fixed": 0.9988156392694064,
+   "wall": 19.569267511367798,
+   "failed": 0,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1739,
+   "release_sizes": [
+    7
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.173367023468018,
+     "n_nu": 7,
+     "size": 7,
+     "bound": -Infinity,
+     "cost": 574301.4167824985,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.383751392364502,
+     "n_nu": null,
+     "bound": -16.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 2,
+   "master_s": 0.5123481750488281,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 2,
+   "n_bin": 2,
+   "approx_fixed": 0.989378473161615,
+   "val_fixed": 0.9958761415525114,
+   "wall": 46.56428790092468,
+   "failed": 0,
+   "check_status": "Optimal",
+   "check_obj": 576273.5480120241,
+   "n_fixed": 1732,
+   "release_sizes": [
+    2
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.0379798412323,
+     "n_nu": 2,
+     "size": 2,
+     "bound": -14.0,
+     "cost": 574301.4167824985,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.153294324874878,
+     "n_nu": null,
+     "bound": -13.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 3,
+   "master_s": 0.31431007385253906,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 3,
+   "n_bin": 3,
+   "approx_fixed": 0.989378473161615,
+   "val_fixed": 0.9944634703196347,
+   "wall": 64.46862769126892,
+   "failed": 1,
+   "check_status": "Optimal",
+   "check_obj": 1792317.9022775507,
+   "n_fixed": 1745,
+   "release_sizes": [
+    19
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.076553344726562,
+     "n_nu": 19,
+     "size": 19,
+     "bound": -5.0,
+     "cost": 1784902.4752131032,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.136516332626343,
+     "n_nu": null,
+     "bound": -8.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 4,
+   "master_s": 0.30730652809143066,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 4,
+   "n_bin": 4,
+   "approx_fixed": 0.9851634227726108,
+   "val_fixed": 0.9875713470319635,
+   "wall": 85.19672322273254,
+   "failed": 2,
+   "check_status": "Optimal",
+   "check_obj": 1614034.5510408704,
+   "n_fixed": 1722,
+   "release_sizes": [
+    33
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.474959373474121,
+     "n_nu": 33,
+     "size": 33,
+     "bound": -Infinity,
+     "cost": 1039573.8613053703,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.451839208602905,
+     "n_nu": null,
+     "bound": -12.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 5,
+   "master_s": 0.3269174098968506,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 5,
+   "n_bin": 5,
+   "approx_fixed": 0.9744701881988062,
+   "val_fixed": 0.9875142694063926,
+   "wall": 103.79014444351196,
+   "failed": 0,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1727,
+   "release_sizes": [
+    17
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.227585792541504,
+     "n_nu": 17,
+     "size": 17,
+     "bound": -13.0,
+     "cost": 574301.4167824985,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.055923700332642,
+     "n_nu": null,
+     "bound": -21.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 6,
+   "master_s": 0.24876713752746582,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 6,
+   "n_bin": 6,
+   "approx_fixed": 0.9744560284121432,
+   "val_fixed": 0.9781963470319635,
+   "wall": 123.16341590881348,
+   "failed": 1,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1710,
+   "release_sizes": [
+    9
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.360114336013794,
+     "n_nu": 9,
+     "size": 9,
+     "bound": -5.0,
+     "cost": 1784902.4752131032,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.426594972610474,
+     "n_nu": null,
+     "bound": -12.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 7,
+   "master_s": 0.418750524520874,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 7,
+   "n_bin": 7,
+   "approx_fixed": 0.9744560284121432,
+   "val_fixed": 0.9771689497716894,
+   "wall": 146.5853328704834,
+   "failed": 3,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1713,
+   "release_sizes": [
+    17
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.086420059204102,
+     "n_nu": 17,
+     "size": 17,
+     "bound": -11.0,
+     "cost": 895373.5354846956,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.268476724624634,
+     "n_nu": null,
+     "bound": -8.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 8,
+   "master_s": 0.2215116024017334,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 8,
+   "n_bin": 8,
+   "approx_fixed": 0.9698693104125096,
+   "val_fixed": 0.9730022831050228,
+   "wall": 175.272705078125,
+   "failed": 5,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1674,
+   "release_sizes": [
+    47
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.331756114959717,
+     "n_nu": 47,
+     "size": 47,
+     "bound": -18.0,
+     "cost": 903611.0585025648,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.05951452255249,
+     "n_nu": null,
+     "bound": -Infinity,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 9,
+   "master_s": 0.2097644805908203,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 9,
+   "n_bin": 9,
+   "approx_fixed": 0.9652630270457088,
+   "val_fixed": 0.9693778538812785,
+   "wall": 203.15919733047485,
+   "failed": 6,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1711,
+   "release_sizes": [
+    27
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.22623324394226,
+     "n_nu": 27,
+     "size": 27,
+     "bound": -13.0,
+     "cost": 689833.7804364049,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.228655099868774,
+     "n_nu": null,
+     "bound": -10.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 10,
+   "master_s": 0.25644373893737793,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 10,
+   "n_bin": 10,
+   "approx_fixed": 0.9595936127642416,
+   "val_fixed": 0.9679509132420091,
+   "wall": 221.2699465751648,
+   "failed": 0,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1698,
+   "release_sizes": [
+    37
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.035662651062012,
+     "n_nu": 37,
+     "size": 37,
+     "bound": -14.0,
+     "cost": 574301.4167824985,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.086573600769043,
+     "n_nu": null,
+     "bound": -19.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 11,
+   "master_s": 0.23058843612670898,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 11,
+   "n_bin": 11,
+   "approx_fixed": 0.9595936127642416,
+   "val_fixed": 0.959517694063927,
+   "wall": 239.0413956642151,
+   "failed": 3,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1688,
+   "release_sizes": [
+    1
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.127099752426147,
+     "n_nu": 1,
+     "size": 1,
+     "bound": -11.0,
+     "cost": 895373.5354846956,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.274534702301025,
+     "n_nu": null,
+     "bound": -11.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 12,
+   "master_s": 0.3377699851989746,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 12,
+   "n_bin": 12,
+   "approx_fixed": 0.9594808250802102,
+   "val_fixed": 0.959517694063927,
+   "wall": 260.31116104125977,
+   "failed": 5,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1606,
+   "release_sizes": [
+    9
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.154278755187988,
+     "n_nu": 9,
+     "size": 9,
+     "bound": -Infinity,
+     "cost": 903611.0585025648,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.449025869369507,
+     "n_nu": null,
+     "bound": -Infinity,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 13,
+   "master_s": 0.2942655086517334,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 13,
+   "n_bin": 13,
+   "approx_fixed": 0.9594808250802102,
+   "val_fixed": 0.9591038812785389,
+   "wall": 294.53637528419495,
+   "failed": 10,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1641,
+   "release_sizes": [
+    18
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.081701517105103,
+     "n_nu": 18,
+     "size": 18,
+     "bound": 3.0,
+     "cost": 494331.0887463571,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.142918348312378,
+     "n_nu": null,
+     "bound": -20.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 14,
+   "master_s": 0.24446606636047363,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 14,
+   "n_bin": 14,
+   "approx_fixed": 0.9491515494365929,
+   "val_fixed": 0.9509132420091324,
+   "wall": 312.2632715702057,
+   "failed": 0,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1647,
+   "release_sizes": [
+    11
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.035452127456665,
+     "n_nu": 11,
+     "size": 11,
+     "bound": -17.0,
+     "cost": 574301.4167824985,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.063636779785156,
+     "n_nu": null,
+     "bound": -9.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 15,
+   "master_s": 0.21289920806884766,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 15,
+   "n_bin": 15,
+   "approx_fixed": 0.949112937358404,
+   "val_fixed": 0.9492009132420092,
+   "wall": 330.1716978549957,
+   "failed": 5,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1578,
+   "release_sizes": [
+    17
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.03520679473877,
+     "n_nu": 17,
+     "size": 17,
+     "bound": -14.0,
+     "cost": 903611.0585025648,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.055987119674683,
+     "n_nu": null,
+     "bound": -20.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 16,
+   "master_s": 0.23934173583984375,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 16,
+   "n_bin": 16,
+   "approx_fixed": 0.949112937358404,
+   "val_fixed": 0.9468179223744292,
+   "wall": 407.4386179447174,
+   "failed": 16,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1712,
+   "release_sizes": [
+    8
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.043070316314697,
+     "n_nu": 8,
+     "size": 8,
+     "bound": -1.0,
+     "cost": 2239463.160397611,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.13002896308899,
+     "n_nu": null,
+     "bound": -3.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 17,
+   "master_s": 0.24715662002563477,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 17,
+   "n_bin": 17,
+   "approx_fixed": 0.9491118333956987,
+   "val_fixed": 0.9462471461187215,
+   "wall": 433.7900171279907,
+   "failed": 19,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1602,
+   "release_sizes": [
+    42
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.089947700500488,
+     "n_nu": 42,
+     "size": 42,
+     "bound": -6.0,
+     "cost": 889738.3760774657,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.075942277908325,
+     "n_nu": null,
+     "bound": -13.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 18,
+   "master_s": 0.21248149871826172,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 18,
+   "n_bin": 18,
+   "approx_fixed": 0.9440682427417726,
+   "val_fixed": 0.9447916666666667,
+   "wall": 466.9668824672699,
+   "failed": 0,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1631,
+   "release_sizes": [
+    27
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.035539627075195,
+     "n_nu": 27,
+     "size": 27,
+     "bound": -14.0,
+     "cost": 574301.4167824985,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.056698560714722,
+     "n_nu": null,
+     "bound": -21.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 19,
+   "master_s": 0.22741341590881348,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 19,
+   "n_bin": 19,
+   "approx_fixed": 0.9439211072688385,
+   "val_fixed": 0.941466894977169,
+   "wall": 485.9819278717041,
+   "failed": 5,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1549,
+   "release_sizes": [
+    14
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.042667627334595,
+     "n_nu": 14,
+     "size": 14,
+     "bound": -16.0,
+     "cost": 903611.0585025648,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.188732147216797,
+     "n_nu": null,
+     "bound": -23.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 20,
+   "master_s": 0.22304606437683105,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 20,
+   "n_bin": 20,
+   "approx_fixed": 0.9439211072688385,
+   "val_fixed": 0.9398401826484019,
+   "wall": 513.005042552948,
+   "failed": 10,
+   "check_status": "Optimal",
+   "check_obj": 511879.7528965824,
+   "n_fixed": 1579,
+   "release_sizes": [
+    1
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.19044017791748,
+     "n_nu": 1,
+     "size": 1,
+     "bound": 0.0,
+     "cost": 494331.0887463571,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.115692853927612,
+     "n_nu": null,
+     "bound": 0.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 21,
+   "master_s": 0.22753357887268066,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 21,
+   "n_bin": 21,
+   "approx_fixed": 0.9439211072688385,
+   "val_fixed": 0.9398259132420091,
+   "wall": 540.508003950119,
+   "failed": 20,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1563,
+   "release_sizes": [
+    5,
+    26
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.040236473083496,
+     "n_nu": 5,
+     "size": 5,
+     "bound": -16.0,
+     "cost": 894969.3472508603,
+     "start": "conflict-release+guards"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.101814031600952,
+     "n_nu": 26,
+     "size": 26,
+     "bound": 0.09141963751570323,
+     "cost": 892809.348311384,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.199275732040405,
+     "n_nu": null,
+     "bound": -20.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 22,
+   "master_s": 0.42916321754455566,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 22,
+   "n_bin": 23,
+   "approx_fixed": 0.9419877608239124,
+   "val_fixed": 0.9377283105022831,
+   "wall": 589.5918247699738,
+   "failed": 24,
+   "check_status": "Optimal",
+   "check_obj": 2289013.3836601623,
+   "n_fixed": 1695,
+   "release_sizes": [
+    12
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.038985252380371,
+     "n_nu": 12,
+     "size": 12,
+     "bound": -3.0,
+     "cost": 2282727.5033082957,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.047133684158325,
+     "n_nu": null,
+     "bound": -5.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 23,
+   "master_s": 0.38798046112060547,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 23,
+   "n_bin": 24,
+   "approx_fixed": 0.9384663478946809,
+   "val_fixed": 0.9327768264840183,
+   "wall": 619.9146513938904,
+   "failed": 25,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1576,
+   "release_sizes": [
+    25
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.03926396369934,
+     "n_nu": 25,
+     "size": 25,
+     "bound": -13.0,
+     "cost": 800291.2375947163,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.235781192779541,
+     "n_nu": null,
+     "bound": -14.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 24,
+   "master_s": 0.3768434524536133,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 24,
+   "n_bin": 25,
+   "approx_fixed": 0.9363613861225742,
+   "val_fixed": 0.9292665525114155,
+   "wall": 686.8115520477295,
+   "failed": 27,
+   "check_status": "Optimal",
+   "check_obj": 1364041.3450640019,
+   "n_fixed": 1660,
+   "release_sizes": [
+    48
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.040115356445312,
+     "n_nu": 48,
+     "size": 48,
+     "bound": -9.0,
+     "cost": 1352139.6171999446,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.242971658706665,
+     "n_nu": null,
+     "bound": -10.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 25,
+   "master_s": 0.3579552173614502,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 25,
+   "n_bin": 26,
+   "approx_fixed": 0.9251119907402697,
+   "val_fixed": 0.9289526255707763,
+   "wall": 704.9514842033386,
+   "failed": 0,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1583,
+   "release_sizes": [
+    39
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.056710243225098,
+     "n_nu": 39,
+     "size": 39,
+     "bound": -13.0,
+     "cost": 574301.4167824985,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.450661420822144,
+     "n_nu": null,
+     "bound": -Infinity,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 26,
+   "master_s": 0.35436081886291504,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 26,
+   "n_bin": 27,
+   "approx_fixed": 0.9251119907402697,
+   "val_fixed": 0.9196917808219178,
+   "wall": 723.7912321090698,
+   "failed": 2,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1643,
+   "release_sizes": [
+    23
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.147705793380737,
+     "n_nu": 23,
+     "size": 23,
+     "bound": -10.0,
+     "cost": 1039573.8613053703,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.34531283378601,
+     "n_nu": null,
+     "bound": -9.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 27,
+   "master_s": 0.31639552116394043,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 27,
+   "n_bin": 28,
+   "approx_fixed": 0.9251119907402697,
+   "val_fixed": 0.9160388127853881,
+   "wall": 748.8052372932434,
+   "failed": 5,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1463,
+   "release_sizes": [
+    14
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.21768832206726,
+     "n_nu": 14,
+     "size": 14,
+     "bound": -Infinity,
+     "cost": 903611.0585025648,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.23330569267273,
+     "n_nu": null,
+     "bound": -24.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 28,
+   "master_s": 0.34918904304504395,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 28,
+   "n_bin": 29,
+   "approx_fixed": 0.9251119907402697,
+   "val_fixed": 0.9146974885844749,
+   "wall": 835.169591665268,
+   "failed": 9,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1596,
+   "release_sizes": [
+    25
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.044610023498535,
+     "n_nu": 25,
+     "size": 25,
+     "bound": -7.0,
+     "cost": 1004744.4868681061,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.196166276931763,
+     "n_nu": null,
+     "bound": -13.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 29,
+   "master_s": 0.37199997901916504,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 29,
+   "n_bin": 30,
+   "approx_fixed": 0.9222145085988961,
+   "val_fixed": 0.9112585616438356,
+   "wall": 901.702962398529,
+   "failed": 14,
+   "check_status": "Optimal",
+   "check_obj": 925052.9514741402,
+   "n_fixed": 1593,
+   "release_sizes": [
+    67
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.052494049072266,
+     "n_nu": 67,
+     "size": 67,
+     "bound": -10.0,
+     "cost": 922380.9831105133,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.17217493057251,
+     "n_nu": null,
+     "bound": 0.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 30,
+   "master_s": 0.31691813468933105,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 30,
+   "n_bin": 31,
+   "approx_fixed": 0.9143985230261534,
+   "val_fixed": 0.9016409817351598,
+   "wall": 947.9571061134338,
+   "failed": 31,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1541,
+   "release_sizes": [
+    17
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.041625738143921,
+     "n_nu": 17,
+     "size": 17,
+     "bound": -13.0,
+     "cost": 637237.3171545053,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.161900043487549,
+     "n_nu": null,
+     "bound": -14.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 31,
+   "master_s": 0.30822229385375977,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 31,
+   "n_bin": 32,
+   "approx_fixed": 0.9135339880796066,
+   "val_fixed": 0.9005707762557078,
+   "wall": 966.2479100227356,
+   "failed": 32,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1464,
+   "release_sizes": [
+    24
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.038530588150024,
+     "n_nu": 24,
+     "size": 24,
+     "bound": -12.0,
+     "cost": 719542.0628206629,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.236287355422974,
+     "n_nu": null,
+     "bound": -6.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 32,
+   "master_s": 0.3421754837036133,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 32,
+   "n_bin": 33,
+   "approx_fixed": 0.9122994741844258,
+   "val_fixed": 0.900328196347032,
+   "wall": 1019.2432820796967,
+   "failed": 10,
+   "check_status": "Optimal",
+   "check_obj": 517615.6694311465,
+   "n_fixed": 1496,
+   "release_sizes": [
+    5
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.112558603286743,
+     "n_nu": 5,
+     "size": 5,
+     "bound": 0.0,
+     "cost": 494331.0887463571,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.029305458068848,
+     "n_nu": null,
+     "bound": 0.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 33,
+   "master_s": 0.425311803817749,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 33,
+   "n_bin": 34,
+   "approx_fixed": 0.9122994741844258,
+   "val_fixed": 0.8988584474885845,
+   "wall": 1061.0464251041412,
+   "failed": 34,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1513,
+   "release_sizes": [
+    7
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.045271158218384,
+     "n_nu": 7,
+     "size": 7,
+     "bound": -17.0,
+     "cost": 1115333.64403243,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.078960657119751,
+     "n_nu": null,
+     "bound": -16.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 34,
+   "master_s": 0.41652441024780273,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 34,
+   "n_bin": 35,
+   "approx_fixed": 0.912268684380564,
+   "val_fixed": 0.8987157534246575,
+   "wall": 1083.8726661205292,
+   "failed": 36,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1473,
+   "release_sizes": [
+    34
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.037749767303467,
+     "n_nu": 34,
+     "size": 34,
+     "bound": -11.0,
+     "cost": 563491.7493179404,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.03350281715393,
+     "n_nu": null,
+     "bound": -6.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 35,
+   "master_s": 0.48235201835632324,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 35,
+   "n_bin": 36,
+   "approx_fixed": 0.9097743965745706,
+   "val_fixed": 0.8948487442922375,
+   "wall": 1102.7177803516388,
+   "failed": 37,
+   "check_status": "Infeasible",
+   "check_obj": Infinity,
+   "n_fixed": 1501,
+   "release_sizes": [
+    17
+   ],
+   "relax": [
+    {
+     "status": "Time limit reached",
+     "time": 8.130846500396729,
+     "n_nu": 17,
+     "size": 17,
+     "bound": 1.0,
+     "cost": 759537.4187233825,
+     "start": "label"
+    },
+    {
+     "status": "Time limit reached",
+     "time": 8.072213888168335,
+     "n_nu": null,
+     "bound": -5.0,
+     "start": null
+    }
+   ]
+  },
+  {
+   "it": 36,
+   "master_s": 0.42915797233581543,
+   "master_status": "Optimal",
+   "master_gap": 0.0,
+   "n_cut_sets": 36,
+   "n_bin": 37,
+   "approx_fixed": 0.9076764573265518,
+   "val_fixed": 0.892537100456621,
+   "wall": 1122.0461719036102,
+   "result": "all instances feasible"
+  }
+ ],
+ "wall_s": 1135.3314108848572,
+ "cpu_s": 1110.8086128930001,
+ "cfg": {
+  "K_max": 10,
+  "Q": 20,
+  "relax_tl": 8.0,
+  "check_tl": 60.0,
+  "budget_s": 7200.0,
+  "start_tl": 15.0
+ }
+}
