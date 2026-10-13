@@ -2,13 +2,14 @@
 
     python3 scripts/uc_cguard_report.py
 
-Rows per set (test_fresh 0-119 and the six shifted sets): full MILP at 0.5 %, the pipeline, and the pipeline with each
-check (C1 pre-solve LP-cost check, C2 post-solve bound check + gradient polish, C3 post-solve bound check + full-MILP
-fallback). Gap = (C - DB) / C against the reference full MILP's dual bound (0.1 %, from the pipeline records); speed-up =
-T_full(0.1 %) / T_method with every overhead: the pipeline's inference, LP relaxation, guards and reduced MILP (records);
-for C1 also its relaxed reduced LP (every instance) and, where it fires, the release LPs and the new reduced MILP; for
-C2 / C3, where they fire, the gradient LP and polish MILP / the full MILP at 0.5 %. Paired bootstrap CIs (2,000
-resamples) against the pipeline and against the full MILP at 0.5 %.
+Rows per set (test_fresh 0-119 and the six shifted sets), all from the full re-run on core 0
+(results/uc12/cguard_test_full.jsonl): full MILP at 0.5 %, the pipeline, and the pipeline with each check (C1 pre-solve
+LP-cost check, C2 post-solve bound check + gradient polish, C3 post-solve bound check + full-MILP fallback; C2 / C3 also
+at arm B's threshold when results/uc12/cguard_select_B.json exists). Gap = (C - DB) / C against this run's reference
+full MILP (0.1 %); speed-up = T_full(0.1 %) / T_method with every overhead: inference, LP relaxation, guards, reduced
+MILP; for C1 its relaxed reduced LP on every instance and, where it fires, the release LPs and the new reduced MILP;
+where the bound check fires, C2's gradient LP and polish MILP or C3's full MILP at 0.5 %. Paired bootstrap CIs (2,000
+resamples) against the pipeline and against the full MILP at 0.5 %; validation summary from results/uc12/cguard_val.jsonl.
 """
 import json
 import os
