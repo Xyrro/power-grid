@@ -263,12 +263,14 @@ Paired comparisons of the learned pipeline at 0.5 % (instances both solve):
 
 ## 6. Verdict
 
-* A legitimately weaker relaxation is hard to find in the cheap range. Derating RTS-GMLC's lines to 60 % is the only
-  setting that weakens it markedly while keeping the full MILP under five minutes, and then only on 12-hour windows.
+* A legitimately weaker relaxation is hard to find in the cheap range. Among the screened settings, derating
+  RTS-GMLC's lines to 60 % is the only one that weakens it markedly while keeping the full MILP under five minutes,
+  and then only on 12-hour windows.
   Even there, the weakening shows in the median and in the fractional count, not in the mean, because the
   original-rating windows already have rare very weak relaxations.
-* On this benchmark **learning helps**, unlike on the original-rating benchmarks. The learned pipeline is the only
-  fixing rule as accurate as the full MILP at a 1 % gap (+0.07 pp [−0.01, +0.14]), and it is 1.5× faster than it. It
+* On this benchmark **learning helps**, unlike on the original-rating benchmarks (a cross-benchmark comparison, see
+  §7). The learned pipeline is the only fixing rule statistically as accurate as the full MILP at a 1 % gap
+  (+0.07 pp [−0.01, +0.14]), and it is 1.5× faster than it. It
   beats every learning-free rule on accuracy by 0.16–0.49 pp, and it beats Learning to Fix's own kNN on both accuracy
   and speed. What learning adds is a confidence ranking that separates the LP's wrong integral values from the right
   ones: the validated fixed share is 84 % against 63–65 % for the LP values.

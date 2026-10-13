@@ -1,4 +1,6 @@
-"""A harder unit-commitment benchmark for partial fixing: screening of candidate settings and helpers.
+"""A harder unit-commitment benchmark for partial fixing: screening of candidate settings, the chosen benchmark
+(RTS-GMLC, 12-hour windows, line ratings at 60 %), guards, polished labels and the guard-aware tuner used on it
+(docs/methods/hard.md).
 
 Screening (scripts/uc_hard_screen.py) measures, per candidate setting, how weak the LP relaxation is and how long
 the full MILP takes:
