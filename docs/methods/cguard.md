@@ -121,3 +121,56 @@ records.
   Paired instance-bootstrap 95 % CIs (2,000 resamples) of Δ gap, Δ log speed-up and Δ served against the pipeline and
   against the full MILP at 0.5 %. All reduced problems were feasible.
 
+## Results
+
+Full tables: [`results/uc12/cguard_results.md`](../../results/uc12/cguard_results.md) (+ `.json`); raw records
+`results/uc12/cguard_test_full.jsonl`. The re-solved pipeline reproduces the m1x records' objectives on 300 / 300
+instances (the reference full MILP on 276; the rest stopped at its 60 s limit at a different point). Every reduced
+problem was feasible. Thresholds as selected on validation: d_pre = 0.75 %, d_post = 4 %.
+
+**Mean gap % [95 % CI] (max), mean / median speed-up, firing rate of the check:**
+
+| set | full MILP 0.5 % | pipeline | + C1 pre-solve LP check | + C2 bound check + polish | **+ C3 bound check + full-MILP fallback** |
+|---|---|---|---|---|---|
+| test_fresh (120) | 0.29 [0.21, 0.40] (3.97), 3.4 / 1.6× | 0.30 [0.23, 0.37] (2.71), 10.1 / 5.5× | 0.28 (2.78), 9.0 / 5.2×, fires 6 % | 0.30 (2.71), 10.1 / 5.5×, 1 % | **0.30 [0.23, 0.37] (2.71), 10.1 / 5.5×, 1 %** |
+| load +15 % | 0.15 (0.51), 2.5 / 1.5× | 0.17 (0.77), 8.4 / 5.3× | 0.16, 7.6 / 5.0×, 7 % | 0.17, 8.4 / 5.3×, 0 % | 0.17 (0.77), 8.4 / 5.3×, 0 % |
+| load −15 % | 0.41 [0.22, 0.63] (2.41), 3.0 / 1.2× | 1.59 [0.40, 3.49] (27.24), 8.0 / 7.1× | 0.57 [0.29, 0.90] (4.12), 6.9 / 5.5×, 17 % | 1.41 (27.24), 6.4 / 4.7×, 23 % | **0.40 [0.22, 0.59] (2.00), 6.2 / 4.1×, 23 %** |
+| wind + solar ×1.5 | 0.41 [0.24, 0.58] (1.70), 3.0 / 1.0× | 1.36 [0.64, 2.35] (8.67), 7.2 / 4.0× | 1.13 [0.51, 2.05] (8.67), 6.1 / 3.5×, 20 % | 1.08 [0.44, 1.98] (8.67), 6.7 / 3.8×, 23 % | **0.43 [0.23, 0.68] (3.12), 6.5 / 3.7×, 23 %** |
+| 2–3 units out | 0.49 (4.82), 2.2 / 1.6× | 0.61 (3.30), 10.0 / 6.4× | 0.58, 7.8 / 5.8×, 17 % | 0.61, 9.9 / 6.4×, 10 % | 0.61 (3.30), 9.8 / 6.4×, 10 % |
+| 1–2 lines out | 0.15 (0.61), 2.9 / 2.1× | 0.22 (1.03), 10.4 / 5.3× | 0.19, 8.9 / 5.2×, 10 % | 0.22, 10.4 / 5.3×, 0 % | 0.22 (1.03), 10.4 / 5.3×, 0 % |
+| across midnight | 0.22 (1.53), 2.6 / 1.6× | 0.22 (1.01), 8.3 / 5.6× | 0.22, 7.3 / 5.2×, 7 % | 0.22, 8.3 / 5.6×, 3 % | 0.22 (1.01), 8.3 / 5.6×, 3 % |
+
+**Paired** (Δ gap pp [95 % CI]; time ratio = geometric mean of reference time / rule time, > 1 = the rule is faster):
+
+| set | C3 − pipeline: Δ gap / Δ log speed-up | C3 − full MILP 0.5 %: Δ gap / time ratio | pipeline − full MILP 0.5 % | C1 − pipeline | C2 − pipeline |
+|---|---|---|---|---|---|
+| test_fresh | +0.00 / −0.01 [−0.03, 0.00] | +0.00 [−0.06, +0.06] / 2.81× | +0.00 [−0.06, +0.06] / 2.83× | −0.01 [−0.04, 0.00] / −0.08 [−0.10, −0.06] | −0.00 / −0.01 |
+| load −15 % | **−1.19 [−3.10, −0.01]** / −0.43 [−0.74, −0.15] | **−0.01 [−0.14, +0.12]** / 1.92× | +1.18 [−0.00, +3.12] / 2.96× | −1.02 [−2.80, +0.01] / −0.19 | −0.18 [−0.55, −0.00] / −0.27 |
+| wind + solar ×1.5 | **−0.93 [−1.91, −0.23]** / −0.33 [−0.58, −0.13] | **+0.02 [−0.08, +0.17]** / 2.26× | **+0.95 [+0.23, +1.92]** / 3.15× | −0.22 [−0.57, +0.01] / −0.17 | −0.27 [−0.52, −0.07] / −0.21 |
+| 2–3 units out | 0.00 / −0.14 [−0.31, 0.00] | +0.12 [−0.07, +0.30] / 3.30× | +0.12 [−0.07, +0.30] / 3.80× | −0.03 / −0.15 | −0.00 / −0.08 |
+| load +15 %, lines out, midnight | 0.00 / −0.03 to 0.00 | +0.00 to +0.06 (n.s.) / 2.69–2.89× | +0.00 to +0.06 (n.s.) | −0.02 to 0.00 / −0.06 to −0.12 | 0.00 / ≤ −0.01 |
+
+* **C3 closes both failures at a third of the cost of the full MILP.** On load −15 % and wind + solar ×1.5 the bound check
+  fires on 23 % of the instances (7 of 30 each). Over all 300 test instances, 11 have the pipeline more than 1 pp above
+  the full MILP at 0.5 %; the check fires on 9 of them (every one above 2 pp except one), plus harmless instances whose
+  relaxation is simply weak. With the full-MILP fallback the pipeline then matches the full MILP at 0.5 %
+  (−0.01 pp and +0.02 pp, both CIs around 0; max 2.0 % and 3.1 % instead of 27.2 % and 8.7 %), and remains 1.9× and 2.3×
+  faster than it (geometric mean; mean speed-up 6.2× and 6.5× against the reference full MILP, from 8.0× and 7.2×).
+* **In distribution it costs nothing measurable**: the check fires on 1 of 120 test_fresh instances (g = 4.2 %, an
+  instance where the pipeline was already right), 0.30 % at 10.1× mean / 5.5× median, Δ log speed-up −0.01
+  [−0.03, 0.00]. It never fires on load +15 % or line outages, and on 3 % / 10 % of the midnight and unit-outage instances
+  without changing a gap.
+* **What C3 misses**: instances whose excess is below what g can distinguish from a weak relaxation: on units out
+  1.9 pp (instance 7, g = 2.0 %) and on wind + solar 1.7 pp (instance 3, g = 3.7 %) stay. A lower threshold would catch
+  them at a higher firing rate (arm B, below).
+* **C2's gradient polish recovers only part** (wind + solar −0.27 pp, load −15 % −0.18 pp; the 27 % instance is not
+  repaired). The failure anatomy (`scripts/uc_cguard_deep.py`, `results/uc12/cguard_deep.json`) shows why: the wrong
+  fixings are mostly OFF fixings of mid-size steam units (76–155 MW) that the full MILP runs for 3–12 hours in place of
+  several CT starts, and they *agree with the LP relaxation's integral values* (u_rel = 0). Among ~700 fixings the
+  dispatch-LP derivative at the pipeline's solution ranks them 17th–96th (sometimes 165th–371st), so releasing 60 frees
+  some and not others; the relaxed-reduced-LP ranking is no better.
+* **C1, the pre-solve LP-cost check, is the wrong instrument.** It repairs the 27 % instance (its Δ was 1.6 %; releasing
+  90 fixings by reduced cost gives 2.1 % instead of 27 %), so load −15 % improves (−1.02 pp, CI touching 0), but it
+  leaves wind + solar significantly worse than the full MILP (+0.73 pp [+0.07, +1.64]) and costs speed everywhere
+  (an extra LP on every instance and false alarms on 6–20 %: Δ log speed-up −0.06 to −0.19, all CIs below 0).
+

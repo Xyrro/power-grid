@@ -1,0 +1,836 @@
+[
+ {
+  "set": "load_lo",
+  "k": 23,
+  "gap_pipe": 27.236586099051095,
+  "gap_full5": 0.0903078617711765,
+  "n_fix": 751,
+  "n_wrong": 15,
+  "n_free_differ": 14,
+  "cost_red": 73541.35940997551,
+  "cost_full5": 53559.57224032895,
+  "z_lp": 47033.064717188994,
+  "wrong_units": [
+   {
+    "g": 20,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     1,
+     2,
+     3
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "rank_rr": 68,
+    "rank_dispatch": 82
+   },
+   {
+    "g": 40,
+    "type": "STEAM",
+    "pmax_MW": 155.0,
+    "hours": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 21,
+    "rank_dispatch": 41
+   }
+  ]
+ },
+ {
+  "set": "ren_hi",
+  "k": 10,
+  "gap_pipe": 8.65408130957918,
+  "gap_full5": 0.06889644242626226,
+  "n_fix": 771,
+  "n_wrong": 14,
+  "n_free_differ": 21,
+  "cost_red": 69866.12003265075,
+  "cost_full5": 63863.849117215206,
+  "z_lp": 59588.21836859914,
+  "wrong_units": [
+   {
+    "g": 6,
+    "type": "STEAM",
+    "pmax_MW": 76.0,
+    "hours": [
+     1,
+     2,
+     3
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     0.0,
+     0.0,
+     -0.0
+    ],
+    "rank_rr": 86,
+    "rank_dispatch": 63
+   },
+   {
+    "g": 7,
+    "type": "STEAM",
+    "pmax_MW": 76.0,
+    "hours": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     0.0,
+     0.0,
+     -0.0,
+     0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 19,
+    "rank_dispatch": 64
+   }
+  ]
+ },
+ {
+  "set": "ren_hi",
+  "k": 24,
+  "gap_pipe": 8.670115187831081,
+  "gap_full5": 0.09011888261750896,
+  "n_fix": 790,
+  "n_wrong": 14,
+  "n_free_differ": 15,
+  "cost_red": 69312.05976230647,
+  "cost_full5": 63359.72341662879,
+  "z_lp": 59928.90535488609,
+  "wrong_units": [
+   {
+    "g": 6,
+    "type": "STEAM",
+    "pmax_MW": 76.0,
+    "hours": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 17,
+    "rank_dispatch": 66
+   },
+   {
+    "g": 37,
+    "type": "STEAM",
+    "pmax_MW": 155.0,
+    "hours": [
+     1,
+     2,
+     3
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     -0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 76,
+    "rank_dispatch": 96
+   }
+  ]
+ },
+ {
+  "set": "load_lo",
+  "k": 29,
+  "gap_pipe": 5.978447801671831,
+  "gap_full5": 0.35429763452836677,
+  "n_fix": 650,
+  "n_wrong": 11,
+  "n_free_differ": 42,
+  "cost_red": 242669.09479225773,
+  "cost_full5": 228972.49375841976,
+  "z_lp": 226644.9950560002,
+  "wrong_units": [
+   {
+    "g": 19,
+    "type": "STEAM",
+    "pmax_MW": 350.0,
+    "hours": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     0.217,
+     0.217,
+     0.217,
+     0.217
+    ],
+    "rank_rr": 0,
+    "rank_dispatch": 0
+   },
+   {
+    "g": 22,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     0,
+     1,
+     2
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 92,
+    "rank_dispatch": 63
+   },
+   {
+    "g": 40,
+    "type": "STEAM",
+    "pmax_MW": 155.0,
+    "hours": [
+     9
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     -0.0
+    ],
+    "rank_rr": 1,
+    "rank_dispatch": 521
+   },
+   {
+    "g": 61,
+    "type": "STEAM",
+    "pmax_MW": 12.0,
+    "hours": [
+     2
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     -0.0
+    ],
+    "rank_rr": 24,
+    "rank_dispatch": 12
+   },
+   {
+    "g": 63,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     0
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0
+    ],
+    "rank_rr": 26,
+    "rank_dispatch": 9
+   },
+   {
+    "g": 64,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     0
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0
+    ],
+    "rank_rr": 27,
+    "rank_dispatch": 10
+   }
+  ]
+ },
+ {
+  "set": "ren_hi",
+  "k": 28,
+  "gap_pipe": 5.617939048938365,
+  "gap_full5": 1.270646192610288,
+  "n_fix": 674,
+  "n_wrong": 34,
+  "n_free_differ": 24,
+  "cost_red": 167441.35629061054,
+  "cost_full5": 160068.50734564385,
+  "z_lp": 144680.03068537574,
+  "wrong_units": [
+   {
+    "g": 18,
+    "type": "STEAM",
+    "pmax_MW": 155.0,
+    "hours": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     0.0,
+     0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 13,
+    "rank_dispatch": 23
+   },
+   {
+    "g": 20,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     2,
+     3,
+     4
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     -0.0,
+     -0.0,
+     0.0
+    ],
+    "rank_rr": 49,
+    "rank_dispatch": 165
+   },
+   {
+    "g": 21,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     3,
+     4,
+     5
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     -0.0,
+     -0.0,
+     0.0
+    ],
+    "rank_rr": 50,
+    "rank_dispatch": 202
+   },
+   {
+    "g": 30,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     2,
+     3,
+     4
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     0.364,
+     0.364,
+     0.364
+    ],
+    "rank_rr": 42,
+    "rank_dispatch": 2
+   },
+   {
+    "g": 33,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     -0.0,
+     1.0,
+     1.0,
+     1.0
+    ],
+    "rank_rr": 43,
+    "rank_dispatch": 4
+   },
+   {
+    "g": 34,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     2,
+     3,
+     4
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "rank_rr": 44,
+    "rank_dispatch": 3
+   },
+   {
+    "g": 72,
+    "type": "NUCLEAR",
+    "pmax_MW": 400.0,
+    "hours": [
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     0.643,
+     0.643,
+     0.643,
+     0.643,
+     0.643,
+     0.643
+    ],
+    "rank_rr": 0,
+    "rank_dispatch": 371
+   }
+  ]
+ },
+ {
+  "set": "load_lo",
+  "k": 18,
+  "gap_pipe": 4.226779861898953,
+  "gap_full5": 1.948727430241115,
+  "n_fix": 732,
+  "n_wrong": 26,
+  "n_free_differ": 33,
+  "cost_red": 67912.68739896498,
+  "cost_full5": 66334.8530821328,
+  "z_lp": 57476.80400354411,
+  "wrong_units": [
+   {
+    "g": 29,
+    "type": "STEAM",
+    "pmax_MW": 76.0,
+    "hours": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 52,
+    "rank_dispatch": 29
+   },
+   {
+    "g": 63,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     0.0,
+     0.0,
+     0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     0.074
+    ],
+    "rank_rr": 101,
+    "rank_dispatch": 344
+   },
+   {
+    "g": 64,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     5,
+     6,
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     0.0,
+     0.0,
+     0.0,
+     -0.0,
+     -0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 102,
+    "rank_dispatch": 345
+   }
+  ]
+ },
+ {
+  "set": "ren_hi",
+  "k": 6,
+  "gap_pipe": 2.1754256479931064,
+  "gap_full5": 0.017499197206438784,
+  "n_fix": 595,
+  "n_wrong": 11,
+  "n_free_differ": 5,
+  "cost_red": 183208.92846005355,
+  "cost_full5": 179254.72257832604,
+  "z_lp": 174334.5341294693,
+  "wrong_units": [
+   {
+    "g": 21,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     0,
+     1,
+     2
+    ],
+    "fixed_to": 0,
+    "u_rel": [
+     -0.0,
+     -0.0,
+     -0.0
+    ],
+    "rank_rr": 33,
+    "rank_dispatch": 33
+   },
+   {
+    "g": 30,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     0,
+     1,
+     2
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "rank_rr": 64,
+    "rank_dispatch": 3
+   },
+   {
+    "g": 33,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     0,
+     1,
+     2
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "rank_rr": 65,
+    "rank_dispatch": 1
+   },
+   {
+    "g": 34,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     0,
+     1
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0,
+     1.0
+    ],
+    "rank_rr": 66,
+    "rank_dispatch": 2
+   }
+  ]
+ },
+ {
+  "set": "ren_hi",
+  "k": 22,
+  "gap_pipe": 2.48239183849745,
+  "gap_full5": 0.5424433969750039,
+  "n_fix": 727,
+  "n_wrong": 5,
+  "n_free_differ": 5,
+  "cost_red": 215421.4548072597,
+  "cost_full5": 211219.5969515326,
+  "z_lp": 202487.5877587065,
+  "wrong_units": [
+   {
+    "g": 4,
+    "type": "CT",
+    "pmax_MW": 20.0,
+    "hours": [
+     0
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0
+    ],
+    "rank_rr": 718,
+    "rank_dispatch": 21
+   },
+   {
+    "g": 5,
+    "type": "CT",
+    "pmax_MW": 20.0,
+    "hours": [
+     0
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0
+    ],
+    "rank_rr": 719,
+    "rank_dispatch": 22
+   },
+   {
+    "g": 23,
+    "type": "CT",
+    "pmax_MW": 20.0,
+    "hours": [
+     0
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0
+    ],
+    "rank_rr": 720,
+    "rank_dispatch": 23
+   },
+   {
+    "g": 24,
+    "type": "CT",
+    "pmax_MW": 20.0,
+    "hours": [
+     0
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0
+    ],
+    "rank_rr": 721,
+    "rank_dispatch": 24
+   },
+   {
+    "g": 27,
+    "type": "CT",
+    "pmax_MW": 20.0,
+    "hours": [
+     0
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0
+    ],
+    "rank_rr": 722,
+    "rank_dispatch": 25
+   }
+  ]
+ },
+ {
+  "set": "gen_out",
+  "k": 7,
+  "gap_pipe": 1.9837053758329768,
+  "gap_full5": 0.09117949661830206,
+  "n_fix": 702,
+  "n_wrong": 3,
+  "n_free_differ": 6,
+  "cost_red": 369912.2019379104,
+  "cost_full5": 362905.1287718221,
+  "z_lp": 362431.1077068672,
+  "wrong_units": [
+   {
+    "g": 61,
+    "type": "STEAM",
+    "pmax_MW": 12.0,
+    "hours": [
+     2,
+     11
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     0.0,
+     -0.0
+    ],
+    "rank_rr": 24,
+    "rank_dispatch": 17
+   },
+   {
+    "g": 69,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     2
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     -0.0
+    ],
+    "rank_rr": 23,
+    "rank_dispatch": 24
+   }
+  ]
+ },
+ {
+  "set": "ren_hi",
+  "k": 4,
+  "gap_pipe": 2.0655601211673096,
+  "gap_full5": 1.0193768169515023,
+  "n_fix": 687,
+  "n_wrong": 4,
+  "n_free_differ": 10,
+  "cost_red": 179593.13722022742,
+  "cost_full5": 177694.91375315475,
+  "z_lp": 171153.28203818024,
+  "wrong_units": [
+   {
+    "g": 33,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     3
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     0.206
+    ],
+    "rank_rr": 101,
+    "rank_dispatch": 22
+   },
+   {
+    "g": 69,
+    "type": "CT",
+    "pmax_MW": 55.00000000000001,
+    "hours": [
+     1,
+     2,
+     3
+    ],
+    "fixed_to": 1,
+    "u_rel": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "rank_rr": 57,
+    "rank_dispatch": 9
+   }
+  ]
+ }
+]
