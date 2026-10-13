@@ -6,6 +6,7 @@
 #                                          learning-free LtF tuning on the LP relaxation (core 3)
 #   scripts/uc_hard_q.sh run2 | run3       the sequence actually run after 08:30 (data2 / data3 stopped after their first
 #                                          step): core 2 teacher + pilot, core 3 all test MILPs + LtF-LP tuning
+#   RATIO=0.9 TL=5 scripts/uc_hard_q.sh run2b | run3b   after the pilot (run3 was replaced by run3b at 09:55)
 cd "$(dirname "$0")/.."
 export OTSL_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 L=results/hard/logs; mkdir -p $L
@@ -46,8 +47,10 @@ case "$1" in
     taskset -c 2 python scripts/uc_hard_tune.py --run hg_fin --src fin_ens --tuner guarded --budget_min 120 >> $L/tune_c2.log 2>&1
     while [ ! -f results/hard/hard_tune_knn.json ]; do sleep 10; done
     taskset -c 2 python scripts/uc_hard_eval.py --shard 0 --nshards 2 >> $L/eval_c2.log 2>&1 ;;
-  run3b)  # core 3 after LtF-LP: join the polishing, guard-aware LtF on the LP values, LtF-kNN, test shard 1
-    while pgrep -f "uc_hard_tune.py --run lp " > /dev/null; do sleep 10; done
+  run3b)  # core 3 after its test MILPs: LtF-LP, join the polishing, guard-aware LtF on the LP values, LtF-kNN, test shard 1
+    while pgrep -f "uc_hard_data.py --gen test" > /dev/null; do sleep 10; done
+    taskset -c 3 python scripts/uc_hard_data.py --gen test --chunks 0-11 >> $L/data_c3.log 2>&1
+    taskset -c 3 python scripts/uc_hard_tune.py --run lp --src lp --tuner faithful --budget_min 120 >> $L/tune_c3.log 2>&1
     while [ $(ls data/generated/hard/polish_[0-9][0-9].npz 2>/dev/null | wc -l) -lt 40 ]; do
       taskset -c 3 python scripts/uc_hard_data.py --polish --teacher t0 --chunks 0-39 --ratio ${RATIO:-0.9} --tl ${TL:-5} >> $L/polish_c3.log 2>&1
       sleep 10; done
