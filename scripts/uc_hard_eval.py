@@ -96,7 +96,7 @@ def main(a):
         from uc_hard_train import featurizer, load_member
         feat = featurizer(sysm)
         nets = [load_member(p, sysm, feat) for p in members]
-    out = os.path.join(RES, f"hard_eval_s{a.shard}.jsonl")
+    out = a.out or os.path.join(RES, f"hard_eval_s{a.shard}.jsonl")
     done = {r["i"] for r in map(json.loads, open(out))} if os.path.exists(out) else set()
     todo = [i for i in range(n) if i % a.nshards == a.shard and i not in done]
     if a.only:
@@ -166,6 +166,7 @@ if __name__ == "__main__":
     ap.add_argument("--hg", default="hg_fin")
     ap.add_argument("--only", default="")
     ap.add_argument("--dry", action="store_true")
+    ap.add_argument("--out", default="", help="records file (default results/hard/hard_eval_s<shard>.jsonl)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     main(a)

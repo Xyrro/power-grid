@@ -7,6 +7,8 @@
 #   scripts/uc_hard_q.sh run2 | run3       the sequence actually run after 08:30 (data2 / data3 stopped after their first
 #                                          step): core 2 teacher + pilot, core 3 all test MILPs + LtF-LP tuning
 #   RATIO=0.9 TL=5 scripts/uc_hard_q.sh run2b | run3b   after the pilot (run3 was replaced by run3b at 09:55)
+#   scripts/uc_hard_q.sh run2c | run3c     resume after the 15:37 restart (same steps from the final ensemble on, plus
+#                                          the paired original-rating check)
 cd "$(dirname "$0")/.."
 export OTSL_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
 L=results/hard/logs; mkdir -p $L
@@ -56,6 +58,18 @@ case "$1" in
       sleep 10; done
     taskset -c 3 python scripts/uc_hard_tune.py --run lp_g --src lp --tuner guarded --budget_min 120 >> $L/tune_c3.log 2>&1
     taskset -c 3 python scripts/uc_hard_tune.py --run knn --src knn --tuner faithful --budget_min 120 >> $L/tune_c3.log 2>&1
+    while [ ! -f results/hard/hard_tune_hg_fin.json ]; do sleep 10; done
+    taskset -c 3 python scripts/uc_hard_eval.py --shard 1 --nshards 2 >> $L/eval_c3.log 2>&1 ;;
+  run2c)  # resume after the 15:37 restart (polishing, lp, lp_g done): rest of the final ensemble, guard-aware tuning of
+           # the learned pipeline, test shard 0
+    taskset -c 2 python scripts/uc_hard_train.py --name fin --seeds 0,1,2,3,4 --label pol --epochs 40 >> $L/train_c2.log 2>&1
+    taskset -c 2 python scripts/uc_hard_train.py --ensemble fin >> $L/train_c2.log 2>&1
+    taskset -c 2 python scripts/uc_hard_tune.py --run hg_fin --src fin_ens --tuner guarded --budget_min 120 >> $L/tune_c2.log 2>&1
+    while [ ! -f results/hard/hard_tune_knn.json ]; do sleep 10; done
+    taskset -c 2 python scripts/uc_hard_eval.py --shard 0 --nshards 2 >> $L/eval_c2.log 2>&1 ;;
+  run3c)  # resume: LtF-kNN tuning, the paired original-rating check on the validation scenarios, test shard 1
+    taskset -c 3 python scripts/uc_hard_tune.py --run knn --src knn --tuner faithful --budget_min 120 >> $L/tune_c3.log 2>&1
+    taskset -c 3 python scripts/uc_hard_paired.py --split val >> $L/paired_c3.log 2>&1
     while [ ! -f results/hard/hard_tune_hg_fin.json ]; do sleep 10; done
     taskset -c 3 python scripts/uc_hard_eval.py --shard 1 --nshards 2 >> $L/eval_c3.log 2>&1 ;;
 esac

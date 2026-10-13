@@ -10,11 +10,13 @@ Results: `results/uc12/cguard_results.{md,json}` (when written), diagnostics `re
 * Diagnosis (LPs only, `scripts/uc_cguard_diag.py --sets test / val`): done (300 test, 360 validation).
 * Validation stage done 06:51–08:25 UTC (360 instances, `scripts/uc_cguard_run.py --stage val`); selection
   (`--stage select`): d_pre = 0.75 %, d_post = 4 % (`results/uc12/cguard_select.json`).
-* Timing check (`--stage retime`, 08:25–08:30): the m1x pipeline records are **not** reusable — the same solves now run
+* Timing check (`--stage retime`, 08:25–08:30): the m1x pipeline records are **not** reusable — the same solves ran
   ~30 % faster on core 0 (full MILP ratio median 0.69, pipeline 0.67; objectives identical on 14 / 14). So the test
-  pass re-solves everything (`--stage testfull`, started 08:31, ~45 s per instance, ~3.8 h; resumable, log
-  `results/uc12/cguard_testfull.log`). Queued after it (`cguard_chain.log`): `scripts/uc_cguard_deep.py`, then the
-  shifted-validation arm (`scripts/uc_cguard_shiftval.py --n 20`, then `--select`). Resume by re-running the stage.
+  pass re-solves everything (`--stage testfull`, started 08:31; resumable, log `results/uc12/cguard_testfull.log`).
+  Interrupted by an API spend limit (~12:00) and container restarts (12:49, 15:20, 15:37); resumed each time, finished
+  instances are skipped. At 15:38: 246 of 300 done (all six shifted sets, test_fresh 0–65); resumed with
+  `scratchpad/cguard_resume2.sh` (testfull → `scripts/uc_cguard_deep.py` → `scripts/uc_cguard_shiftval.py --n 20` →
+  `--select`; log `results/uc12/cguard_chain.log`). Resume by re-running the same commands.
 * Report: `python3 scripts/uc_cguard_report.py` → `results/uc12/cguard_results.{md,json}`.
 
 **Plan, fixed before the validation and test passes.** The diagnosis (below) showed that the relaxed-reduced-LP
