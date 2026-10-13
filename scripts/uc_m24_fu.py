@@ -6,7 +6,9 @@ cost-aware bound check with a full-MILP fallback of the cguard study (otsl.cguar
     python3 scripts/uc_m24_fu.py --stage select                            # calibration choice -> m24_fu_select.json
     taskset -c 0 python3 scripts/uc_m24_fu.py --stage val --rules m24,lp,m24cal   # rules on the 40 validation instances
     python3 scripts/uc_m24_fu.py --stage cguard                            # bound-check thresholds -> m24_fu_cguard.json
-    taskset -c 1 python3 scripts/uc_m24_fu.py --stage test                 # 40 test instances, paired with stored records
+    taskset -c 1 python3 scripts/uc_m24_fu.py --stage test                 # 40 test instances, timing check vs stored records
+    taskset -c 0 python3 scripts/uc_m24_fu.py --stage paired --part 0/2    # fully paired re-solve (even / odd instances)
+    taskset -c 1 python3 scripts/uc_m24_fu.py --stage paired --part 1/2
 
 Calibration (validation only; the 2-fold split, measurement and violation criterion of scripts/uc_m24_cv.py: reduced
 MILP at 0.1 %, 120 s, test-time guards, violation = cost increase over C* above 1 %). Two families, each ordered from the
@@ -27,10 +29,13 @@ d per rule: the smallest value of the grid 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 7
 downwards because 24-hour relaxation gaps are small: median 0.26 % on validation) that fires on at most 5 % of the 40
 validation instances, from the rule's reduced MILP at 0.5 % (300 s) on them.
 
-Test: per instance in one process on core 1 (the core of the stored records results/uc24/m24_eval_test.jsonl): LP
-relaxation, ensemble inference, the original m24 fixings (timing check against the stored pipeline) and the calibrated
-ones, guards, reduced MILP at 0.5 % (300 s). The full MILPs (0.1 %: dual bound, speed-up denominator, incumbent log;
-0.5 %: the bound check's fallback) are the stored ones of the same instance. Output: results/uc24/m24_fu_*.json[l].
+Test, stage "test": per instance in one process on core 1 (the core of the stored records
+results/uc24/m24_eval_test.jsonl): LP relaxation, ensemble inference, the original m24 fixings and the calibrated ones,
+guards, reduced MILP at 0.5 % (300 s). The original pipeline reproduces its stored objectives, but in 1.35-1.65x the
+time on instances 0-25 (stored before a container restart, on a faster machine) and 0.9-1.0x on 26-39, so the stored
+full-MILP times cannot serve as denominators. Stage "paired" therefore re-solves everything per instance back to back
+in one process (full MILP at 0.1 % with its incumbent log and at 0.5 %, LtF-LP at 0.5 %, original and calibrated m24 at
+0.5 %), even instances on core 0 and odd ones on core 1. Output: results/uc24/m24_fu_*.json[l].
 """
 import argparse
 import glob
@@ -144,7 +149,8 @@ def load_rule(name, sel=None):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", required=True,
-                    choices=["cv_margin", "cv_eps", "select", "val", "cguard", "test"])
+                    choices=["cv_margin", "cv_eps", "select", "val", "cguard", "test", "paired"])
+    ap.add_argument("--part", default="0/1", help="paired stage: k/n = instances with i % n == k")
     ap.add_argument("--eps", default="0.005,0.0025")
     ap.add_argument("--rules", default="m24,lp,m24cal")
     ap.add_argument("--budget_min", type=float, default=60.0)
@@ -267,6 +273,69 @@ if __name__ == "__main__":
         json.dump(dict(rules=out, grid=GRID, max_rate=MAX_RATE,
                        rule="smallest grid value firing on at most 5 % of the 40 validation instances (cguard C3)"),
                   open(os.path.join(RES, "m24_fu_cguard.json"), "w"), indent=1)
+
+    if a.stage == "paired":
+        # fully paired pass: the stored records of results/uc24/m24_eval_test.jsonl came from a container that ran
+        # ~1.5x faster (instances 0-25; the "test" stage re-solves the original m24 pipeline with identical objectives
+        # in 1.35-1.65x the time), so every comparator is re-solved here, per instance back to back in one process
+        from uc_m24_train import featurizer, load_member
+        k_, n_ = (int(x) for x in a.part.split("/"))
+        path = os.path.join(RES, f"m24_fu_paired_{k_}.jsonl")
+        d = load_b3(os.path.join(U24, "test.npz"))
+        feat = featurizer(sysm)
+        members = [load_member(p, sysm, feat) for p in sorted(glob.glob(os.path.join(DATA, "models", "fin_s*.pt")))]
+        assert len(members) == 5
+        rules = {"m24": load_rule("m24")[1:], "m24cal": load_rule("m24cal")[1:]}
+        _, lo_lp, hi_lp = load_rule("lp")
+        done = {json.loads(x)["i"] for x in open(path)} if os.path.exists(path) else set()
+        one = {k: d[k][:1] for k in ("load", "avail", "u0", "sr", "u_rel", "lmp_rel", "flow_rel")}
+        for m1 in members:
+            m1.predict(one)
+        todo = [i for i in range(40) if i % n_ == k_ and i not in done]
+        print(f"paired part {k_}/{n_}: {len(todo)} instances on cpu {sorted(os.sched_getaffinity(0))}", flush=True)
+        t_start = time.time()
+        for n, i in enumerate(todo):
+            sc = sc_of(d, i)
+            rec = dict(i=i, loadavg0=os.getloadavg()[0], cpu=sorted(os.sched_getaffinity(0)))
+            t0 = time.time()
+            rel = m.solve_dispatch(sc, None, relax=True)
+            t_rel = time.time() - t0
+            rec.update(t_rel=t_rel, c_rel=float(rel.obj))
+            runs = {}
+            for nm, gap in (("full", 1e-3), ("full gap=0.5%", 5e-3)):
+                r = {k: v for k, v in solve_reduced(m, sc, None, 300.0, gap).items() if k != "trace"}
+                r.update(pre_s=0.0, t_rel=0.0, t_guard=0.0, t_method=r["time"], mip_rel_gap=gap)
+                runs[nm] = r
+            t0 = time.time()
+            fx = fix_dict(rel.u, lo_lp, hi_lp)
+            dt = time.time() - t0
+            r = {k: v for k, v in solve_reduced(m, sc, fx, 300.0, 5e-3).items() if k != "trace"}
+            r.update(pre_s=dt, t_rel=t_rel, t_guard=0.0, n_fixed_pre=len(fx), mip_rel_gap=5e-3)
+            r["t_method"] = r["time"] + r["pre_s"] + r["t_rel"]
+            runs["LtF-LP gap=0.5%"] = r
+            di = {kk: d[kk][i:i + 1] for kk in ("load", "avail", "u0", "sr")}
+            di.update(u_rel=rel.u[None], lmp_rel=rel.lmp[None], flow_rel=rel.flow[None])
+            t0 = time.time()
+            p = np.mean([m1.predict(di)[0].astype(np.float64) for m1 in members], 0)
+            t_inf = time.time() - t0
+            for nm, (lo, hi) in rules.items():
+                t0 = time.time()
+                fx = fix_dict(p, lo, hi)
+                dt = time.time() - t0
+                fx2, info = guard_chain(m, sysm, sc, fx, lp=True)
+                r = {k: v for k, v in solve_reduced(m, sc, fx2, 300.0, 5e-3).items() if k != "trace"}
+                r.update(pre_s=t_inf + dt, t_rel=t_rel, t_guard=info["guard_s"], n_fixed_pre=len(fx), mip_rel_gap=5e-3,
+                         **{kk: v for kk, v in info.items() if kk.startswith("released")})
+                r["t_method"] = r["time"] + r["pre_s"] + r["t_rel"] + r["t_guard"]
+                runs[nm] = r
+            rec["runs"] = runs
+            rec["loadavg1"] = os.getloadavg()[0]
+            append(path, rec)
+            full = runs["full"]
+            print(f"[{n + 1}/{len(todo)} {time.time() - t_start:.0f}s] i={i} full {full['time']:.1f}s | " + " | ".join(
+                f"{nm}: " + (f"{(r['obj'] - full['obj']) / full['obj'] * 100:+.2f}% {r['t_method']:.1f}s" if r["feasible"] else "INF")
+                for nm, r in runs.items() if nm != "full"), flush=True)
+        print("done", flush=True)
 
     if a.stage == "test":
         from uc_m24_train import featurizer, load_member
