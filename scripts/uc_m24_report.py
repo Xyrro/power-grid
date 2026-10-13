@@ -223,8 +223,10 @@ def followup(L, res):
                      f"{f(s['sp_mean'], 1)} / {f(s['sp_geo'], 1)}", f"{f(s['ttq_median'], 2)} / {f(s['ttq_geo'], 2)}",
                      f(s["fixed"], 1), "–" if s["fired"] is None else f(s["fired"], 0) + " %", f(s["served"], 0)])
     fu["test"] = S
+    cores = {c: [i for i in idx if Q[i]["cpu"] == [c]] for c in (0, 1)}
     L += [f"\nTest ({len(idx)} instances, fully paired re-solve: per instance every rule back to back in one process, "
-          f"even instances on core 0, odd on core 1; full MILP at 0.1 % {np.mean([x['time'] for x in F]):.0f} s mean). "
+          f"{len(cores[0])} instances on core 0 and {len(cores[1])} on core 1, two processes side by side; full MILP at 0.1 % "
+          f"{np.mean([x['time'] for x in F]):.0f} s mean). "
           f"Same objective as the stored run: m24 {rt['m24']['same_obj']} / {len(idx)}, LtF-LP {rt['LtF-LP gap=0.5%']['same_obj']} / {len(idx)}, "
           f"full MILP at 0.5 % {rt['full gap=0.5%']['same_obj']} / {len(idx)}, at 0.1 % {rt['full']['same_obj']} / {len(idx)}; "
           f"m24 calibrated as in the first follow-up pass {rt['m24cal']['same_obj']} / {rt['m24cal']['n']}. Time ratio new / stored "

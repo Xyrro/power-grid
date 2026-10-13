@@ -105,7 +105,7 @@ Calibration (validation only, the 2-fold CV above; target ≤ 3 of 40 held-out �
 Bound check (cguard C3: g = (C_red − z_LP) / C_red; if g > d or infeasible, full MILP at 0.5 % and the better solution); d per rule = the smallest grid value (0.5–10 %) firing on ≤ 5 % of the 40 validation instances (reduced MILP at 0.5 %): lp: d = 1 % (fires on 2.5 %, g median 0.37 %); m24: d = 1.5 % (fires on 2.5 %, g median 0.45 %); m24cal: d = 1 % (fires on 2.5 %, g median 0.40 %).
 
 
-Test (40 instances, fully paired re-solve: per instance every rule back to back in one process, even instances on core 0, odd on core 1; full MILP at 0.1 % 150 s mean). Same objective as the stored run: m24 40 / 40, LtF-LP 40 / 40, full MILP at 0.5 % 39 / 40, at 0.1 % 36 / 40; m24 calibrated as in the first follow-up pass 40 / 40. Time ratio new / stored (median): instances 0–25 (stored before a container restart) m24 1.48, full MILP 1.45; instances 26–39 m24 0.89, full MILP 0.95.
+Test (40 instances, fully paired re-solve: per instance every rule back to back in one process, 24 instances on core 0 and 16 on core 1, two processes side by side; full MILP at 0.1 % 150 s mean). Same objective as the stored run: m24 40 / 40, LtF-LP 40 / 40, full MILP at 0.5 % 39 / 40, at 0.1 % 36 / 40; m24 calibrated as in the first follow-up pass 40 / 40. Time ratio new / stored (median): instances 0–25 (stored before a container restart) m24 1.48, full MILP 1.45; instances 26–39 m24 0.89, full MILP 0.95.
 
 | rule | feasible | gap mean % [95 % CI] | max | # > 1 % | # > 0.5 % | speed-up mean / geo | TTQ median / geo | fixed % | check fired | served % |
 |---|---|---|---|---|---|---|---|---|---|---|
