@@ -182,6 +182,39 @@ if __name__ == "__main__":
         L += ["\n## Validation: Learning to Fix tuning (ε = 1 %, 40 instances)\n",
               table(["run", "score", "guards in the check", "converged", "val fixed % (after guards)", "before guards", "iterations",
                      "wall h"], rows)]
+    cvp = os.path.join(RES, "m24_cv.jsonl")
+    if os.path.exists(cvp):
+        C = [json.loads(x) for x in open(cvp)]
+        res["cv"] = {}
+        rows = []
+        lab = {"m24": "m24 (ensemble, guards)", "lp": "learning-free LtF (LP relaxation)"}
+        for score in ("m24", "lp"):
+            tun = [json.load(open(p)) for p in sorted(glob.glob(os.path.join(RES, f"m24_cv_{score}_f*.json")))]
+            for kind in ("insample", "heldout"):
+                rr = [r for r in C if r["score"] == score and r["kind"] == kind]
+                if not rr:
+                    continue
+                inc = np.array([r["rel_inc"] * 100 if r["feasible"] else np.inf for r in rr])
+                fe = np.isfinite(inc)
+                st = dict(n=len(rr), infeasible=int((~fe).sum()), inc_mean=float(inc[fe].mean()),
+                          inc_median=float(np.median(inc[fe])), inc_max=float(inc[fe].max()),
+                          n_gt_1=int((inc > 1).sum()), n_gt_05=int((inc > 0.5).sum()),
+                          fixed=float(np.mean([r["n_fixed"] for r in rr]) / TG * 100))
+                if kind == "heldout":
+                    st["tuned_fixed_share"] = [t["fixed_share"] * 100 for t in tun]
+                    st["tuned_converged"] = [t["converged"] for t in tun]
+                res["cv"][f"{score} {kind}"] = st
+                desc = ("40-instance thresholds on the same 40 instances" if kind == "insample" else
+                        f"2-fold: tuned on 20 ({', '.join(f(x, 1) for x in st['tuned_fixed_share'])} % fixed there), "
+                        f"applied to the other 20")
+                rows.append([lab[score], desc, st["n"], st["infeasible"], f(st["fixed"], 1), f(st["inc_mean"], 3),
+                             f(st["inc_median"], 3), f(st["inc_max"], 2), f"{st['n_gt_05']} / {st['n']}",
+                             f"**{st['n_gt_1']} / {st['n']}**"])
+        L += ["\n## Validation-only diagnostic: does the validated ε hold out of sample? (2-fold cross-validation)\n",
+              "Cost increase of the reduced MILP (0.1 %, 120 s; m24 with its test-time guards incl. the LP guard) over "
+              "the validation instance's full-MILP objective C*. ε = 1 %.\n",
+              table(["score", "thresholds", "n", "infeasible", "fixed %", "increase mean %", "median %", "max %",
+                     "> 0.5 %", "> 1 % (= ε violated)"], rows)]
     path = os.path.join(RES, "m24_eval_test.jsonl")
     if os.path.exists(path):
         recs = [json.loads(x) for x in open(path)]
