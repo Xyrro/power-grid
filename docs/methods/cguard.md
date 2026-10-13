@@ -12,7 +12,7 @@ Results: `results/uc12/cguard_results.{md,json}` (when written), diagnostics `re
   (`--stage select`): d_pre = 0.75 %, d_post = 4 % (`results/uc12/cguard_select.json`).
 * Timing check (`--stage retime`, 08:25–08:30): the m1x pipeline records are **not** reusable — the same solves now run
   ~30 % faster on core 0 (full MILP ratio median 0.69, pipeline 0.67; objectives identical on 14 / 14). So the test
-  pass re-solves everything (`--stage testfull`, started 08:31, ~26 s per instance, ~2.2 h; resumable, log
+  pass re-solves everything (`--stage testfull`, started 08:31, ~45 s per instance, ~3.8 h; resumable, log
   `results/uc12/cguard_testfull.log`). Queued after it (`cguard_chain.log`): `scripts/uc_cguard_deep.py`, then the
   shifted-validation arm (`scripts/uc_cguard_shiftval.py --n 20`, then `--select`). Resume by re-running the stage.
 * Report: `python3 scripts/uc_cguard_report.py` → `results/uc12/cguard_results.{md,json}`.
