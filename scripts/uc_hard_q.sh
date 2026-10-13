@@ -46,12 +46,12 @@ case "$1" in
     taskset -c 2 python scripts/uc_hard_tune.py --run hg_fin --src fin_ens --tuner guarded --budget_min 120 >> $L/tune_c2.log 2>&1
     while [ ! -f results/hard/hard_tune_knn.json ]; do sleep 10; done
     taskset -c 2 python scripts/uc_hard_eval.py --shard 0 --nshards 2 >> $L/eval_c2.log 2>&1 ;;
-  run3b)  # core 3 after LtF-LP: guard-aware LtF on the LP values, LtF-kNN (polished labels), test shard 1
+  run3b)  # core 3 after LtF-LP: join the polishing, guard-aware LtF on the LP values, LtF-kNN, test shard 1
     while pgrep -f "uc_hard_tune.py --run lp " > /dev/null; do sleep 10; done
-    taskset -c 3 python scripts/uc_hard_tune.py --run lp_g --src lp --tuner guarded --budget_min 120 >> $L/tune_c3.log 2>&1
     while [ $(ls data/generated/hard/polish_[0-9][0-9].npz 2>/dev/null | wc -l) -lt 40 ]; do
       taskset -c 3 python scripts/uc_hard_data.py --polish --teacher t0 --chunks 0-39 --ratio ${RATIO:-0.9} --tl ${TL:-5} >> $L/polish_c3.log 2>&1
       sleep 10; done
+    taskset -c 3 python scripts/uc_hard_tune.py --run lp_g --src lp --tuner guarded --budget_min 120 >> $L/tune_c3.log 2>&1
     taskset -c 3 python scripts/uc_hard_tune.py --run knn --src knn --tuner faithful --budget_min 120 >> $L/tune_c3.log 2>&1
     while [ ! -f results/hard/hard_tune_hg_fin.json ]; do sleep 10; done
     taskset -c 3 python scripts/uc_hard_eval.py --shard 1 --nshards 2 >> $L/eval_c3.log 2>&1 ;;
