@@ -54,6 +54,16 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
    guard → reduced MILP at 0.5 %): 0.30 % at 9.7× on 120 test instances, level with the full MILP at 0.5 % and 2.85×
    faster, and robust on all six shifts except more renewables and low load, where it is less accurate than the
    loosened MILP. Trust regions and warm starts did not help.
+14. **Round 6 (§8)**: (a) a free post-solve check (reduced-MILP cost against the LP relaxation; if ≥ 4 %, also solve
+   the full MILP at 0.5 %) closes the pipeline's failures with more renewables and low load (1.36–1.59 % → 0.40–0.43 %,
+   level with the loosened MILP and ~2× faster) at no cost in distribution. (b) On **24 hours** the learned recipe's
+   tuned thresholds did not generalise (0.57 %, 8 of 40 instances above 1 %); a threshold margin chosen by
+   cross-validation on the validation set brings it to 0.29 % with none above 1 %, level with the learning-free
+   tuning in gap and time and 1.38× faster to the same quality. (c) On a **congested benchmark** (RTS-GMLC 12 h,
+   line ratings × 0.6, median LP gap 0.61 % vs 0.24 %) **learning pays in accuracy**: 0.32 % at 11.0× against
+   0.49 % for every LP-based rule and 0.52 % for Learning to Fix with kNN; the only fixing rule as accurate as the
+   full MILP at 1 %, and 1.5× faster. Its edge comes from ranking: 94 % of decisions fixable at 99 % precision by
+   the ensemble's confidence, 0.3 % by the LP values.
 
 ## 1. The framework and the benchmarks
 
@@ -898,43 +908,147 @@ hybrid under line outages):
   faster under line outages. Either removes every line-outage catastrophe; the guard is the better default in
   distribution.
 
-## 8. Recommendations for the framework, box by box
+## 8. Round 6: a cost-aware check, 24 hours, and a harder benchmark
+
+Three studies on the open items of §7: the pipeline's failures with more renewables and low load, 24 hours (where no
+learned rule had beaten the learning-free baseline), and a benchmark with a weaker LP relaxation. Same protocol as §7:
+one core per study, every reference re-solved in the same process, validation-only choices, paper metrics.
+
+### Z1. A cost-aware check: post-solve bound gap with a full-MILP fallback
+
+[`methods/cguard.md`](methods/cguard.md). The pipeline's errors under more wind and solar and low load shed nothing:
+they are OFF fixings of 76–155 MW steam units that the LP relaxation also keeps off, while the full MILP runs them for
+3–12 hours instead of several CT starts. So the obvious pre-solve check (the relaxed reduced LP's cost increase) and
+per-fixing reduced costs do not separate them. What does is the **bound gap g = (C_red − z_LP) / C_red** of the reduced
+MILP's cost against the LP relaxation already solved as model input: at least 2 % on every bad instance, free to
+compute. Rule C3: if g ≥ 4 % (the smallest grid value firing on ≤ 5 % of the 360 validation instances), also solve the
+full MILP at 0.5 % and keep the better schedule.
+
+| set (300 test instances) | full MILP at 0.5 % | pipeline | **pipeline + bound check** | check − full MILP at 0.5 % |
+|---|---|---|---|---|
+| test_fresh (120) | 0.29 %, 3.4× | 0.30 %, 10.1× | **0.30 %, 10.1×** (fires on 1 %) | +0.00 [−0.06, +0.06], 2.81× faster |
+| load −15 % | 0.41 %, 3.0× | 1.59 % (max 27.2), 8.0× | **0.40 %** (max 2.0), 6.2× (fires 23 %) | −0.01 [−0.14, +0.12], 1.92× |
+| wind + solar ×1.5 | 0.41 %, 3.0× | 1.36 % (max 8.7), 7.2× | **0.43 %** (max 3.1), 6.5× (fires 23 %) | +0.02 [−0.08, +0.17], 2.26× |
+| units out / load +15 % / lines out / midnight | 0.49 / 0.15 / 0.15 / 0.22 % | 0.61 / 0.17 / 0.22 / 0.22 % | same gaps (fires 0–10 %) | +0.00 to +0.12 (n.s.), 2.7–3.3× |
+
+* **The check closes both failures at no measurable cost in distribution**: against the pipeline, −1.19 pp
+  [−3.10, −0.01] (load −15 %) and −0.93 pp [−1.91, −0.23] (more renewables); the pipeline + check is level with the
+  full MILP at 0.5 % on every set and 1.9–3.3× faster.
+* It catches 9 of the 11 instances where the pipeline is more than 1 pp worse than the loosened MILP. Recalibrating the
+  threshold on shifted *validation* days (2 %) catches all 11 and brings every set within 0.06 pp of the full MILP at
+  0.5 %, for about 10 % of in-distribution speed (0.28 % at 9.9×). That arm is optimistic: its validation shifts come
+  from the same generators as the test shifts.
+* Releasing fixings by the dispatch-LP gradient recovers only 15–30 % of the excess (the wrong fixings rank 17th–370th
+  of ~700), and the pre-solve check costs 6–17 % speed everywhere while missing most failures.
+* Caveats: 11 failures out of 300 instances; g also fires on harmless weak-relaxation instances (time, not accuracy);
+  the fallback MILP is solved cold.
+
+### Z2. 24 hours with the better model
+
+[`methods/m24.md`](methods/m24.md). The 12-hour recipe of §7 Y3 on uc24: 600 new training-day scenarios and 780
+polished labels (a 10 s reduced MILP around a teacher's 90 % most confident decisions; a median 0.04 % above the
+0.5 %-gap MILP, against 2.05 % for label-free labels; no full MILP), a 5-member temporal-GNN ensemble on 900 instances
+(validation log-loss 0.058; the earlier 24-hour GNN 0.086, kNN 0.119), and Learning to Fix's guard-aware tuning. A new
+guard, a **minimal min up/down conflict release** (a dynamic program that releases only the fixings the nearest
+feasible row contradicts: ~35 per instance instead of ~600), is what makes the tuning converge on 24 hours (91.6 %
+fixed; the earlier attempt collapsed to 42 % or did not converge).
+
+| 40 test instances, every rule re-solved per instance | gap mean [CI] | max | > 1 % | speed-up mean / geo | time to same quality (geo) | fixed |
+|---|---|---|---|---|---|---|
+| full MILP at 0.5 % | 0.25 % | 1.01 % | 2 | 4.2× / 2.6× | 0.84× | – |
+| Learning to Fix on the LP values, 0.5 % (1 infeasible) | 0.35 % [0.25, 0.46] | 1.36 % | 2 | 11.1× / 6.9× | 2.56× | 80.6 % |
+| learned recipe, tuned thresholds | 0.57 % [0.41, 0.76] | 2.37 % | 8 | 15.8× / 11.0× | 3.49× | 91.1 % |
+| **learned recipe, cross-validated margin** | **0.29 % [0.21, 0.37]** | **0.95 %** | **0** | 10.7× / 7.5× | **3.46×** | 85.0 % |
+| … + bound check (Z1) | 0.27 % | 0.95 % | 0 | 10.1× / 6.3× | 2.91× | 85.0 % |
+| learning-free + bound check | 0.26 % | 1.01 % | 1 | 9.7× / 5.0× | 2.06× | 80.6 % |
+
+* **The tuned thresholds do not generalise.** The first test gave 0.57 % with 8 instances above 1 %: 1.65× faster than
+  learning-free Learning to Fix but +0.24 pp [+0.10, +0.41] less accurate. A two-fold cross-validation on the
+  validation instances alone shows why: tuned on 20 and applied to the other 20, the learned thresholds break ε on 11
+  of 40 held-out cases (learning-free: 3), although both are 0 of 40 in sample.
+* **A margin chosen by that cross-validation fixes it.** Shifting every threshold by one logit unit (the smallest
+  margin whose held-out violation rate matches the learning-free rule's) gives 0.29 % with no instance above 1 %.
+  Against learning-free Learning to Fix: −0.06 pp [−0.14, +0.03] in gap, 1.14× in time (n.s.), and **1.38× faster to
+  the same quality [1.03, 1.89]**; against the full MILP at 0.5 %: +0.03 pp, 2.87× faster. A tighter ε did not control
+  the held-out risk; a margin did. This is the first learned 24-hour rule level with the learning-free baseline; it is
+  not clearly better.
+* **The bound check (Z1) helps the uncalibrated rule** (8 → 2 instances above 1 %, max 1.30 %, for about a quarter of
+  its speed) and the learning-free rule (0.35 → 0.26 %), but adds little to the calibrated one. On 24 hours it fires
+  on 12–20 % of test instances against 2.5 % of validation, because in-sample reduced solutions have smaller g.
+* Caveats: the follow-up is a second pass over the test set, prompted by the first (all choices validation-only and
+  fixed before the run); the host's speed changed between container restarts, so every comparator was re-solved in
+  the same process.
+
+### Z3. A harder benchmark: congested lines
+
+[`methods/hard.md`](methods/hard.md). Screening for a weaker relaxation with a full MILP of 30 s–5 min: RTS-GMLC 24 h
+with derated lines (relaxation weaker, but the full MILP takes a median 392 s), higher reserves and 48 h (slower, not
+weaker), PGLib-UC FERC (934 units; weak on only 2 of 9 days, 2.5–10 min per MILP). Chosen: **RTS-GMLC 12-hour windows
+with line ratings × 0.6**. At the original ratings only 0.46 % of line-hours bind; at 60 % 1.7 % do, and no reference
+MILP sheds load. On the same 60 validation scenarios the derated relaxation is weaker on 44: median LP gap to the dual
+bound 0.61 % vs 0.24 %, 40 vs 16 fractional values per instance (the mean, 0.74 % vs 0.73 %, is set by rare outliers
+in both). No full MILP was used for training: 3,000 LP-only scenarios, a teacher on label-free labels (here a median
+67 % above the optimum, because rounding the LP sheds load behind congested lines), 2,000 polished labels (a median
+0.31 % above the optimum, 2.8 core-hours), a 5-member temporal-GNN ensemble.
+
+| 60 test instances | feasible | gap mean [CI] | max | speed-up mean / geo | fixed |
+|---|---|---|---|---|---|
+| full MILP at 0.5 % | 100 % | 0.20 % | 0.55 % | 3.2× / 2.5× | – |
+| full MILP at 1 % | 100 % | 0.26 % | 0.82 % | 6.1× / 4.4× | – |
+| **learned pipeline at 0.5 %** | 100 % | **0.32 % [0.26, 0.39]** | **1.13 %** | 11.0× / 6.8× | 84 % |
+| same pipeline on the LP values | 100 % | 0.49 % | 3.05 % | 14.0× / 8.6× | 63 % |
+| Learning to Fix on the LP values | 93 % | 0.49 % | 2.86 % | 15.1× / 9.0× | 65 % |
+| LP-integral fixing + guards | 100 % | 0.81 % | 5.57 % | 11.4× / 8.2× | 96 % |
+| Learning to Fix, kNN | 98 % | 0.52 % | 2.65 % | 8.1× / 4.7× | 56 % |
+
+* **Here learning pays in accuracy.** The learned pipeline beats every LP-based rule (−0.16 pp [−0.32, −0.03] against
+  the same pipeline on LP values, −0.16 pp [−0.30, −0.03] against learning-free Learning to Fix, −0.49 pp against
+  LP-integral fixing) and Learning to Fix with kNN (−0.20 pp [−0.35, −0.05], 1.45× faster). It is the only fixing rule
+  statistically as accurate as the full MILP at a 1 % gap (+0.07 pp [−0.01, +0.14]) and 1.52× faster than it; the
+  full MILP needs 2.5× the pipeline's time to reach the pipeline's cost.
+* **Why**: the ensemble is wrong about as often as the rounded LP (18.8 vs 20.2 wrong decisions per validation
+  instance), but its confidence ranks its decisions: 94 % are fixable at 99 % precision by the ensemble's confidence,
+  0.3 % by the LP values. At the same validated ε the thresholds fix 84 % instead of 63–65 %.
+* The learning-free LP rules are still faster (geometric mean 8.2–9.0× vs 6.8×) if accuracy matters less.
+* Caveats: the weakening shows in the median and the fractional count, not the mean; the comparison with the
+  original-rating uc12 is across benchmarks; one data-and-training seed; one test reference hits the 600 s limit.
+
+## 9. Recommendations for the framework, box by box
 
 | box | change | evidence |
 |---|---|---|
 | inputs (PD, QD) | add the previous on/off status (start-up costs, min up/down depend on it), renewable availability, reserve requirement; add one LP-relaxation solve (fractional u, prices, loadings) as features. QD has no role in a DC model. | U3, V2 |
 | Model 1 (GNN) | pre-train by imitation, then **fine-tune on cost with the exact dispatch LP as critic** (REINFORCE with a leave-one-out baseline; 1–15 min). A plain GNN is not better than an MLP on a fixed network, but mixing across hours helps (temporal GNN, log-loss 0.050 vs 0.064 for an MLP); an ensemble of 5 improves the probabilities further. Masking outaged lines in the GNN changed nothing under line outages. Symmetry features / canonical labels did not help. | U3, U4, V2, Y3, Y4 |
-| MILP labels | **optional**: imitate the repaired LP relaxation instead (18× cheaper on B1, 87× on B2) — same results after fine-tuning; self-training with reduced MILPs gives near-MILP labels at 37 % of the cost. To scale the data, use polished labels (one reduced MILP around a teacher's confident decisions, 4.7 s each): cheap LP labels stop improving with more data, polished labels do not. Do not train from scratch. | U8, V4, W2, Y3 |
+| MILP labels | **optional**: imitate the repaired LP relaxation instead (18× cheaper on B1, 87× on B2) — same results after fine-tuning; self-training with reduced MILPs gives near-MILP labels at 37 % of the cost. To scale the data, use polished labels (one reduced MILP around a teacher's confident decisions, 4.7 s each): cheap LP labels stop improving with more data, polished labels do not (they also scale to 24 h and to the congested benchmark, with no full MILP). Do not train from scratch. | U8, V4, W2, Y3, Z2, Z3 |
 | decoding | min up/down repair (DP) and the **block adequacy repair** (min up/down-aware, no solver) on every prediction; check 2–15 candidates with the LP when time allows. | U3, U4, V2, W1 |
 | LP solver | keep it as the last step: always feasible with priced slacks, 30 ms (B1), and the source of the training signal. | all |
-| with a MILP | **fix with the paper's joint tuning on our ensemble probabilities, add the LP-relaxation guard (or veto), and solve the reduced MILP at a 0.5 % gap**: 0.30 % at 9.7× on 12 h, level with the full MILP at 0.5 % and 2.85× faster, robust to load, outage and topology shifts. Never fix a unit OFF by rounding alone: rarely-on units get collapsed thresholds and fail under line outages. On 24 h, use the tuning on the LP-relaxation values with a 0.5 % gap (0.35 % at 15.7×) until a better 24 h model exists. Trust regions and warm starts do not pay; a short RINS polish trades speed for 0.04–0.2 pp. | U5, V3, W2, W3, Y1–Y6 |
+| with a MILP | **fix with the paper's joint tuning on our ensemble probabilities, add the LP-relaxation guard (or veto), solve the reduced MILP at a 0.5 % gap, and add the post-solve bound check (if the reduced cost is ≥ 4 % above the LP relaxation, also solve the full MILP at 0.5 %)**: 0.30 % at 10× on 12 h, level with the full MILP at 0.5 % and ~3× faster, robust to every shift tested. Never fix a unit OFF by rounding alone: rarely-on units get collapsed thresholds and fail under line outages. Choose the thresholds' safety margin by cross-validation on the validation set, not by in-sample feasibility: on 24 h the tuned thresholds broke ε on 11 of 40 held-out cases, and a one-logit margin fixed it (0.29 %, level with the learning-free tuning). Learning pays in accuracy where the LP relaxation is weak (congested network: 0.32 % vs 0.49 %); where it is strong, the paper's tuning on the LP values is a hard baseline. Trust regions and warm starts do not pay. | U5, V3, W2, W3, Y1–Y6, Z1–Z3 |
 | Model 2 | if a fast dispatch estimate is needed, use the physics decoder (unit positions → closed-form balance → VA from DC power flow) and price the implied shedding / reserve shortfall. Do not use it as a screener when the exact LP is affordable. | U6 |
 | dashed arrow | **replace the learned critic by the exact LP** (sampled commitments scored by the LP; or the LP's sensitivities). A learned Model 2 critic made Model 1 worse in every variant. | U6 |
-| validation / test | report the share of instances without shedding / reserve shortfall (against the MILP's own share) and the median cost gap from the exact LP; the mean gap is dominated by penalty-priced instances. Drop MSE to one MILP solution. Compare every learned speed-up with the full MILP at a 0.5–1 % gap and with the paper's tuning on the LP relaxation, time them on the same core, and test under load, renewable, outage and topology shifts. | U7, Y1, Y4 |
+| validation / test | report the share of instances without shedding / reserve shortfall (against the MILP's own share) and the median cost gap from the exact LP; the mean gap is dominated by penalty-priced instances. Drop MSE to one MILP solution. Compare every learned speed-up with the full MILP at a 0.5–1 % gap and with the paper's tuning on the LP relaxation, time them on the same core, and test under load, renewable, outage and topology shifts. Report the gap tail (max, share above 1 %) alongside the mean, and estimate how often tuned thresholds break ε on held-out validation instances before testing. | U7, Y1, Y4, Z2 |
 
-## 9. Research backlog (not done here)
+## 10. Research backlog (not done here)
 
 1. **Time-to-quality and loose-gap baselines**: done (§7 Y1, Y5). Every comparison of a learned speed-up should
    include the full MILP at a 0.5–1 % gap and the paper's tuning on the LP relaxation.
-2. **Larger systems with a network and a weak LP relaxation.** PGLib California (§6 X7, 610 units) is large but
-   copper plate, and its LP relaxation is within 0.03 % of the optimum at the median, so rounding without learning already gives
-   0.33 % at 24×. Learning should matter most where the relaxation is weak: network-constrained cases with
-   hundreds of units (RACLearn's 6,708-bus case, the EPRI competition systems), and the full 48-hour PGLib horizon
-   with a faster MILP solver (6–15+ min per instance with HiGHS here). Our networked RTS-GMLC is 98 % integral in the
-   relaxation (§7 Y1), so the room for learning is small there too.
+2. **Larger systems with a network and a weak LP relaxation**: partly done (§8 Z3). On a congested RTS-GMLC variant the
+   learned pipeline beats every LP-based rule in accuracy. Still open: larger networked systems (RACLearn's 6,708-bus
+   case, the EPRI competition systems), the derated 24-hour case (full MILP ~6.5 min with HiGHS), and more than one
+   data-and-training seed there.
 3. **Learning to Fix from its full text**: done (§6 X3, X5–X8); the snippet reconstruction (§5) is superseded.
 4. **Seed the data side too**: the 3-seed spread in §6 varies training only, not the label pool, the error-cost
    labels or the label-free start.
 5. **Contingencies / topology change**: tested (§7 Y4). The failure under line outages comes from the calibration,
    not the model; masking the outaged lines in the GNN changed nothing. A model that sees availability and topology,
    and recalibration on shifted validation data, are open.
-6. **24 hours with the better model**: the temporal-GNN ensemble and polished labels (§7 Y3) were only trained on
-   12 h; on 24 h no learned rule beats the learning-free tuning yet.
-7. **Cheap-looking wrong commitments**: with more renewables or low load the pipeline's errors shed nothing, so
-   neither guard sees them (§7 Y6). A cost-aware check (e.g. the relaxed reduced problem's cost against the full
-   relaxation) is the next guard to test.
+6. **24 hours with the better model**: done (§8 Z2); level with the learning-free tuning after a cross-validated margin,
+   not better. Choosing ε and the margin jointly by cross-validation, and more validation instances, are next.
+7. **Cheap-looking wrong commitments**: done (§8 Z1) with the post-solve bound check. A warm-started fallback, and a
+   threshold calibrated on shifted validation data from independent generators, are open.
+8. **Combine the pieces on the congested benchmark**: the bound check and the cross-validated margin were not applied
+   to §8 Z3's pipeline.
 
-## 10. Reproducibility and caveats
+## 11. Reproducibility and caveats
 
 * Code and exact runs: `README.md`; result tables in `results/uc1/`, `results/uc12/`; sanity tests
   `tests/test_uc.py` (dispatch LP reproduces the MILP; LP sensitivities match finite differences; the
@@ -943,7 +1057,10 @@ hybrid under line outages):
   ratios within a table, not seconds across tables.
 * §7 pins each study to its own core and re-times every reference in the same process (paired timing); the
   HiGHS version differs between studies (scipy's bundled 1.12 vs highspy 1.15, up to 1.5× apart), so compare
-  speed-ups within a table. Unit tests: 53 in `tests/` (18 s).
+  speed-ups within a table. Unit tests: 57 in `tests/` (16 s).
+* §8: the container restarted several times and the host's speed changed between restarts (identical MILPs up to
+  1.5× slower), so every comparator was re-solved in the same process as the method it is compared with; absolute
+  seconds differ between tables.
 * B2: 17.5 % of test MILPs stopped at the 60 s limit (0.23 % mean MIP gap), so the reference is not always
   optimal; negative gaps are real improvements over the reference.
 * An early 4-instance check suggested the merit-order list was near-optimal on B1; on the full test set it
