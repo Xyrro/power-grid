@@ -695,18 +695,19 @@ def allocate(p, sg):
 
 
 def decode(p, d, i, sysm, th=0.5, how="viterbi", sg=None):
-    """schedule of instance i from probabilities p [T, G]:
-       viterbi:   water-filling over identical copies (sg = subgroups of the instance; None = no allocation) -> per-unit
-                  Viterbi on log-odds relative to th (min up/down, initial status) -> block adequacy repair -> min up/down
+    """schedule of instance i from probabilities p [T, G]; first, if sg (subgroups of the instance) is given, water-filling
+    over identical copies (models with symmetric outputs), then
+       viterbi:   per-unit Viterbi on log-odds relative to th (min up/down, initial status) -> block adequacy repair ->
+                  min up/down repair (a no-op here)
        threshold: p > th -> block adequacy repair -> min up/down repair (otsl.combo.block_decode)"""
     u0 = d["u0"][i]
+    q = allocate(p, sg) if sg else np.asarray(p, float)
     if how == "viterbi":
-        q = allocate(p, sg) if sg else np.asarray(p, float)
         q = np.clip(q, 1e-4, 1 - 1e-4)
         w = np.log(q / (1 - q)) - math.log(th / (1 - th))
         u = np.stack([viterbi(w[:, g], u0[g], int(sysm.min_up[g]), int(sysm.min_dn[g])) for g in range(sysm.G)], 1)
     else:
-        u = (np.asarray(p) > th).astype(np.int8)
+        u = (q > th).astype(np.int8)
     u = adequacy_repair_blocks(u, u0, d["load"][i], d["avail"][i], d["sr"][i], sysm)
     return repair_min_updown(u, u0, sysm.min_up, sysm.min_dn)
 
@@ -848,6 +849,8 @@ def train(cfg: TRMConfig, sysm, tr, va, ckpt, device="cpu", log_every=50, val_ev
           logf=print, val_steps=(1, 4, 16), grad_lp=None):
     """deep-supervision training with resume from `ckpt` (written every save_every_s seconds and at the end).
     grad_lp: [N, T, G] dispatch-LP sensitivities at the training labels (needed when cfg.cost_weight > 0)."""
+    if cfg.mode != "trm":
+        cfg.n_sup = 1              # non-recursive controls: every instance once, from the initial state
     feats = TRMFeatures(sysm, lp=cfg.lp_feats, sym=cfg.sym).fit(tr)
     xt, xb = feats(tr, device)
     tgt = torch.as_tensor(targets(sysm, tr, tr["y"], cfg.sym), device=device)
