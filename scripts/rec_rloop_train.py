@@ -42,6 +42,8 @@ def parse():
     ap.add_argument("--lp_cores", default="", help="comma-separated CPU ids for the LP workers (empty: inherit)")
     ap.add_argument("--inflight", type=int, default=None)
     ap.add_argument("--n_train", type=int, default=2000)
+    ap.add_argument("--data_dir", action="append", default=[],
+                    help="extra polished-label chunks (extra_k.npz + polish_k.npz, uc12_m1x format); repeatable")
     ap.add_argument("--val_n", type=int, default=60)
     ap.add_argument("--seed", type=int, default=0)
     for k in ("hidden", "n_latent", "n_cycles", "mp_layers", "k_train", "epochs", "batch", "k_eval", "rl_updates",
@@ -90,7 +92,9 @@ def main():
 
     sysm = C.system("uc12")
     feats = C.feats_for(sysm, sym_rank=cfg.get("sym_rank", False))
-    tr, y = C.train_data(a.n_train)
+    tr, y = C.train_data(a.n_train, a.data_dir)
+    if len(y) < a.n_train:
+        log(f"[{a.tag}] only {len(y)} training instances available")
     c_lab = C.label_costs(tr, y, f"train{a.n_train}")
     insts = C.insts_of(tr)
     va = C.val_data()

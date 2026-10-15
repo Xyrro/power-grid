@@ -33,17 +33,30 @@ def _npz(path):
     return dict(np.load(path, allow_pickle=False))
 
 
-def train_data(n=2000):
-    """2,000 training instances: 500 with MILP labels (train.npz) + 1,500 with polished labels (uc12_m1x)"""
+def label_chunks(data_dirs=()):
+    """(extra, polish) file pairs: uc12_m1x's 6 polished chunks, then those of each extra data directory (same format:
+    extra_<k>.npz with the LP-relaxation fields of KEYS, polish_<k>.npz with the label y)"""
+    pairs = [(os.path.join(DM1X, f"extra_{k}.npz"), os.path.join(DM1X, f"polish_{k}.npz")) for k in range(6)]
+    for dd in data_dirs:
+        for f in sorted(glob.glob(os.path.join(dd, "extra_*.npz"))):
+            pf = os.path.join(dd, "polish_" + os.path.basename(f)[len("extra_"):])
+            if os.path.exists(pf):
+                pairs.append((f, pf))
+    return pairs
+
+
+def train_data(n=2000, data_dirs=()):
+    """training instances: 500 with MILP labels (train.npz) + 1,500 with polished labels (uc12_m1x) [+ polished
+    chunks of data_dirs, for larger runs]"""
     tr = _npz(os.path.join(D12, "train.npz"))
     parts = [{k: tr[k] for k in KEYS}]
     ys = [tr["u"]]
-    k = 0
-    while sum(len(p["load"]) for p in parts) < n:
-        d = _npz(os.path.join(DM1X, f"extra_{k}.npz"))
+    for fe, fp in label_chunks(data_dirs):
+        if sum(len(p["load"]) for p in parts) >= n:
+            break
+        d = _npz(fe)
         parts.append({key: d[key] for key in KEYS})
-        ys.append(_npz(os.path.join(DM1X, f"polish_{k}.npz"))["y"])
-        k += 1
+        ys.append(_npz(fp)["y"])
     d = {key: np.concatenate([p[key] for p in parts])[:n] for key in KEYS}
     y = np.concatenate(ys)[:n].astype(np.int8)
     return d, y
