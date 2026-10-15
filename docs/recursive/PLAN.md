@@ -56,6 +56,69 @@ permutations of identical units, as TRM shuffles Sudoku digits.
 **Inference.** Run the recursion, round, apply the existing min up/down and block-adequacy repairs, solve one dispatch
 LP (or screen the last few steps' schedules with ≤ 5 LPs).
 
+## Tokenization and positional embeddings
+
+**Serialize the grid as a variable-length set of typed tokens**: unit-hour tokens (the decisions), bus tokens (loads
+and renewables per hour), line tokens (limits; an outaged line is simply a missing token) and hour tokens (system load,
+reserve requirement). The length follows the number of units, buses, lines and hours, so one model can run on 12 or
+24 hours, on RTS-GMLC or a larger system, and on a changed topology without retraining its shape. On RTS-GMLC 12 h
+this is about 876 unit-hour + 73 bus + 120 line + 12 hour tokens: full attention on a GPU, factorized (axial)
+attention over time and over units on a CPU.
+
+**Positional embeddings that carry physics, not indices:**
+* **Time**: relative, not absolute (rotary or an ALiBi-style bias on the hour difference). Min up/down, ramping and
+  start-up economics are relations between hours, and relative encodings extrapolate to longer horizons.
+* **Grid position**: electrical, not graph-index. An attention bias from the electrical distance between buses
+  (from the DC susceptance matrix: effective resistance or bus-impedance entries, in the spirit of Graphormer's
+  shortest-path bias), and as node encodings each bus's PTDF signature (how an injection there loads every line) or
+  sign-invariant random-walk / Laplacian eigenvector encodings.
+* **No unit-ID embeddings**: a unit is described by its parameters, so identical units stay exactly symmetric and
+  the model can transfer to other systems. Token-type embeddings distinguish unit, bus, line and hour tokens.
+
+## Risks and how to address them
+
+**1. Many equally good answers.** 56 of the 73 RTS-GMLC units are in 24 groups of identical units, every group at a
+single bus, so they are exactly interchangeable; 34–62 % of MILP labels are arbitrary between them. A
+permutation-equivariant network also gives identical units identical outputs, so it cannot say "two of these five".
+* Predict, per identical group and hour, **how many** units are on (a count), and assign which ones with a
+  deterministic dynamic program that respects each unit's initial status and min up/down. This removes the exact
+  symmetry and shrinks the output; augmentation by permuting identical units comes for free.
+* For near-ties between different units: **set-valued targets**, i.e. several near-optimal schedules per instance
+  (polished labels from different teachers or seeds) and a loss that takes the best match in the set.
+* Cost-based objectives (below) do not care which optimum is reached.
+
+**2. The goal is cost and feasibility, not exact match.**
+* **Cost-weighted deep supervision**: weight each decision's loss by the LP-priced cost of getting it wrong (the
+  error-cost models of §5 W3 of `docs/RESEARCH.md`).
+* **Reward each step for improving the schedule**: REINFORCE with the exact LP as critic and a leave-one-out
+  baseline, on every deep-supervision step, so the model learns to improve rather than to imitate.
+* **Decision-focused gradients**: with relaxed commitments the dispatch LP's duals give d(cost)/d(commitment)
+  (sensitivities already checked against finite differences in `tests/test_uc.py`).
+* **Halting head** trained to predict "within 0.5 % of the best known cost", not exact match.
+* **Use the steps as candidates**: price each deep-supervision step's schedule with the LP and keep the cheapest.
+
+**3. No feasibility guarantee.**
+* **Feasible by construction for unit-level constraints**: the network outputs scores; each unit's (or each group's)
+  schedule is decoded by a dynamic program over an on/off state machine with min up/down and the initial status
+  (Viterbi). Train it with a structured loss (perturbed or smoothed DP, or a structured hinge).
+* **Adequacy**: the existing block adequacy repair, or price each hour's demand inside the DPs. This is classical
+  Lagrangian relaxation of unit commitment: the network can predict the hourly prices, unit DPs respond, and the
+  recursion becomes a learned dual ascent.
+* **Network**: the dispatch LP with priced slacks always returns a dispatch; arm B feeds its shortfalls and prices
+  back into the recursion.
+* **Safety net**: if the LP shows shedding or reserve shortfall, or the bound gap of §8 Z1 is large, fall back to a
+  reduced MILP around the model's schedule, or to the full MILP. Report the fallback rate: the end-to-end speed holds
+  if fallbacks are rare.
+
+**4. A high bar on little compute.**
+* **Data is not scarce here**: scenarios are unlimited and polished labels cost about 5 s of CPU, so 50–100k
+  labelled instances take 70–140 CPU-hours as cluster array jobs, far more than TRM's 1,000 Sudokus.
+* **Start from a good answer**: initialize *y* from the one-shot ensemble or the LP relaxation, so the recursion
+  learns corrections.
+* **Avoid overthinking and allow extrapolation**: recall and a progressive loss (Bansal et al. 2022), EMA; train on
+  12 h and run longer on 24 h.
+* **GPU scale** on PACE ICE (job scripts in `scripts/pace/`); the CPU runs here decide what is worth scaling.
+
 ## Protocol (shared by both arms)
 
 * **Data**: uc12 (RTS-GMLC, 73 units, 12 h, DC network); training on the existing training sets and polished labels;
