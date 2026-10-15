@@ -153,7 +153,7 @@ def main():
             pr, nlp = price_seq(lp, sc, [rloop.decode(p, inst, sysm, "viterbi")[1]], t1)
             rec["m1x_vit"] = dict(c=pr, n_lp=nlp, t_pre=t_rel + t_inf)
         # rloop
-        recs, best_u, last_p = inf.rollout(inst, K, t_pre=t_rel, fmax=fmax)
+        recs, bests = inf.rollout(inst, K, t_pre=t_rel, fmax=fmax)
         rec["rloop"] = [{kk: v for kk, v in r.items()} for r in recs]
         # safety net at k_sel
         rs = recs[min(k_sel, K) - 1]
@@ -161,8 +161,7 @@ def main():
         cert = (rs["best"] / inst["c_rel"] - 1) * 100
         rec["cert_gap"] = cert
         if (not served) or cert > a.theta_min:
-            # the schedule and probabilities of the best step within the first k_sel steps
-            r2, bu, lp_ = inf.rollout(inst, k_sel, t_pre=0.0, fmax=fmax)
+            bu, lp_ = bests[min(k_sel, K) - 1]      # best schedule within the first k_sel steps, its probabilities
             t0 = time.time()
             fix = {(int(t), int(g)): int(bu[t, g]) for t, g in zip(*np.where((np.abs(lp_ - 0.5) >= 0.45) &
                                                                           ((lp_ > 0.5) == (bu > 0))))}

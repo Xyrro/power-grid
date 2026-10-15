@@ -738,7 +738,9 @@ class Carry:
         self.idx = np.array([self._next() for _ in range(B)])
         T, G = xt.shape[1], xt.shape[2]
         self.y, self.z = model.init_state(B, T, G, xt[torch.as_tensor(self.idx, device=xt.device)])
-        self.steps = np.zeros(B, int)
+        # staggered start: slot b's first instance leaves after n_sup - (b mod n_sup) steps, so the batch mixes
+        # supervision steps from the beginning instead of moving through them in lockstep
+        self.steps = np.arange(B) % max(1, cfg.n_sup)
         self.min_steps = np.array([self._min() for _ in range(B)])
         self.done_steps = []
 
@@ -899,7 +901,7 @@ def train(cfg: TRMConfig, sysm, tr, va, ckpt, device="cpu", log_every=50, val_ev
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.clip)
         opt.step()
         ema.update(model)
-        acc.append((float(l_ans.mean()), float(wrong.float().mean()), float(halt_t.mean()),
+        acc.append((float(l_ans.detach().mean()), float(wrong.float().mean()), float(halt_t.mean()),
                     float(((q > 0).float() == halt_t).float().mean()), float(carry.steps.mean() + 1)))
         carry.y, carry.z = y.float(), z.float()
         carry.advance(model, q.detach().float().cpu().numpy(), xt)

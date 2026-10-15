@@ -1006,7 +1006,8 @@ def rollout_batch(net, feats, sysm, insts, K, pool, device, keys, line_scale=1.0
 
 class Inference:
     """single-instance inference for timed evaluation: one process, one solver object per instance (warm-started
-    across the instance's own LPs). rollout(inst, K) -> per-step records with cumulative time, and the best schedule."""
+    across the instance's own LPs). rollout(inst, K) -> per-step records with cumulative time, and per step the best
+    schedule so far with the probabilities it was decoded from."""
 
     def __init__(self, net, feats, sysm, lp: FastLP, device="cpu", mode="viterbi"):
         self.net, self.feats, self.s, self.lp, self.device, self.mode = net.eval(), feats, sysm, lp, device, mode
@@ -1026,8 +1027,8 @@ class Inference:
         fm = (self.s.fmax if fmax is None else fmax).copy()
         fm[outs(inst, "l_out")] = 0
         sc = scenario_of(inst)
-        best, best_u, best_rec, seen, prev, last_p = np.inf, None, None, {}, None, None
-        recs = []
+        best, best_u, best_rec, seen, prev, best_p = np.inf, None, None, {}, None, None
+        recs, bests = [], []
         for k in range(K):
             t1 = time.time()
             if prev is not None:
@@ -1052,10 +1053,11 @@ class Inference:
                 seen[key], new = res, True
             best_before = best
             if res["cost"] < best - 1e-9:
-                best, best_u, best_rec, last_p = res["cost"], res["s"], res, p
+                best, best_u, best_rec, best_p = res["cost"], res["s"], res, p
             prev = res
             t5 = time.time()
             recs.append(dict(k=k, cost=res["cost"], shed=res["shed"], short=res["short"], new_lp=new, best=best,
                              best_shed=best_rec["shed"], best_short=best_rec["short"], halt=float(torch.sigmoid(hl)[0]),
                              t_fb=t2 - t1, t_net=t3 - t2, t_dec=t4 - t3, t_lp=t5 - t4, time=t_pre + (t5 - t0)))
-        return recs, best_u, last_p
+            bests.append((best_u, best_p))
+        return recs, bests
