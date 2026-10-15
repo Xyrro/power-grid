@@ -82,6 +82,7 @@ def main():
     ap.add_argument("--model", default=None, help="checkpoint tag (default: results/recursive/rloop_select.json)")
     ap.add_argument("--K", type=int, default=None)
     ap.add_argument("--k_sel", type=int, default=None)
+    ap.add_argument("--bias", type=float, default=None, help="decoding logit shift (default: selection file)")
     ap.add_argument("--theta_min", type=float, default=0.5, help="% certified gap that triggers the safety net")
     ap.add_argument("--gaps", default=None, help="full-MILP gaps, comma separated (default 0.001,0.005)")
     ap.add_argument("--shard", type=int, default=0)
@@ -104,7 +105,8 @@ def main():
     m = OODModel(sysm, T)
     lp = rloop.FastLP(sysm, T)
     net, ck, feats = C.load_model(os.path.join(C.OUT, f"{tag}.pt"), sysm)
-    inf = rloop.Inference(net, feats, sysm, rloop.FastLP(sysm, T), mode=ck["cfg"].get("decode", "viterbi"))
+    bias = a.bias if a.bias is not None else sel.get("bias", 0.0)
+    inf = rloop.Inference(net, feats, sysm, rloop.FastLP(sysm, T), mode=ck["cfg"].get("decode", "viterbi"), bias=bias)
     m1x = M1X(sysm) if T == 12 else None
     fmax = sysm.fmax
     n = len(d["load"]) if a.n == 0 else min(a.n, len(d["load"]))
@@ -125,7 +127,7 @@ def main():
         t_start = time.time()
         inst0 = C.insts_of(d, [k])[0]
         sc = rloop.scenario_of(inst0)
-        rec = dict(bench=a.bench, k=k, model=tag, cpu=sorted(os.sched_getaffinity(0)), T=T)
+        rec = dict(bench=a.bench, k=k, model=tag, cpu=sorted(os.sched_getaffinity(0)), T=T, bias=bias, k_sel=k_sel)
         full = {}
         for g in gaps:
             r = solve_reduced(m, sc, None, TL[a.bench], g)

@@ -983,9 +983,9 @@ def train_reinforce(net, feats, sysm, train_insts, labels, best_known, cfg, pool
 
 # ============================================================================ inference
 @torch.no_grad()
-def rollout_batch(net, feats, sysm, insts, K, pool, device, keys, line_scale=1.0, fmax=None, mode="viterbi"):
+def rollout_batch(net, feats, sysm, insts, K, pool, device, keys, line_scale=1.0, fmax=None, mode="viterbi", bias=0.0):
     """K outer steps on a batch of instances (validation, through the LP pool). Returns per step a list of per-instance
-    (cost, shed, short, halting probability)."""
+    (cost, shed, short, halting probability). bias: logit shift before decoding (> 0 commits more)."""
     net.eval()
     b = Batch(feats, insts, device, fmax)
     xe = net.embed_static(b.ux)
@@ -995,7 +995,7 @@ def rollout_batch(net, feats, sysm, insts, K, pool, device, keys, line_scale=1.0
     steps = []
     for k in range(K):
         logits, hf, state = net.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, state)
-        p = torch.sigmoid(logits).cpu().numpy().astype(np.float16)
+        p = torch.sigmoid(logits + bias).cpu().numpy().astype(np.float16)
         h = torch.sigmoid(net.halt_logit(hf)).cpu().numpy()
         res = pool.run([(key, inst, pj, line_scale, mode) for key, inst, pj in zip(keys, insts, p)])
         fb = stack_feedback(b, res, best, sysm.gbus)
@@ -1009,8 +1009,9 @@ class Inference:
     across the instance's own LPs). rollout(inst, K) -> per-step records with cumulative time, and per step the best
     schedule so far with the probabilities it was decoded from."""
 
-    def __init__(self, net, feats, sysm, lp: FastLP, device="cpu", mode="viterbi"):
+    def __init__(self, net, feats, sysm, lp: FastLP, device="cpu", mode="viterbi", bias=0.0):
         self.net, self.feats, self.s, self.lp, self.device, self.mode = net.eval(), feats, sysm, lp, device, mode
+        self.bias = bias
         self.gi = GroupInfo(sysm)
 
     @torch.no_grad()
@@ -1036,7 +1037,7 @@ class Inference:
             t2 = time.time()
             logits, hf, state = self.net.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, state)
             hl = self.net.halt_logit(hf)
-            p = torch.sigmoid(logits[0]).cpu().numpy()
+            p = torch.sigmoid(logits[0] + self.bias).cpu().numpy()
             t3 = time.time()
             r, s_sched = decode(p, inst, self.s, self.mode)
             key = s_sched.tobytes()

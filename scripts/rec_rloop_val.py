@@ -45,11 +45,11 @@ def run_model(a):
     out = {k: [] for k in ("cost", "shed", "short", "halt")}
     for s in range(0, len(idx), 60):
         st = rloop.rollout_batch(net, feats, sysm, insts[s:s + 60], a.K, pool, "cpu",
-                                 [("va", i) for i in idx[s:s + 60]], mode=mode)
+                                 [("va", i) for i in idx[s:s + 60]], mode=mode, bias=a.bias)
         for j, k in enumerate(("cost", "shed", "short", "halt")):
             out[k].append(np.array([[x[j] for x in step] for step in st]))
     res = {k: np.concatenate(v, 1) for k, v in out.items()}
-    tag = a.model + (f"_{a.decode}" if a.decode else "")
+    tag = a.model + (f"_{a.decode}" if a.decode else "") + (f"_b{a.bias:g}" if a.bias else "")
     np.savez(os.path.join(C.RES, f"rloop_val_{tag}.npz"), db=va["db"][idx], c_rel=va["c_rel"][idx], **res)
     best = np.minimum.accumulate(res["cost"], 0)
     print(f"{tag}: {time.time() - t0:.0f}s, mean gap best-of-k:",
@@ -164,6 +164,7 @@ if __name__ == "__main__":
     ap.add_argument("--model", default=None)
     ap.add_argument("--decode", default=None, choices=[None, "viterbi", "round"])
     ap.add_argument("--K", type=int, default=16)
+    ap.add_argument("--bias", type=float, default=0.0, help="logit shift before decoding")
     ap.add_argument("--n", type=int, default=0)
     ap.add_argument("--baselines", action="store_true")
     ap.add_argument("--report", action="store_true")

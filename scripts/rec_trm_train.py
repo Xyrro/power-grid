@@ -54,6 +54,8 @@ def main():
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--threads", type=int, default=1)
     ap.add_argument("--n_train", type=int, default=2000)
+    ap.add_argument("--data_dirs", nargs="+", default=[trm.M1X],
+                    help="directories of extra_<k> / polish_<k> chunks, used in order after train.npz")
     ap.add_argument("--out_dir", default=os.path.join(OUT, "models"))
     ap.add_argument("--log_every", type=int, default=50)
     ap.add_argument("--val_every", type=int, default=500)
@@ -95,7 +97,7 @@ def main():
         logfile.flush()
 
     sysm = load_rts_gmlc()
-    tr = trm.train_data(a.n_train)
+    tr = trm.train_data(a.n_train, m1x=a.data_dirs)
     ckpt = os.path.join(a.out_dir, f"{a.tag}.pt")
     if a.stage == "ds":
         over = {k: getattr(a, k) for k in [f.name for f in trm.fields(trm.TRMConfig)] if hasattr(a, k)}

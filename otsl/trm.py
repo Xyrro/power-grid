@@ -143,19 +143,29 @@ def load_npz(path):
 
 
 def train_data(n=2000, root=ROOT, m1x=M1X):
-    """the m1x training set: train.npz (500, MILP labels) + the first (n - 500) / 250 extra chunks with their
-    teacher-polished labels (no full MILP). y = raw labels; c_lab = dispatch-LP cost of the label where stored"""
+    """the m1x training set: train.npz (500, MILP labels) + extra chunks with their teacher-polished labels (no full
+    MILP), taken in order from the directories `m1x` (one path or a list; chunks extra_<k>.npz / polish_<k>.npz,
+    k = 0, 1, ... while both exist) until n instances. y = raw labels; c_lab = dispatch-LP cost of the label."""
     tr = load_npz(os.path.join(root, "train.npz"))
     parts = [{k: tr[k] for k in DATA_KEYS}]
     ys, cl = [tr["u"]], [tr["obj"]]
-    k = 0
-    while sum(len(p["load"]) for p in parts) < n:
-        d = load_npz(os.path.join(m1x, f"extra_{k}.npz"))
+    dirs = [m1x] if isinstance(m1x, str) else list(m1x)
+    chunks = []
+    for dr in dirs:
+        k = 0
+        while os.path.exists(os.path.join(dr, f"extra_{k}.npz")) and os.path.exists(os.path.join(dr, f"polish_{k}.npz")):
+            chunks.append((dr, k))
+            k += 1
+    for dr, k in chunks:
+        if sum(len(p["load"]) for p in parts) >= n:
+            break
+        d = load_npz(os.path.join(dr, f"extra_{k}.npz"))
         parts.append({key: d[key] for key in DATA_KEYS})
-        pol = load_npz(os.path.join(m1x, f"polish_{k}.npz"))
+        pol = load_npz(os.path.join(dr, f"polish_{k}.npz"))
         ys.append(pol["y"])
-        cl.append(np.where(pol["used_milp"], pol["cost"], d["c_lf"]))
-        k += 1
+        cl.append(pol["cost"])
+    if sum(len(p["load"]) for p in parts) < n:
+        raise ValueError(f"only {sum(len(p['load']) for p in parts)} labelled instances available, {n} requested")
     out = {key: np.concatenate([p[key] for p in parts])[:n] for key in DATA_KEYS}
     out["y"] = np.concatenate(ys)[:n].astype(np.int8)
     out["c_lab"] = np.concatenate(cl)[:n]
