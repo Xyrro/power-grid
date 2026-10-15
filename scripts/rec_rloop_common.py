@@ -49,6 +49,21 @@ def train_data(n=2000):
     return d, y
 
 
+def label_costs(d, y, tag="train2000"):
+    """dispatch-LP cost of each label (best known cost; cached under OUT)"""
+    path = os.path.join(OUT, f"label_costs_{tag}.npy")
+    if os.path.exists(path):
+        c = np.load(path)
+        if len(c) == len(y):
+            return c
+    sysm = load_rts_gmlc()
+    lp = rloop.FastLP(sysm, y.shape[1])
+    c = np.array([lp.solve(rloop.scenario_of(x), y[i])["obj"] for i, x in enumerate(insts_of(d))])
+    os.makedirs(OUT, exist_ok=True)
+    np.save(path, c)
+    return c
+
+
 def val_data():
     """val + val_extra + val_extra2 (360), with the stored MILP objective, its dual bound and label"""
     parts = [_npz(os.path.join(D12, f"{v}.npz")) for v in VAL_SETS]
@@ -108,11 +123,11 @@ def system(name="uc12"):
     return load_rts_gmlc(line_scale=LINE_SCALE[name])
 
 
-def feats_for(sysm0=None):
+def feats_for(sysm0=None, sym_rank=False):
     """static featurizer, normalised on the first 400 training instances (original system)"""
     sysm0 = sysm0 or load_rts_gmlc()
     tr, _ = train_data(500)
-    return rloop.StaticFeats(sysm0, insts_of(tr, range(400)))
+    return rloop.StaticFeats(sysm0, insts_of(tr, range(400)), sym_rank=sym_rank)
 
 
 def model_cfg(preset, **over):
@@ -129,12 +144,14 @@ def save_ckpt(path, net, ema, opt, sched, cfg, rec, extra=None):
     os.replace(tmp, path)
 
 
-def load_model(path, sysm, feats, device="cpu", use_ema=True):
+def load_model(path, sysm, feats=None, device="cpu", use_ema=True):
+    """(net, checkpoint, featurizer); the featurizer is rebuilt from the checkpoint's config unless given"""
     ck = torch.load(path, map_location=device, weights_only=False)
+    feats = feats or feats_for(load_rts_gmlc(), sym_rank=ck["cfg"].get("sym_rank", False))
     net = rloop.build_net(sysm, feats, ck["cfg"]).to(device)
     net.load_state_dict(ck["ema"] if use_ema else ck["net"])
     net.eval()
-    return net, ck
+    return net, ck, feats
 
 
 def append_jsonl(path, rec):
