@@ -273,7 +273,7 @@ def viterbi_minud(p, u0, min_up, min_dn, eps=1e-4):
 
 def decode(scores, inst, sysm, mode="viterbi"):
     """scores: on-probabilities [T, G] (float) or a 0/1 sample (int8) -> min up/down-feasible schedule (Viterbi on the
-    probabilities, or rounding at 0.5 + Hamming repair) -> block adequacy repair -> min up/down repair (safety).
+    probabilities) or the rounding at 0.5 -> block adequacy repair -> min up/down repair (Hamming-nearest).
     Units out of service (g_out) are forced off. Returns (rounding r, schedule s)."""
     sc = np.asarray(scores)
     r = (sc > 0.5).astype(np.int8)
@@ -285,8 +285,8 @@ def decode(scores, inst, sysm, mode="viterbi"):
         if g_out:
             p[:, g_out] = 0.0
         v = viterbi_minud(p, inst["u0"], sysm.min_up, sysm.min_dn)
-    else:
-        v = repair_min_updown(r, inst["u0"], sysm.min_up, sysm.min_dn)
+    else:                                   # as otsl.base.lp_round_candidates: round -> block repair -> min up/down
+        v = r
     v = adequacy_repair_blocks(v, inst["u0"], inst["load"], inst["avail"], inst["sr"], sysm)
     s = repair_min_updown(v, inst["u0"], sysm.min_up, sysm.min_dn).astype(np.int8)
     if g_out:
