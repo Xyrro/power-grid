@@ -722,6 +722,46 @@ def decode(p, d, i, sysm, th=0.5, how="viterbi", sg=None):
     return repair_min_updown(u, u0, sysm.min_up, sysm.min_dn)
 
 
+def hourly_deficit(sol, sc, sysm, u):
+    """extra requirement for the per-hour capacity check of a dispatch-LP solution (p.u.): in every hour with reserve
+    deficit or unserved energy, the deficit plus the renewables the LP had to curtail (the check counts them as
+    available; congestion or ramping made them unusable); 0 elsewhere"""
+    head = (np.asarray(u) * sysm.pmax[None]).sum(1) - sol.p.sum(1)
+    short = np.maximum(sc.sr - head, 0.0)
+    shed = np.maximum(sc.load.sum(1) - sol.p.sum(1) - sol.r.sum(1), 0.0)
+    deficit = short + shed
+    curtail = np.maximum(sc.avail.sum(1) - sol.r.sum(1), 0.0)
+    return np.where(deficit > 1e-6, deficit, 0.0), np.where(deficit > 1e-6, curtail, 0.0)
+
+
+def lp_repair(m, sc, u, sysm, sol=None, rounds=2, factor=1.1, tol=1e-6):
+    """LP-guided adequacy repair: while the dispatch LP sheds load or misses reserve, raise the reserve requirement of
+    the failing hours by factor x the observed deficit (congestion or ramping that forces renewable curtailment is
+    invisible to the per-hour capacity check), rerun the block adequacy repair and the min up/down repair, and price
+    the new schedule. Returns (u, sol, extra LPs, seconds of those LPs)."""
+    sol = sol if sol is not None else m.solve_dispatch(sc, u)
+    n, t_lp = 0, 0.0
+    extra = np.zeros(len(sc.sr))
+    for _ in range(rounds):
+        if sol.shed <= tol and sol.short <= tol:
+            break
+        dfc, cur = hourly_deficit(sol, sc, sysm, u)
+        extra = np.maximum(extra, cur + factor * dfc + 1e-3 * (dfc > 0))
+        u2 = adequacy_repair_blocks(u, sc.u0, sc.load, sc.avail, sc.sr + extra, sysm)
+        u2 = repair_min_updown(u2, sc.u0, sysm.min_up, sysm.min_dn)
+        if np.array_equal(u2, u):
+            break
+        t0 = time.time()
+        s2 = m.solve_dispatch(sc, u2)
+        t_lp += time.time() - t0
+        n += 1
+        if s2.obj < sol.obj:
+            u, sol = u2, s2
+        else:
+            break
+    return u, sol, n, t_lp
+
+
 # ============================================================================ training (deep supervision)
 def lr_at(cfg, step):
     if step < cfg.warmup:
