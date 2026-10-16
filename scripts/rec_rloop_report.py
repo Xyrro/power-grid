@@ -81,7 +81,7 @@ def methods(r, k_sel, thetas=(0.5, 1.0, 2.0, 4.0)):
             continue
         L = r[key]
         c1, s1, t1 = best_of(r["lpround"]["c"])
-        for K in (4, 8, 16):
+        for K in (4, 8, 16, 32):
             x = L["recs"][min(K, len(L["recs"])) - 1] if L["recs"] else None
             if x is None or x["best"] >= c1:
                 out[f"{name}, +{K} LPs"] = (c1, s1, L["t_pre"] + (x["time"] if x else 0))

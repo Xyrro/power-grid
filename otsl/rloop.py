@@ -1226,7 +1226,7 @@ def guided_moves(s, grad, logit, cost, sysm, lam):
 
 @torch.no_grad()
 def guided_search(inst, s0, K, lp: FastLP, sysm, lam, prior=None, net=None, feats=None, device="cpu", fmax=None,
-                  bias=0.0, max_tries=None):
+                  bias=0.0, max_tries=None, snap=None):
     """LP-verified local search from s0 with K LPs after pricing s0. Move ranking: guided_moves with the log-odds of
     either a fixed prior (probabilities [T, G], e.g. the m1x ensemble) or the recursive network, which is run once per
     LP on the LP feedback of the current best schedule (recursion state carried). A move is applied, made min
@@ -1290,4 +1290,8 @@ def guided_search(inst, s0, K, lp: FastLP, sysm, lam, prior=None, net=None, feat
             need_rank = True             # let the recursion see the current best again every few rejected moves
         recs.append(dict(cost=new["cost"], shed=new["shed"], short=new["short"], best=cur["cost"],
                          best_shed=cur["shed"], best_short=cur["short"], time=time.time() - t0))
+        if snap is not None and len(recs) == snap:
+            snapshot = (cur["s"], logit)
+    if snap is not None:
+        return recs, cur["s"], logit, (snapshot if len(recs) >= snap else (cur["s"], logit))
     return recs, cur["s"], logit

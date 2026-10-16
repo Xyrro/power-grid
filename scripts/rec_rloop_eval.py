@@ -36,6 +36,7 @@ from otsl.fixpolicy import release_conflicting_rows  # noqa: E402
 from otsl.ood import OODModel  # noqa: E402
 
 TL = {"uc12": 60.0, "line_out": 60.0, "hard": 600.0, "uc24": 300.0}
+KG = 32                  # LPs of the LP-verified local searches after the LP-rounding schedule (report: 4 / 8 / 16 / 32)
 
 
 def timed(f, *a, **k):
@@ -166,16 +167,16 @@ def main():
         # rloop
         recs, bests = inf.rollout(inst, K, t_pre=t_rel, fmax=fmax)
         rec["rloop"] = [{kk: v for kk, v in r.items()} for r in recs]
-        # LP-verified local search from the LP-rounding schedule (16 more LPs): learning-free (LP first-order move
+        # LP-verified local search from the LP-rounding schedule (KG more LPs): learning-free (LP first-order move
         # ranking), with the static m1x prior, and guided by the recursive network re-run on the LP feedback
         c0 = min(x[0] for x in rec["lpround"]["c"])
-        ls, _, _ = rloop.guided_search(inst, lpr_best, 16, lp, sysm, 0.0)
+        ls, _, _ = rloop.guided_search(inst, lpr_best, KG, lp, sysm, 0.0)
         rec["lpls"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0)
         if m1x is not None:
-            ls, _, _ = rloop.guided_search(inst, lpr_best, 16, lp, sysm, lam_m1x, prior=p)
+            ls, _, _ = rloop.guided_search(inst, lpr_best, KG, lp, sysm, lam_m1x, prior=p)
             rec["m1x_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr + t_inf, c0=c0, lam=lam_m1x)
-        ls, g_best, g_logit = rloop.guided_search(inst, lpr_best, 16, lp, sysm, lam_net, net=gnet, feats=gfeats,
-                                                  fmax=fmax)
+        ls, _, _, (g_best, g_logit) = rloop.guided_search(inst, lpr_best, KG, lp, sysm, lam_net, net=gnet, feats=gfeats,
+                                                          fmax=fmax, snap=16)    # best schedule after 16 LPs
         rec["rloop_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0, lam=lam_net, model=gtag)
         # rloop seeded with the LP-rounding baseline's best schedule (its 5 LPs and repairs counted in the time)
         if a.seeded:
@@ -186,7 +187,7 @@ def main():
         # schedule, an integral LP-relaxation value (within 0.01) and a confident network prediction (p >= 0.95 or
         # <= 0.05) agree (min up/down row release); larger thresholds are evaluated offline from the same records
         if main_pipe == "rloop_guided":
-            L = rec["rloop_guided"]["recs"]
+            L = rec["rloop_guided"]["recs"][:16]                  # the selected configuration: 16 LPs
             xb = L[-1] if L and L[-1]["best"] < c0 else None
             b_cost = xb["best"] if xb else c0
             b_served = (xb["best_shed"] < 1e-6 and xb["best_short"] < 1e-6) if xb else \
