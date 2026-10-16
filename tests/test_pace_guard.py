@@ -154,3 +154,15 @@ def test_root_marker_required(tmp_path, monkeypatch):
     outside = tmp_path.parent / "elsewhere.sbatch"
     with pytest.raises(SystemExit):
         g.check_root(cfg(PGU_ROOT=str(tmp_path)), str(outside))
+
+
+def test_total_job_limit_protects_other_projects():
+    """QOS MaxSubmitPU counts every job, not only GPU ones: a big CPU array can lock the user out entirely."""
+    many = "".join(f"{1000 + i}|other-proj|RUNNING|1|N/A|1:00:00|2:00:00\n" for i in range(45))
+    u = g.usage(g.parse_squeue_lines(many), {}, "pgu-")
+    assert u.jobs_all == 45 and u.jobs_ours == 0
+    c = cfg(USER_JOBS_LIMIT=50, SHARE_JOBS=40, SHARE_CPU_TASKS=40, SHARE_CPU_CONCURRENT=40)
+    assert any("USER_JOBS_LIMIT" in b for b in g.check_budget(c, u, "cpu", 0, 2.0, 10, 10))
+    assert g.check_budget(c, u, "cpu", 0, 2.0, 4, 4) == []
+    ours = g.Usage(0, 0, 0, 0, 0, 0.0, 40, 40)
+    assert any("SHARE_JOBS" in b for b in g.check_budget(c, ours, "cpu", 0, 2.0, 1, 1))

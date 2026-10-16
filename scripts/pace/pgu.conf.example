@@ -16,7 +16,9 @@ CUDA_MODULE=            # not needed: the torch wheel ships its own CUDA runtime
 
 # Cluster per-user limits (shared with your other projects). The guard refuses anything that would exceed them.
 USER_GPU_HOURS_LIMIT=32 # QOS MaxTRESRunMinsPU gres/gpu=1920 minutes: sum of GPUs x walltime over running jobs
-USER_GPU_JOBS_LIMIT=50  # QOS MaxSubmitPU: GPU jobs queued + running
+USER_GPU_JOBS_LIMIT=50  # GPU jobs queued + running
+USER_JOBS_LIMIT=50      # QOS MaxSubmitPU: ALL queued + running jobs, array tasks counted individually
+SHARE_JOBS=40           # this project's cap on that, so your other projects can always submit
 
 # This project's share of those limits. Pending jobs count in full, so the share holds once they start.
 SHARE_GPU_HOURS=16

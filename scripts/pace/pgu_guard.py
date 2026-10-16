@@ -7,7 +7,8 @@ The account this runs under is shared with other projects. This tool therefore:
     both recorded there and still carry the prefix (it never runs `scancel -u`);
   * before every submission, reads ALL of the user's jobs (this project's and others') and refuses if the new job would
     push this project past its configured share, or the user past the cluster's per-user limits
-    (ICE, September 2026: 32 GPU-hours of running capacity and 50 queued + running GPU jobs per user);
+    (ICE, October 2026: QOS MaxTRESRunMins gres/gpu=1920, i.e. 32 GPU-hours of RUNNING capacity, and
+    MaxSubmitPU 50, which counts EVERY queued or running job of the user, array tasks one by one);
   * supports --dry-run, which prints the accounting and the exact sbatch command without submitting.
 
 Usage (from inside PGU_ROOT/repo):
@@ -42,6 +43,8 @@ DEFAULTS = {
     "GPU_GRES": "gpu",          # e.g. gpu:H100 or gpu:H200 -- the exact type string from `sinfo` on ICE
     "USER_GPU_HOURS_LIMIT": "32",   # cluster per-user running-capacity limit (GPU x remaining walltime)
     "USER_GPU_JOBS_LIMIT": "50",    # cluster per-user limit on queued + running GPU jobs
+    "USER_JOBS_LIMIT": "50",        # QOS MaxSubmitPU: ALL queued + running jobs, array tasks counted one by one
+    "SHARE_JOBS": "40",             # leave the rest of MaxSubmitPU free for the user's other projects
     "SHARE_GPU_HOURS": "16",        # this project's share of the running capacity (incl. its pending GPU jobs)
     "SHARE_GPU_JOBS": "4",          # this project's max GPU jobs, queued + running
     "SHARE_CPU_TASKS": "16",        # this project's max CPU jobs/array tasks, queued + running
@@ -209,6 +212,8 @@ class Usage:
     gpu_jobs_ours: int
     cpu_tasks_ours: int
     gpu_hours_ours_running: float = 0.0
+    jobs_all: int = 0               # every queued/running job of the user (QOS MaxSubmitPU counts these)
+    jobs_ours: int = 0
 
 
 def usage(jobs: list[Job], reg: dict, prefix: str) -> Usage:
@@ -217,9 +222,11 @@ def usage(jobs: list[Job], reg: dict, prefix: str) -> Usage:
     g_run = [j for j in g_all if j.state.startswith("R")]
     g_our = [j for j in g_all if is_ours(j, reg, prefix)]
     c_our = [j for j in active if j.gpus == 0 and is_ours(j, reg, prefix)]
+    ours = [j for j in active if is_ours(j, reg, prefix)]
     return Usage(sum(j.gpu_hours_committed for j in g_run), sum(j.gpu_hours_committed for j in g_our),
                  len(g_all), len(g_our), len(c_our),
-                 sum(j.gpu_hours_committed for j in g_our if j.state.startswith("R")))
+                 sum(j.gpu_hours_committed for j in g_our if j.state.startswith("R")),
+                 len(active), len(ours))
 
 
 def array_size(spec: str | None) -> tuple[int, int | None]:
@@ -248,6 +255,12 @@ def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_task
                  throttle: int | None) -> list[str]:
     """Return a list of violations (empty = allowed)."""
     bad = []
+    # QOS MaxSubmitPU counts every queued or running job, array tasks individually, across all of the user's projects
+    if u.jobs_all + n_tasks > int(cfg["USER_JOBS_LIMIT"]):
+        bad.append(f"user limit: {u.jobs_all} jobs queued/running + {n_tasks} new > USER_JOBS_LIMIT "
+                   f"{cfg['USER_JOBS_LIMIT']} (QOS MaxSubmitPU; it would block every project of yours)")
+    if u.jobs_ours + n_tasks > int(cfg["SHARE_JOBS"]):
+        bad.append(f"project share: {u.jobs_ours} of our jobs + {n_tasks} new > SHARE_JOBS {cfg['SHARE_JOBS']}")
     key = "MAX_WALLTIME" if kind == "gpu" else "MAX_WALLTIME_CPU"
     max_wall = parse_slurm_time(cfg.get(key) or cfg["MAX_WALLTIME"]) or 8.0
     if hours > max_wall + 1e-9:
@@ -305,6 +318,8 @@ def cmd_status(cfg: dict) -> None:
     print(f"GPU-h queued+running, this project: {u.gpu_hours_ours:.1f} / {cfg['SHARE_GPU_HOURS']}")
     print(f"GPU jobs: all {u.gpu_jobs_all} / {cfg['USER_GPU_JOBS_LIMIT']}, this project {u.gpu_jobs_ours} / {cfg['SHARE_GPU_JOBS']}")
     print(f"CPU jobs/tasks of this project: {u.cpu_tasks_ours} / {cfg['SHARE_CPU_TASKS']}")
+    print(f"ALL jobs (QOS MaxSubmitPU): all {u.jobs_all} / {cfg['USER_JOBS_LIMIT']}, "
+          f"this project {u.jobs_ours} / {cfg['SHARE_JOBS']}")
     print("\n== storage")
     for cmd in (["pace-quota"], ["du", "-sh", root], ["df", "-h", root]):
         r = subprocess.run(cmd, capture_output=True, text=True)
@@ -354,9 +369,10 @@ def cmd_submit(cfg: dict, a) -> None:
     u = usage(read_jobs(os.environ.get("USER", "")), reg, cfg["JOB_PREFIX"])
     bad = check_budget(cfg, u, a.kind, a.gpus if a.kind == "gpu" else 0, hours, n_tasks, throttle)
     cmd = build_sbatch(cfg, a)
-    print(f"before: GPU-h all {u.gpu_hours_all:.1f}/{cfg['USER_GPU_HOURS_LIMIT']}, project {u.gpu_hours_ours:.1f}/"
-          f"{cfg['SHARE_GPU_HOURS']}; GPU jobs all {u.gpu_jobs_all}/{cfg['USER_GPU_JOBS_LIMIT']}, project "
-          f"{u.gpu_jobs_ours}/{cfg['SHARE_GPU_JOBS']}; CPU tasks project {u.cpu_tasks_ours}/{cfg['SHARE_CPU_TASKS']}")
+    print(f"before: GPU-h running all {u.gpu_hours_all:.1f}/{cfg['USER_GPU_HOURS_LIMIT']}, project q+r "
+          f"{u.gpu_hours_ours:.1f}/{cfg['SHARE_GPU_HOURS']}; GPU jobs all {u.gpu_jobs_all}/"
+          f"{cfg['USER_GPU_JOBS_LIMIT']}; ALL jobs all {u.jobs_all}/{cfg['USER_JOBS_LIMIT']}, project "
+          f"{u.jobs_ours}/{cfg['SHARE_JOBS']}")
     print("command:", " ".join(shlex.quote(c) for c in cmd))
     if bad:
         print("REFUSED:\n  " + "\n  ".join(bad))
