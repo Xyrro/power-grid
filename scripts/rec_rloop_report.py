@@ -175,6 +175,80 @@ def curves(recs):
     return out
 
 
+SERIES = [("#2a78d6", "o"), ("#eb6834", "s"), ("#1baf7a", "^"), ("#eda100", "D")]      # validated categorical slots 1-4
+INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
+
+
+def figure(bench, recs, rows, path):
+    """mean gap against mean wall time per instance (log scale): whole-schedule recursion over K, the local searches
+    over their LP budget (start = LP rounding), and the reference points (one axis, direct labels)"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    db = np.array([ref_full(r)["bound"] for r in recs])
+    fig, ax = plt.subplots(figsize=(7.2, 4.4), dpi=150)
+    fig.patch.set_facecolor("#fcfcfb")
+    ax.set_facecolor("#fcfcfb")
+    lines = []
+    K = min(len(r["rloop"]) for r in recs)
+    g = [float(((np.array([r["rloop"][k]["best"] for r in recs]) - db) / np.array([r["rloop"][k]["best"] for r in recs])
+               * 100).mean()) for k in range(K)]
+    t = [float(np.mean([r["rloop"][k]["time"] for r in recs])) for k in range(K)]
+    lines.append(("whole-schedule recursion, K = 1..%d" % K, t, g))
+    c0 = np.array([min(x[0] for x in r["lpround"]["c"]) for r in recs])
+    t0 = np.array([r["lpround"]["t_pre"] + r["lpround"]["c"][-1][3] for r in recs])
+    for key, nm in (("lpls", "local search, LP ranking (no learning)"), ("rloop_guided", "local search, rloop prior"),
+                    ("m1x_guided", "local search, m1x prior")):
+        if key not in recs[0]:
+            continue
+        gs, ts = [float(((c0 - db) / c0 * 100).mean())], [float(t0.mean())]
+        for k in (1, 2, 4, 8, 16, 32):
+            cc, tt = [], []
+            for r, a in zip(recs, c0):
+                L = r[key]["recs"]
+                x = L[min(k, len(L)) - 1] if L else None
+                cc.append(min(a, x["best"]) if x else a)
+                tt.append(r[key]["t_pre"] + (x["time"] if x else 0.0))
+            cc = np.array(cc)
+            gs.append(float(((cc - db) / cc * 100).mean()))
+            ts.append(float(np.mean(tt)))
+        lines.append((nm, ts, gs))
+    for (nm, ts, gs), (col, mk) in zip(lines, SERIES):
+        ax.plot(ts, gs, color=col, lw=2, marker=mk, ms=4.5, label=nm, zorder=3)
+    # direct labels at the line ends, staggered so that they never overlap (min spacing 7 % of the y range)
+    ymax = max(max(gs) for _, _, gs in lines)
+    ends = sorted([(gs[-1], ts[-1], nm) for nm, ts, gs in lines])
+    placed = []
+    for y, x, nm in ends:
+        yy = max(y, placed[-1] + 0.07 * ymax) if placed else y
+        placed.append(yy)
+        ax.annotate(nm, (x, y), xytext=(x * 1.12, yy), textcoords="data", fontsize=7.5, color=INK, va="center",
+                    arrowprops=dict(arrowstyle="-", color=MUTED, lw=0.6) if abs(yy - y) > 1e-9 else None)
+    for nm, lab in (("full MILP 0.5 %", "full MILP 0.5 %"), ("LP rounding (5) + m1x (5), 10 LPs", "LP rounding ∪ m1x")):
+        if nm in rows:
+            v = rows[nm]
+            ax.plot([v["time_mean"]], [v["gap_mean"]], marker="x", ms=8, color=MUTED, lw=0, zorder=3)
+            ax.annotate(lab, (v["time_mean"], v["gap_mean"]), xytext=(6, 4), textcoords="offset points", fontsize=7.5,
+                        color=MUTED)
+    ax.set_xscale("log")
+    ax.set_xlabel("mean wall time per instance (s, log scale)", color=INK, fontsize=9)
+    ax.set_ylabel("mean gap to the full MILP's dual bound (%)", color=INK, fontsize=9)
+    ax.set_title(f"{BENCH_NAMES[bench]}: quality against time", color=INK, fontsize=10, loc="left")
+    ax.grid(True, color=GRID, lw=0.8)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    for sp in ("left", "bottom"):
+        ax.spines[sp].set_color(MUTED)
+    ax.tick_params(colors=MUTED, labelsize=8)
+    ax.set_ylim(bottom=0)
+    ax.legend(fontsize=7.5, frameon=False, loc="upper right")
+    xmax = max(max(ts) for _, ts, _ in lines)
+    ax.set_xlim(right=xmax * 6)
+    fig.tight_layout()
+    fig.savefig(path, facecolor=fig.get_facecolor())
+    plt.close(fig)
+
+
 def fmt_ci(ci):
     return f"[{ci[0]:+.2f}, {ci[1]:+.2f}]"
 
@@ -200,6 +274,11 @@ def main():
         pr_s = paired_rows(raw, refs, sn) if sn in raw else {}
         cv = curves(recs)
         out[bench] = dict(n=len(recs), k_sel=k_sel, rows=rows, paired=pr, paired_safety=pr_s, curve=cv)
+        fig_path = os.path.join(C.RES, f"rloop_quality_time_{bench}.png")
+        try:
+            figure(bench, recs, rows, fig_path)
+        except Exception as e:      # the tables are the primary output
+            print(f"figure {bench}: {e}")
         md += [f"## {BENCH_NAMES[bench]}", "",
                f"{len(recs)} instances; full MILP at 0.1 %: mean {np.mean([ref_full(r)['time'] for r in recs]):.1f} s "
                f"(re-solved in the same process). K = {k_sel} chosen on validation.", "",
@@ -220,6 +299,7 @@ def main():
                 md.append(f"| {ref} | {v['d_gap']['diff']:+.2f} {fmt_ci(v['d_gap']['ci'])} | "
                           f"{v['d_log_speedup']['diff']:+.2f} {fmt_ci(v['d_log_speedup']['ci'])} | "
                           f"{v['d_served']['diff']:+.1f} {fmt_ci(v['d_served']['ci'])} |")
+        md += ["", f"![quality against time](rloop_quality_time_{bench}.png)"]
         md += ["", "Quality against the number of outer steps K (best schedule so far; each step one network pass and at "
                "most one LP):", "", "| K | gap mean | median | served | LPs | time (s) | speed-up mean |",
                "|---|---|---|---|---|---|---|"]
