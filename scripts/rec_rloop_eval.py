@@ -160,6 +160,9 @@ def main():
         # rloop
         recs, bests = inf.rollout(inst, K, t_pre=t_rel, fmax=fmax)
         rec["rloop"] = [{kk: v for kk, v in r.items()} for r in recs]
+        # learning-free refinement: LP-gradient local search from the LP-rounding schedule (16 more LPs)
+        ls, _ = rloop.lp_local_search(inst, lpr_best, 16, lp, sysm)
+        rec["lpls"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=min(x[0] for x in rec["lpround"]["c"]))
         # rloop seeded with the LP-rounding baseline's best schedule (its 5 LPs and repairs counted in the time)
         if a.seeded:
             r_s, _ = inf.rollout(inst, k_sel, t_pre=t_rel + t_lpr, fmax=fmax, start=lpr_best)

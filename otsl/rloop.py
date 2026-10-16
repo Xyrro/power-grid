@@ -1161,6 +1161,7 @@ def lp_local_search(inst, s0, K, lp: FastLP, sysm, t_budget=None):
     by the LP's first-order prediction (made min up/down feasible by the Hamming repair, then the block adequacy
     repair), price it, and accept it if it is cheaper. K = number of LPs after pricing s0. Returns per-LP records
     (cost, shed, short, best so far) and the best schedule."""
+    t0 = time.time()
     sc = scenario_of(inst)
     lp.reset()
     sol = lp.solve(sc, s0)
@@ -1185,5 +1186,5 @@ def lp_local_search(inst, s0, K, lp: FastLP, sysm, t_budget=None):
         recs.append(dict(cost=sol["obj"], shed=float(sol["shed"].sum() + sol["spill"].sum()),
                          short=float(sol["short"].sum()), best=best,
                          best_shed=float(best_sol["shed"].sum() + best_sol["spill"].sum()),
-                         best_short=float(best_sol["short"].sum())))
+                         best_short=float(best_sol["short"].sum()), time=time.time() - t0))
     return recs, best_s
