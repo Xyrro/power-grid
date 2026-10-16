@@ -182,7 +182,57 @@ below the optimum at the median and 0.58 % on average); the fallback rate is rep
 
 ## Results
 
-(to be written)
+**uc12, test_fresh (120 instances), evaluated once**, every method back to back with the full MILP in one process on
+one core (full tables with every LP budget: [`results/recursive/rloop_results.md`](../../results/recursive/rloop_results.md)).
+Gap = (C − DB) / C to the dual bound of the full MILP at 0.1 % solved in the same process; C includes priced
+shedding / reserve shortfall; served = no shedding and no shortfall; time includes the LP relaxation, inference,
+decoding, repairs and LPs; speed-up = T_full(0.1 %) / T_method (mean / median / geometric mean).
+
+| method | LPs | served | gap mean [95 % CI] | median | max | time | speed-up |
+|---|---|---|---|---|---|---|---|
+| full MILP, 0.1 % (reference) | – | 97.5 % | 0.19 % [0.12, 0.27] | 0.10 % | 3.25 % | 22.4 s | 1.0× |
+| full MILP, 0.5 % | – | 96.7 % | 0.23 % [0.18, 0.29] | 0.10 % | 1.99 % | 12.1 s | 3.9× / 1.7× / 2.2× |
+| *no learning*: LP rounding + repair | 5 | 98.3 % | 1.75 % [1.32, 2.25] | 0.91 % | 21.1 % | 0.35 s | 61.9× / 50.9× / 42.0× |
+| one-shot m1x ensemble + repair | 1 | 92.5 % | 5.28 % [4.03, 6.80] | 2.15 % | 41.5 % | 0.32 s | 68.7× / 55.5× / 45.8× |
+| one-shot m1x ensemble + repair | 5 | 95.0 % | 2.00 % [1.39, 2.76] | 0.80 % | 24.7 % | 0.40 s | 55.1× / 45.8× / 37.3× |
+| LP rounding ∪ m1x (screening) | 10 | 98.3 % | 1.42 % [1.00, 1.93] | 0.56 % | 21.1 % | 0.53 s | 41.4× / 34.4× / 28.1× |
+| **rloop, whole-schedule recursion**, K = 1 | 1 | 95.0 % | 3.52 % [2.37, 4.99] | 1.23 % | 64.2 % | 0.32 s | 69.0× / 56.3× / 46.1× |
+| **rloop, whole-schedule recursion**, K = 16 | 3.5 | 95.8 % | 1.77 % [1.33, 2.30] | 0.79 % | 18.0 % | 0.66 s | 33.3× / 28.7× / 22.3× |
+| **rloop, whole-schedule recursion**, K = 32 | 4.5 | 95.8 % | 1.63 % [1.20, 2.16] | 0.70 % | 18.0 % | 1.00 s | 22.2× / 18.5× / 14.7× |
+| LP rounding + local search, LP ranking (*no learning*) | 5 + 16 | 99.2 % | 1.29 % [1.03, 1.57] | 0.83 % | 8.7 % | 0.79 s | 27.9× / 24.4× / 18.8× |
+| LP rounding + local search, static m1x prior | 5 + 16 | 99.2 % | 1.15 % [0.93, 1.42] | 0.83 % | 9.7 % | 0.83 s | 26.1× / 22.1× / 17.8× |
+| **rloop-guided search** (selected): LP rounding + local search, recursive prior | 5 + 16 | 99.2 % | **1.14 % [0.93, 1.39]** | 0.81 % | 9.4 % | 1.09 s | 20.6× / 17.6× / 13.6× |
+| … with 32 LPs | 5 + 32 | 99.2 % | 1.05 % [0.86, 1.27] | 0.78 % | 8.5 % | 2.11 s | 11.0× / 8.8× / 7.0× |
+| LP rounding ∪ m1x + local search, recursive prior | 10 + 16 | 99.2 % | 0.90 % [0.69, 1.15] | 0.41 % | 9.4 % | 1.26 s | 17.4× / 15.1× / 11.7× |
+| LP rounding ∪ m1x + local search, m1x prior | 10 + 32 | 99.2 % | 0.84 % [0.64, 1.08] | 0.37 % | 8.4 % | 1.33 s | 16.4× / 13.8× / 11.1× |
+| rloop-guided search + safety net, θ = 2 % (selected; fallback 25 %) | + MILP | 100 % | **0.64 % [0.55, 0.74]** | 0.53 % | 2.5 % | 2.91 s | 13.1× / 8.3× / 8.5× |
+| rloop-guided search + safety net, θ = 1 % (fallback 52 %) | + MILP | 99.2 % | 0.46 % [0.38, 0.56] | 0.30 % | 2.5 % | 4.10 s | 8.5× / 6.3× / 5.9× |
+
+Paired differences (instance bootstrap, 95 % CI; Δ log speed-up > 0 = faster):
+
+| comparison | Δ gap, pp | Δ log speed-up |
+|---|---|---|
+| rloop-guided search − LP rounding (5 LPs) | **−0.61 [−0.95, −0.33]** | −1.13 [−1.16, −1.10] (3.1× slower) |
+| rloop-guided search − one-shot m1x ensemble (5 LPs) | **−0.87 [−1.44, −0.39]** | −1.01 [−1.04, −0.99] |
+| rloop-guided search − LP rounding ∪ m1x (10 LPs) | −0.28 [−0.62, −0.00] | −0.73 [−0.75, −0.70] |
+| rloop-guided search − learning-free local search (16 LPs) | **−0.15 [−0.28, −0.03]** | −0.33 [−0.35, −0.30] |
+| rloop-guided search − m1x-guided local search (16 LPs) | −0.02 [−0.06, +0.02] | −0.27 [−0.29, −0.25] |
+| rloop-guided search − full MILP 0.5 % | +0.91 [+0.72, +1.12] | +1.80 [+1.59, +2.01] (6.0× faster) |
+| rloop-guided search + safety net (θ = 2 %) − full MILP 0.5 % | +0.41 [+0.32, +0.51] | +1.34 [+1.16, +1.52] (3.8× faster) |
+| rloop-guided search + safety net (θ = 2 %) − LP rounding (5 LPs) | **−1.11 [−1.59, −0.71]** | −1.59 [−1.75, −1.45] |
+| whole-schedule recursion (K = 16) − LP rounding (5 LPs) | +0.02 [−0.30, +0.34] | −0.63 [−0.66, −0.61] |
+| whole-schedule recursion (K = 16) − one-shot m1x ensemble (5 LPs) | −0.24 [−0.60, +0.09] | −0.52 [−0.53, −0.50] |
+| whole-schedule recursion (K = 16) − one-shot m1x ensemble (3 LPs) | **−1.02 [−1.94, −0.34]** | −0.61 [−0.63, −0.59] |
+
+![uc12 quality against time](../../results/recursive/rloop_quality_time_uc12.png)
+
+**Quality against the number of outer steps** (whole-schedule recursion, uc12 test; each step one network pass and
+at most one LP, none if the decoded schedule was already priced): K = 1: 3.52 % (median 1.23 %), 2: 3.10 %, 4: 2.58 %,
+16: 1.77 % (median 0.79 %), 32: 1.63 % (median 0.70 %); time 0.32 → 0.66 → 1.00 s. Test-time compute helps
+monotonically, at few LPs: the recursion often re-proposes a schedule it has already priced, so 16 steps cost 3.5
+distinct LPs on average and 32 steps 4.5. Of the 1.76 pp gained from K = 1 to K = 16, 1.42 pp come from the 20
+instances above 5 % at K = 1 (9 remain above 5 % at K = 16); the served share moves only from 95.0 % to 95.8 %, so
+the steps mostly repair expensive rather than infeasible schedules (curve per K in `rloop_results.md`).
 
 ## Ablations
 
