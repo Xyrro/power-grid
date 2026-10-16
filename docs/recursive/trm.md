@@ -257,5 +257,24 @@ selects the GPU. Presets: `cpu` (this study), `gpu_small` (hidden 128, attention
 scale: hidden 512, 2 layers, n = 6, T = 3, N_sup = 16, batch 768, EMA 0.999, AdamW β = (0.9, 0.95), lr 1e-4, weight
 decay 1.0, 2,000 warm-up steps, attention mixers). Jobs resume from their checkpoint when resubmitted with the same tag.
 
-(Which configurations are worth running at scale, and the resource estimates, are in the Verdict and in the PACE plan
-below once the CPU study is complete.)
+**Resource estimates** (analytical: per token and layer, attention mixers and SwiGLU cost ≈ 19 D² + 400 D
+multiply-adds; one net call = 2 layers over 876 tokens; a supervision step = T(n + 1) calls forward and n + 1 with
+backward; activation memory measured on CPU, ≈ 0.5 GB per training sample at hidden 512 and bf16):
+
+| job | config | compute | memory | estimate |
+|---|---|---|---|---|
+| data, step 1 | 980 full MILPs | CPU | 2 GB / process | ≈ 8 core-h |
+| data, step 2 | teachers, 1,500 polished labels, m1x ensemble | CPU | 3 GB / process | ≈ 5 core-h |
+| data, step 3 | 50,000 / 100,000 polished labels | CPU array | 3 GB / task | ≈ 75 / 150 core-h |
+| train | `gpu_small` (hidden 128, n 6, T 3, N_sup 16, batch 256), 30k steps | 1 GPU | ≈ 35 GB (micro-batch 128 on a 40 GB card) | ≈ 2–4 GPU-h (A100 / H100) |
+| train | same blocks, one-shot control (`--mode oneshot`), equal epochs | 1 GPU | < 10 GB | < 1 GPU-h |
+| train | `paper` (hidden 512, batch 768), 20k steps | 1 GPU, `--micro_batch 96–128` | ≈ 60–75 GB per micro-batch | ≈ 7–9 GPU-h (H100) / 22–27 (A100) |
+| fine-tune | REINFORCE stage, 400 steps × 32 instances × 8 samples | 1 GPU + 6–8 CPU cores (LPs) | as training | ≈ 1 GPU-h + 6–8 core-h |
+| evaluate | validation (360) + paired test (120), 6 models | CPU (1 core per shard); TRM inference `--trm_device cuda` for the paper scale | 4–6 GB | ≈ 10–15 core-h |
+
+At the paper scale the CPU forward pass is ≈ 15 s per supervision step for one instance (measured), slower than the
+full MILP, so an end-to-end speed claim at that scale needs GPU inference (`scripts/rec_trm_eval.py --trm_device cuda`;
+LPs and MILPs stay on the CPU core).
+
+**Which configurations are worth running at scale** (from the CPU study; see the Verdict): see the "PACE plan" at the end
+of the Verdict.
