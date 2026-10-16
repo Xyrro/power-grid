@@ -126,17 +126,17 @@ def test_cli_submit_and_cancel_only_own_jobs(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("USER", "someone")
     monkeypatch.chdir(root / "repo")
     # dry run: accounting printed, nothing submitted
-    g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "02:00:00", "--dry-run",
-            "--config", str(cfgfile), str(script)])
+    g.main(["--config", str(cfgfile), "submit", "--kind", "gpu", "--name", "trm", "--gpus", "1",
+            "--time", "02:00:00", "--dry-run", str(script)])
     assert "dry run" in capsys.readouterr().out and not (tmp_path / "sbatch_calls.txt").exists()
     # running jobs hold 14 GPU-h (1001:5 + 2001:2 + 3001:7); a 19 h job would exceed 32 -> refused
     with pytest.raises(SystemExit):
-        g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "19:00:00",
-                "--config", str(cfgfile), str(script)])
+        g.main(["--config", str(cfgfile), "submit", "--kind", "gpu", "--name", "trm", "--gpus", "1",
+                "--time", "19:00:00", str(script)])
     assert not (tmp_path / "sbatch_calls.txt").exists()
     # a 2 h job fits: submitted and recorded
-    g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "02:00:00",
-            "--config", str(cfgfile), str(script)])
+    g.main(["--config", str(cfgfile), "submit", "--kind", "gpu", "--name", "trm", "--gpus", "1",
+            "--time", "02:00:00", str(script)])
     call = (tmp_path / "sbatch_calls.txt").read_text()
     assert "-J pgu-trm" in call and "--comment=power-grid-uc" in call and f"PGU_ROOT={root}" in call
     assert "4242" in (root / "jobs.tsv").read_text()
