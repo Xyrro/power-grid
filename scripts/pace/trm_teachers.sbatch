@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Step 2 (CPU): the label teacher (3 MILP-label BCE GNNs) and the m1x baseline (1,500 polished labels on seed-111
 # scenarios + a 5-member temporal-GNN ensemble), as in docs/methods/m1x.md. ~4 core-hours (polishing dominates).
-#SBATCH -J uc12-teachers
-#SBATCH -A <ACCOUNT>                 # PLACEHOLDER
-#SBATCH -p <CPU_PARTITION>           # PLACEHOLDER
-#SBATCH -q <QOS>                     # PLACEHOLDER
+##SBATCH -J uc12-teachers
+##SBATCH -A <ACCOUNT>                 # PLACEHOLDER
+##SBATCH -p <CPU_PARTITION>           # PLACEHOLDER
+##SBATCH -q <QOS>                     # PLACEHOLDER
 #SBATCH -N 1 --ntasks=1 --cpus-per-task=6
 #SBATCH --mem=16G
-#SBATCH -t 08:00:00
-#SBATCH -o logs/%x-%j.out
+##SBATCH -t 08:00:00
+##SBATCH -o logs/%x-%j.out
 source "${SLURM_SUBMIT_DIR:-$PWD}/scripts/pace/trm_env.sh"   # submit from the repository root (mkdir -p logs first)
 python3 scripts/uc_hybrid_train.py --seeds 0,1,2
 [ -f results/uc12/uc_model1_4.pt ] || cp results/uc12/hybrid_bce_s0.pt results/uc12/uc_model1_4.pt

@@ -9,7 +9,7 @@
 # BENCH: uc12 (test_fresh, 120) | uc24 (40) | hard (60) | line_out (30). Model / K: results/recursive/rloop_select.json
 # (written after validation; override with MODEL=<tag> K_SEL=<k>).
 #
-#SBATCH -J rloop_eval
+##SBATCH -J rloop_eval
 ##SBATCH -p PLACEHOLDER_CPU_PARTITION
 ##SBATCH -q PLACEHOLDER_QOS
 ##SBATCH -A PLACEHOLDER_ACCOUNT
@@ -17,9 +17,9 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=4G
-#SBATCH -t 08:00:00
-#SBATCH --array=0-7
-#SBATCH -o logs/rloop_eval_%A_%a.out
+##SBATCH -t 08:00:00
+##SBATCH --array=0-7
+##SBATCH -o logs/rloop_eval_%A_%a.out
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$PWD}"
 mkdir -p logs

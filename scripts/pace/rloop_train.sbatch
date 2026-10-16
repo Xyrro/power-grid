@@ -12,7 +12,7 @@
 #   sbatch -p <partition> -q <qos> --gres=gpu:<type>:1 scripts/pace/rloop_train.sbatch
 # Lines starting with '##SBATCH' are ignored by Slurm until you remove one '#'.
 #
-#SBATCH -J rloop_train
+##SBATCH -J rloop_train
 ##SBATCH -p PLACEHOLDER_GPU_PARTITION
 ##SBATCH -q PLACEHOLDER_QOS
 ##SBATCH -A PLACEHOLDER_ACCOUNT
@@ -21,8 +21,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=48G
-#SBATCH -t 16:00:00
-#SBATCH -o logs/rloop_train_%j.out
+##SBATCH -t 16:00:00
+##SBATCH -o logs/rloop_train_%j.out
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$PWD}"
 mkdir -p logs

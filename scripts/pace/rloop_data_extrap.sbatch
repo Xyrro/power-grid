@@ -9,7 +9,7 @@
 # (docs/methods/m24.md, hard.md, ood.md); it was not run on PACE ICE.
 #
 # PLACEHOLDERS: check the PACE ICE documentation for partition / QOS / account names and fill them in or pass them.
-#SBATCH -J rloop_data_extrap
+##SBATCH -J rloop_data_extrap
 ##SBATCH -p PLACEHOLDER_CPU_PARTITION
 ##SBATCH -q PLACEHOLDER_QOS
 ##SBATCH -A PLACEHOLDER_ACCOUNT
@@ -17,8 +17,8 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
-#SBATCH -t 12:00:00
-#SBATCH -o logs/rloop_data_extrap_%j.out
+##SBATCH -t 12:00:00
+##SBATCH -o logs/rloop_data_extrap_%j.out
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$PWD}"
 mkdir -p logs

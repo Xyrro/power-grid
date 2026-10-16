@@ -4,15 +4,15 @@
 #   n 6, T 3, N_sup 16, batch 768, EMA 0.999, AdamW (0.9, 0.95), lr 1e-4, weight decay 1.0, 2k warm-up).
 # Usage: TAG=paper PRESET=paper N_TRAIN=100000 EXTRA="--steps 60000" sbatch scripts/pace/trm_train_gpu.sbatch
 # Resumable: resubmitting the same TAG continues from data/generated/recursive/models/$TAG.pt.
-#SBATCH -J trm-train
-#SBATCH -A <ACCOUNT>                 # PLACEHOLDER
-#SBATCH -p <GPU_PARTITION>           # PLACEHOLDER (check PACE ICE docs)
-#SBATCH -q <QOS>                     # PLACEHOLDER
-#SBATCH --gres=gpu:<GPU_TYPE>:1      # PLACEHOLDER: GPU type / syntax per PACE ICE docs (e.g. an H100/A100/V100 name)
+##SBATCH -J trm-train
+##SBATCH -A <ACCOUNT>                 # PLACEHOLDER
+##SBATCH -p <GPU_PARTITION>           # PLACEHOLDER (check PACE ICE docs)
+##SBATCH -q <QOS>                     # PLACEHOLDER
+##SBATCH --gres=gpu:<GPU_TYPE>:1      # PLACEHOLDER: GPU type / syntax per PACE ICE docs (e.g. an H100/A100/V100 name)
 #SBATCH -N 1 --ntasks=1 --cpus-per-task=8
 #SBATCH --mem=48G
-#SBATCH -t 16:00:00                  # PLACEHOLDER: respect the partition's wall-time limit
-#SBATCH -o logs/%x-%j.out
+##SBATCH -t 16:00:00                  # PLACEHOLDER: respect the partition's wall-time limit
+##SBATCH -o logs/%x-%j.out
 source "${SLURM_SUBMIT_DIR:-$PWD}/scripts/pace/trm_env.sh"   # submit from the repository root (mkdir -p logs first)
 TAG=${TAG:-paper}; PRESET=${PRESET:-paper}; N_TRAIN=${N_TRAIN:-2000}; EXTRA=${EXTRA:-}
 nvidia-smi || true

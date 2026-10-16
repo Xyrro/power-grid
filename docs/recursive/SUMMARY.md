@@ -86,7 +86,7 @@ These are exactly what GPU time can change. The decisive experiments:
    whole-schedule verdict.
 3. **Cheap, either way**: the one-shot + REINFORCE + safety-net pipeline on 50k labels.
 
-## PACE ICE plan (nothing submitted; cluster values are placeholders in `scripts/pace/`)
+## PACE ICE plan (nothing submitted; run it through the guard in [`scripts/pace/README.md`](../../scripts/pace/README.md))
 
 | stage | job | resources (estimates) |
 |---|---|---|
@@ -101,3 +101,9 @@ These are exactly what GPU time can change. The decisive experiments:
 
 Stages 1–2 total roughly **40–45 GPU-hours and 750–850 CPU core-hours**. Any 40 GB+ GPU is enough for stage 2; stage 3
 wants an H100 (80 GB) or H200.
+
+**ICE limits (PACE notice, September 2026)**: per user, 32 GPU-hours of running capacity (GPUs × remaining walltime
+of running jobs) and 50 queued + running GPU jobs, shared with the user's other projects. `scripts/pace/pgu_guard.py`
+reads all of the user's jobs before each submission and keeps this project within a configurable share (default 16
+GPU-hours, 4 GPU jobs, 16 CPU tasks, ≤ 8 h per job), so stage 2 runs as at most two 1-GPU jobs at a time, the long
+arm-B run as resumable 7-hour segments, and the data array as 16 tasks (8 at a time).

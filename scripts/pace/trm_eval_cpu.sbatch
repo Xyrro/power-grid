@@ -5,14 +5,14 @@
 # Usage:  TAGS="paper paper_rl" CONTROLS="oneshot" sbatch scripts/pace/trm_eval_cpu.sbatch             (validation + select)
 #         sbatch --array=0-7 --export=ALL,STAGE=test scripts/pace/trm_eval_cpu.sbatch                   (test, 8 shards)
 #         python3 scripts/rec_trm_report.py                                                         (tables, afterwards)
-#SBATCH -J trm-eval
-#SBATCH -A <ACCOUNT>                 # PLACEHOLDER
-#SBATCH -p <CPU_PARTITION>           # PLACEHOLDER
-#SBATCH -q <QOS>                     # PLACEHOLDER
+##SBATCH -J trm-eval
+##SBATCH -A <ACCOUNT>                 # PLACEHOLDER
+##SBATCH -p <CPU_PARTITION>           # PLACEHOLDER
+##SBATCH -q <QOS>                     # PLACEHOLDER
 #SBATCH -N 1 --ntasks=1 --cpus-per-task=1
 #SBATCH --mem=6G
-#SBATCH -t 06:00:00
-#SBATCH -o logs/%x-%A_%a.out
+##SBATCH -t 06:00:00
+##SBATCH -o logs/%x-%A_%a.out
 source "${SLURM_SUBMIT_DIR:-$PWD}/scripts/pace/trm_env.sh"   # submit from the repository root (mkdir -p logs first)
 STAGE=${STAGE:-val}
 if [ "$STAGE" = "val" ]; then

@@ -1,0 +1,21 @@
+# Copied to $PGU_ROOT/pgu.conf by pgu_setup.sh. KEY=VALUE, read by pgu_guard.py.
+# Fill the cluster names from `python3 scripts/pace/pgu_guard.py status` (sinfo / sacctmgr) and the PACE ICE docs.
+JOB_PREFIX=pgu-
+ACCOUNT=
+GPU_PARTITION=
+CPU_PARTITION=
+QOS=
+GPU_GRES=gpu            # e.g. gpu:H100 or gpu:H200 (exact type string as listed in the GRES column of sinfo)
+PYTHON_MODULE=          # e.g. the anaconda/python module name from `module avail` (loaded inside the jobs)
+CUDA_MODULE=            # leave empty unless the PACE ICE docs require one (the torch wheel ships CUDA)
+
+# Cluster per-user limits on ICE (PACE notice of September 2026). They are shared with your other projects.
+USER_GPU_HOURS_LIMIT=32 # GPU-hours of running capacity: sum of GPUs x remaining walltime over running jobs
+USER_GPU_JOBS_LIMIT=50  # GPU jobs queued + running
+
+# This project's share. Pending jobs count in full, so the share is never exceeded once they start.
+SHARE_GPU_HOURS=16
+SHARE_GPU_JOBS=4
+SHARE_CPU_TASKS=16
+SHARE_CPU_CONCURRENT=8
+MAX_WALLTIME=08:00:00
