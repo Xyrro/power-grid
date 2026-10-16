@@ -37,6 +37,10 @@ if [ ! -x "$ENV_DIR/bin/python" ]; then
 fi
 source "$ENV_DIR/bin/activate"
 hash -r
-case "$(command -v python3)" in "$ENV_DIR"/*) ;; *) echo "refusing: python3 is $(command -v python3), not this project's env"; exit 1;; esac
+# compare canonical paths: ~/scratch is a symlink on ICE, and a venv's bin/python3 points at the base interpreter
+_want=$(cd "$ENV_DIR" && pwd -P)
+_have=$(python3 -c 'import sys, os; print(os.path.realpath(sys.prefix))')
+[ "$_have" = "$_want" ] || { echo "refusing: python3 prefix is $_have, not this project's env ($_want)"; exit 1; }
+unset _want _have
 cd "$REPO"
 export OTSL_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1   # HiGHS and the LP / MILP workers are single-threaded
