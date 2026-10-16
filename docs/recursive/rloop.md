@@ -409,8 +409,8 @@ Full tables: [`results/recursive/rloop_results.md`](../../results/recursive/rloo
   Whole-schedule recursion with 2 × K = 32 steps: 3.18 % (90 % served), K curve 4.76 → 3.95 → 3.54 → 3.27 → 3.18 →
   3.14 % at K = 1, 4, 8, 16, 32, 64 (8 distinct LPs at K = 32): more steps keep helping on the longer horizon, but the
   model stays behind LP rounding (+1.41 pp [−0.34, +4.10]). The guided search gives 1.13 % [0.83, 1.50] at 44× mean,
-  −0.64 pp [−1.14, −0.26] against LP rounding and **−0.15 pp [−0.25, −0.06] against the learning-free search** — the
-  one extrapolation set where the recursive prior adds a significant gain (no m1x prior exists for 24 h). With the
+  −0.64 pp [−1.14, −0.26] against LP rounding and **−0.15 pp [−0.25, −0.06] against the learning-free search**, the
+  largest gain from the recursive prior among the shifts (no m1x prior exists for 24 h). With the
   safety net (θ = 2 %, 25 % fallback) 0.67 % [0.53, 0.82] at 24× mean / 15× geometric; full MILP 122 s on average.
 * **Summary across shifts.** What transfers is the LP in the loop: the LP-verified search improves the LP-rounding start
   by 0.4–1.3 pp on every set, and the safety net brings every set to 0.47–0.67 % at 13–27× mean speed-up. What does
@@ -443,7 +443,8 @@ Full tables: [`results/recursive/rloop_results.md`](../../results/recursive/rloo
 * **Selection after a first look at validation**: the guided-search use of the network, the seeded and union-seeded
   variants, the decoding bias and the safety-net threshold were added or chosen after the first validation results;
   every choice used validation only, and the test set was read once, after `rloop_select.json` was written. The
-  union-seeded variants were added to the test before it started, without being part of the selection rule.
+  union-seeded variants were added to the test before it started, without being part of the selection rule. Partial
+  test records were looked at while the run was in progress (to check the report code); nothing was changed after.
 * **λ of the guided search was swept for the `main` network only** and reused for `main_rl` and the ablation models.
 * **The full MILP at 0.1 % hits its 60 s limit on some instances** (its own mean gap to the dual bound is 0.19 %, max
   3.25 %), so gaps are to the time-limited run's dual bound.
