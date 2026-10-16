@@ -28,10 +28,14 @@ from its checkpoint, a finished job is skipped because its result file exists).*
     → their quick validations.
   Resume after a restart: rerun the corresponding lines (finished trainings skip, trainings resume from checkpoints,
   the test evaluation skips finished instances, validations rerun).
-- Done: training of `oneshot` (13 min), `main` (73 min), `main_rl` (REINFORCE, 34 min); validation of `lpround`,
-  `m1x`, `oneshot`, `main_rl`.
-- After the queues: report (`scripts/rec_trm_report.py`), stretch (`scripts/rec_trm_stretch.py --bench uc24|hard
-  --tags <final> oneshot`).
+- Done: training of `oneshot`, `main`, `main_rl`, `main_act`, `deep`, `oneshot_rl`; validation of `lpround`, `m1x`,
+  `oneshot`, `oneshot_rl`, `main`, `main_rl`, `main_act`, `deep`; selection (`results/recursive/trm_select.json`: final
+  `main`, headline pipeline `main_mix5r`); post-hoc halting head of `main` (`results/recursive/trm_halt_main.json`);
+  zero-shot 24 h for `main`, `main_rl`, `oneshot` (`results/recursive/trm_stretch_uc24.json`).
+- 04:18 test running: shard 0 on core 0, shard 1 on core 1 (`results/recursive/trm_eval_test_fresh_s{0,1}.jsonl`,
+  logs `data/generated/recursive/logs/eval_s{0,1}.out`); afterwards the remaining ablations start automatically.
+- After the queues: report (`python3 scripts/rec_trm_report.py`), congested stretch
+  (`python3 scripts/rec_trm_stretch.py --bench hard --tags main main_rl oneshot`).
 
 ## Summary
 
@@ -136,7 +140,39 @@ is reported.
 
 ## Results
 
-(pending)
+### Validation (360 instances; mean / median gap to the stored MILP objective, served share)
+
+All models are tuned and compared on validation only; the full tables (BCE, wrong unit-hours, every pipeline, the
+test-time compute curve) are in `results/recursive/trm_results.md`.
+
+| model (parameters, training) | 1 LP | 1 LP + LP repair | 5 thresholds + repair | + 4 LP roundings + repair |
+|---|---|---|---|---|
+| LP rounding, 5 thresholds (no learning) | – | – | 2.08 / 0.93 % (97.5 %) | – |
+| m1x temporal-GNN ensemble (5 × 180 k) | 9.48 % (86 %) | 3.97 / 1.10 % (95 %) | 3.48 / 0.61 % (95 %) | 1.96 / 0.87 % (97.2 %) |
+| one-shot, same net as the TRM (135 k, 13 min) | 9.44 % (91 %) | 3.68 / 0.96 % (95 %) | 3.19 / 0.66 % (96 %) | 1.89 / 0.63 % (97.2 %) |
+| deep non-recursive, 10 nets (1.3 M, 153 min) | 5.69 % (90 %) | 3.84 / 1.24 % (98 %) | 2.70 / 0.66 % (98 %) | 1.84 / 0.55 % (97.2 %) |
+| **TRM `main`** (135 k, n 4, T 2, N_sup 8, 73 min) | 10.67 % (85 %) | 4.08 / 1.45 % (96 %) | 4.50 / 0.79 % (96 %) | 1.87 / 0.63 % (96.4 %) |
+| TRM, ACT halting at ≤ 8 wrong (`main_act`) | 9.70 % (86 %) | 4.26 / 1.44 % (96 %) | 4.13 / 0.78 % (95 %) | 1.87 / 0.59 % (96.7 %) |
+| TRM + REINFORCE (`main_rl`, +34 min) | 5.67 % (96 %) | 4.20 / 1.22 % (96 %) | 2.94 / 0.77 % (97 %) | 1.81 / 0.63 % (97.2 %) |
+| one-shot + REINFORCE (`oneshot_rl`, +21 min) | 6.61 % (95 %) | 3.51 / 1.15 % (98 %) | 3.40 / 0.70 % (98 %) | 1.89 / 0.57 % (97.2 %) |
+
+(1-LP columns: mean gap (served); the others mean / median (served). The TRM's "last 5 supervision steps screened +
+repair": `main` 3.64 %, `main_rl` 3.99 %, `main_act` 4.08 %.)
+
+* **No learned model's own schedule beats rounding the LP relaxation.** With one LP and the LP-guided repair the models
+  are at 3.5–4.3 % mean (median 1.0–1.5 %) against 2.08 % (median 0.93 %) for LP rounding with 5 LPs; even the median is
+  worse, and the models lose to LP rounding on about 76 % of the instances. The models make as many wrong decisions as the
+  rounded relaxation (12.4 count-aware wrong unit-hours per instance for the TRM, 11.9 for the one-shot, 12.4 for the
+  rounded LP), but their errors are cost-blind, whereas the relaxation's are economically mild.
+* **The useful combination is model + LP rounding**: screening the model's schedule together with 4 LP roundings gives
+  1.81–1.96 % (median 0.55–0.87 %) for every learned model, slightly better than LP rounding alone. The model's role is
+  a diverse candidate; which model it is matters little (1.81–1.96 %).
+* **The LP-guided repair is the largest single gain for every model** (TRM 10.7 → 4.1 %, one-shot 9.4 → 3.7 %): most
+  failing schedules miss reserve because congestion or ramping forces renewable curtailment that the per-hour capacity
+  check does not see.
+* **Cost-aware fine-tuning** fixes the unrepaired pipeline (TRM 10.7 → 5.7 %, one-shot 9.4 → 6.6 %, served 96 % / 95 %),
+  but once the LP repair is applied it changes little, except for the TRM's threshold screening (4.50 → 2.94 %).
+
 
 ## Ablations
 
