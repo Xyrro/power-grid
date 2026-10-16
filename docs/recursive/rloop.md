@@ -58,7 +58,41 @@ Checkpoints and logs (git-ignored): `data/generated/recursive/rloop/`.*
 
 ## Summary
 
-(to be written)
+**Question.** Can a small recursive network that refines a unit-commitment schedule with the exact dispatch LP in the
+loop (arm B of [`PLAN.md`](PLAN.md)) produce good schedules end to end, without a MILP?
+
+**Model.** A 166k-parameter recurrent network over (unit, hour) tokens and the bus graph (TRM answer / latent state,
+input re-injected at every step, count heads for the 24 groups of identical units, Viterbi decoding feasible for
+min up/down by construction, PTDF bus encodings). After every outer step its schedule is repaired and priced by the
+exact dispatch LP, whose prices, shortfalls, line loadings and exact sensitivities d cost / d u are the next step's
+input; every step is a priced candidate and the best is kept. Trained on 2,000 instances (500 MILP + 1,500 polished
+labels) with deep supervision on its own LP feedback, then REINFORCE on each step's LP-priced improvement. CPU only,
+~1 core-hour per training run.
+
+**Findings (uc12 test_fresh, 120 instances, paired timing; validation-selected).**
+
+1. **The solver feedback is what makes the recursion work, but whole-schedule recursion is not better than LP
+   rounding.** On validation, 16 steps with feedback improve on 1 step by 1.88 pp, without feedback by 0.68 pp
+   (feedback − no feedback at K = 16: −0.78 pp [−1.54, −0.07]; after REINFORCE −1.26 pp [−2.05, −0.62]). On test the
+   selected whole-schedule model (REINFORCE + decoding bias, K = 16, 3.5 distinct LPs) reaches 1.77 % mean gap
+   (95.8 % served) at 33× — level with learning-free LP rounding + repair + 5 LPs (1.75 %; Δ +0.02 pp [−0.30, +0.34])
+   and half as fast. Its failure mode is the imitation model's under-commitment (shedding / reserve shortfall).
+   Recall, deep supervision and count heads made no significant difference.
+2. **Used as the move prior of an LP-verified local search, it beats every learning-free and one-shot baseline end
+   to end**: LP rounding + 16 guided LPs gives **1.14 % [0.93, 1.39]**, 99.2 % served, 1.09 s, 20.6× mean speed-up;
+   −0.61 pp [−0.95, −0.33] against LP rounding, −0.87 pp against the one-shot m1x ensemble with the same repairs and
+   5 LPs, −0.15 pp [−0.28, −0.03] against the same search without learning. But a **static** prior from the one-shot
+   ensemble is as good (−0.02 pp [−0.06, +0.02]); re-running the network on the LP feedback beats running it once
+   (validation −0.05 pp [−0.08, −0.02]), a small effect. Most of the gain is the LP-in-the-loop search itself.
+3. **Best end-to-end result without a MILP**: start from the best of LP rounding and m1x (10 LPs), then 16–32 guided
+   LPs: 0.90 % with 16 (rloop prior, 1.26 s, 17×), 0.83–0.84 % with 32 (rloop or m1x prior, 1.3–2.3 s). **With a safety net** (reduced MILP when the certified gap
+   to the LP relaxation exceeds θ = 2 %, 25 % of instances): **0.64 % [0.55, 0.74], 100 % served, 13.1× mean /
+   8.5× geometric** — 0.41 pp [0.32, 0.51] less accurate than the full MILP at 0.5 % and 3.8× faster.
+4. **Success criterion of the plan (≥ 95 % served at ≤ 0.5 % mean gap in well under a second) is not met.** The minimum
+   bar (beat LP rounding and the one-shot model) is met by the guided search (1.14 % vs 1.75 % / 2.00 %) but not by
+   the whole-schedule recursion (1.77 %). Only the safety net with θ = 1 % reaches 0.46 % (52 % fallback, 8.5×), which
+   is below the recommended MILP pipeline of the earlier study (0.30 % at 9.7×).
+5. **Extrapolation** (zero-shot): EXTRAP_SUMMARY
 
 ## Method
 
@@ -325,11 +359,43 @@ corrections, unit DPs respond), set-valued targets and cost-weighted deep superv
 
 ## Verdict
 
-(to be written)
+* **Solver feedback helps the recursion, measurably and significantly** — it is the one design choice in this arm with
+  a clear effect (−0.78 pp after imitation, −1.26 pp after REINFORCE at K = 16 on validation; without it the extra
+  steps are worth a third as much). Recall, deep supervision and the count heads did not matter at this scale.
+* **But the recursion does not turn a one-shot imitation model into a competitive end-to-end solver.** Whole-schedule
+  recursion lands level with learning-free LP rounding on the test (1.77 % vs 1.75 %) and collapses under line outages
+  like the one-shot model; its errors are under-commitments that a 166k model trained on 2,000 labels keeps making.
+* **The LP-in-the-loop search is the useful part; learning adds a modest prior.** Guided by the network, a 16-LP local
+  search started from LP rounding is the best end-to-end method without a MILP from a single start (1.14 %,
+  significantly better than LP rounding, the one-shot ensemble with equal repairs, and the learning-free search), and
+  it holds up under line outages (0.84 %). The recursive network is not a better prior than the one-shot ensemble.
+* **Against the plan's bar**: minimum bar met by the guided search, not by the whole-schedule recursion; the success
+  criterion (≤ 0.5 % at ≥ 95 % served in well under a second) is not met. The fastest way to sub-0.5 % here is still a
+  MILP (the safety net at θ = 1 %: 0.46 % at 8.5×; the earlier recommended MILP pipeline: 0.30 % at 9.7×).
+* **What would be worth scaling on GPU**: the feedback effect grew with RL, so a larger model trained longer with
+  REINFORCE on many more instances is the experiment that could change the whole-schedule verdict (PACE plan below);
+  a set-valued or cost-weighted target and a Lagrangian price-update variant are untested.
 
 ## Caveats
 
-(to be written)
+* **One training seed per variant**; ablation CIs are over instances, not seeds. The whole-schedule means are driven
+  by a few instances that shed load, so their CIs are wide.
+* **Selection after a first look at validation**: the guided-search use of the network, the seeded and union-seeded
+  variants, the decoding bias and the safety-net threshold were added or chosen after the first validation results;
+  every choice used validation only, and the test set was read once, after `rloop_select.json` was written. The
+  union-seeded variants were added to the test before it started, without being part of the selection rule.
+* **λ of the guided search was swept for the `main` network only** and reused for `main_rl` and the ablation models.
+* **The full MILP at 0.1 % hits its 60 s limit on some instances** (its own mean gap to the dual bound is 0.19 %, max
+  3.25 %), so gaps are to the time-limited run's dual bound.
+* **LP code**: every method's dispatch LPs go through the same highspy path, warm-started within one method's
+  sequence on one instance; the LP rounding baseline is therefore faster here than in `docs/methods/base.md`
+  (61.9× vs 27.6×), which uses scipy's LP and cold starts.
+* **CPU-scale study**: 166k parameters, 2,000 training instances, ~1 core-hour per run; TRM's results are at
+  GPU-days scale. The halting head was trained but only evaluated offline (it saves ~30 % of steps at +0.04 pp).
+* The m1x baseline, like rloop, was trained on the original ratings and the intact network and is applied zero-shot
+  on the congested and line-outage sets (its inputs carry the derated ratings and the LP relaxation of the outaged
+  network, its message passing does not see the outage); it is not available for 24 h (its heads are 12-hour
+  specific).
 
 ## Running on PACE ICE
 
