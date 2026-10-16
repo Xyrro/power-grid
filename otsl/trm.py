@@ -943,7 +943,8 @@ def train(cfg: TRMConfig, sysm, tr, va, ckpt, device="cpu", log_every=50, val_ev
         opt.load_state_dict(ck["opt"])
         step, log = ck["step"], ck["log"]
         rng.bit_generator.state = ck["rng"]
-        torch.set_rng_state(ck["torch_rng"])
+        # map_location moved every checkpoint tensor to `device`; set_rng_state needs a CPU ByteTensor
+        torch.set_rng_state(ck["torch_rng"].cpu().to(torch.uint8))
         if ck["carry"] is not None:
             carry.load(ck["carry"], device)
         logf(f"[trm] resumed at step {step}")
