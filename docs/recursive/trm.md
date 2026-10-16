@@ -9,11 +9,18 @@ Results: [`results/recursive/trm_results.md`](../../results/recursive/trm_result
 
 ## Status
 
-*Kept current for resuming after a container restart. Every job is resumable: rerun the same command.*
+*Kept current for resuming after a container restart. Every job is resumable: rerun the same command (training resumes
+from its checkpoint, a finished job is skipped because its result file exists).*
 
-- 23:49 main run started on core 0 (`bash scripts/rec_trm_queue.sh 0 "train:main:--preset cpu"`), one-shot controls on
-  core 1. Logs: `data/generated/recursive/logs/` (`train_<tag>.log`, queue outputs `queue_core*.out`).
-- 00:03 one-shot control done (13 min); validation pass of it running.
+- Queues (each pins its jobs to one core, single-threaded): `bash scripts/rec_trm_queue.sh <core> <job> ...` with jobs
+  `train:<tag>:<flags>`, `val:<tag>`, `cmd:<shell>`; logs in `data/generated/recursive/logs/` (`train_<tag>.log`,
+  `q_*.out`, `queue_core*.out`). Checkpoints: `data/generated/recursive/models/<tag>.pt`.
+- Done: `oneshot` (13 min), validation of `m1x`, `lpround`, `oneshot`; `main` (75 min).
+- Running (01:00): core 0 `val:main` → `main_rl` (REINFORCE, 150 steps) → `val:main_rl` → `nods` → `nolp` → `val:nods`
+  → `val:nolp`; core 1 `deep` (~3 h) → `oneshot_long` (18,000 steps).
+- Next (not yet queued): `n6T3`, `rank`, `costw`, `y0lp`, `oneshot_nolp`, `n2T1`, axial-attention variant, post-hoc
+  halting head (`scripts/rec_trm_halt.py`), selection (`scripts/rec_trm_select.py`), test (`scripts/rec_trm_eval.py`,
+  2 shards on cores 0 / 1), report (`scripts/rec_trm_report.py`).
 
 ## Summary
 
