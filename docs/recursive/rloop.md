@@ -131,8 +131,11 @@ the LPs in process.
 
 **Safety net.** If the best schedule after K steps sheds load or misses reserve, or its certified gap to the LP
 relaxation exceeds θ, a reduced MILP (0.5 % gap) around it is solved: the decisions whose last probabilities are within
-0.05 of 0 or 1 and agree with the schedule are fixed (min up/down row release as in the hybrid pipeline), and the
-cheaper of the two schedules is kept. θ is chosen on validation; the fallback rate is reported.
+0.05 of 0 or 1, agree with the schedule and with an integral LP-relaxation value are fixed (min up/down row release
+as in the hybrid pipeline), and the
+cheaper of the two schedules is kept. θ is chosen on validation (the smallest of 1, 2, 4 % whose validation fallback
+rate is ≤ 30 %; at 1 % half of the validation instances would fall back, because the LP relaxation itself is 0.24 %
+below the optimum at the median and 0.58 % on average); the fallback rate is reported.
 
 ## Setup
 

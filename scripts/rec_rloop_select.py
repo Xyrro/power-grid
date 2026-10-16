@@ -11,7 +11,8 @@ Rules (fixed before any test run):
   mean gap at its lam (`rloop_val_guided_net-<model>_lam<lam>.npz`).
 * main learned pipeline: whichever of the two has the lower full-validation mean gap.
 * m1x thresholds for 1 / 3 / 5 LPs: greedy forward selection on validation (rloop_val_summary.json).
-* safety-net threshold theta: 1 % (pre-declared; the test reports 0.5 / 1 / 2 / 4 %).
+* safety-net threshold theta: the smallest of 1 / 2 / 4 % whose validation fallback rate (certified gap to
+  the LP relaxation above theta, or shedding / shortfall) on the main pipeline is <= 30 % (the test reports all three).
 """
 import glob
 import json
@@ -89,7 +90,20 @@ def main():
     out["guide_model"] = out.get("guided", {}).get("model", out["model"])
     out["lam_net"] = out.get("guided", {}).get("lam", 0.5)
     out["lam_m1x"] = out["lam"].get("m1x", 0.5)
-    out["theta"] = 1.0
+    va = C.val_data()
+    if out["main"] == "rloop_guided" and "guided" in out:
+        R = dict(np.load(os.path.join(C.RES, f"rloop_val_guided_{out['guided']['run']}.npz")))
+        c, sv = R["cost"][16], (R["shed"][16] < 1e-6) & (R["short"][16] < 1e-6)
+    else:
+        R = dict(np.load(os.path.join(C.RES, f"rloop_val_{out['whole']['run']}.npz")))
+        kk = out["whole"]["K"]
+        j = R["cost"][:kk].argmin(0)
+        c = R["cost"][:kk].min(0)
+        sv = (R["shed"][:kk][j, range(len(c))] < 1e-6) & (R["short"][:kk][j, range(len(c))] < 1e-6)
+    cert = (c / va["c_rel"] - 1) * 100
+    rates = {th: float(((~sv) | (cert > th)).mean() * 100) for th in (1.0, 2.0, 4.0)}
+    out["fallback_val"] = rates
+    out["theta"] = next((th for th in (1.0, 2.0, 4.0) if rates[th] <= 30.0), 4.0)
     json.dump(out, open(os.path.join(C.RES, "rloop_select.json"), "w"), indent=1)
     print(json.dumps({k: v for k, v in out.items() if k not in ("guided_full",)}, indent=1))
 

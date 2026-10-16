@@ -48,7 +48,7 @@ def best_of(c):
     return c[j][0], c[j][1] < 1e-6 and c[j][2] < 1e-6, c[-1][3]
 
 
-def methods(r, k_sel, thetas=(0.5, 1.0, 2.0, 4.0)):
+def methods(r, k_sel, thetas=(1.0, 2.0, 4.0)):
     """per-method (cost, served, time) of one instance record"""
     out = {}
     f = r["full"]

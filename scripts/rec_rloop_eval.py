@@ -87,7 +87,7 @@ def main():
     ap.add_argument("--main", default=None, choices=[None, "rloop", "rloop_guided"])
     ap.add_argument("--guide_model", default=None)
     ap.add_argument("--seeded", type=int, default=1, help="also run rloop seeded with the LP-rounding schedule")
-    ap.add_argument("--theta_min", type=float, default=0.5, help="% certified gap that triggers the safety net")
+    ap.add_argument("--theta_min", type=float, default=1.0, help="%% certified gap that triggers the safety net")
     ap.add_argument("--gaps", default=None, help="full-MILP gaps, comma separated (default 0.001,0.005)")
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--nshards", type=int, default=1)
