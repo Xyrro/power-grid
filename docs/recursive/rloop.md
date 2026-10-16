@@ -52,6 +52,9 @@ Checkpoints and logs (git-ignored): `data/generated/recursive/rloop/`.*
   `results/recursive/rloop_eval_<bench>_s<i>.jsonl`. Core 2 now; core 3 after `rloop_B.sh`. **Resume after a
   restart:** delete lock dirs without `.done`, rerun both workers (one per core; the evaluation skips finished
   instances), and rerun `rloop_B.sh` if it had not finished.
+- 04:03 uc12 test done (120); 04:20 line_out done (30); 04:33 `rloop_B.sh` done (ablation trainings `nods`, `nofb_rl`,
+  `norecall`, `nocount` and their validation), core 3 joined the test (hard, then uc24). Results and Ablations
+  sections written from the finished parts; `python3 scripts/rec_rloop_report.py` rebuilds every table.
 
 ## Summary
 
@@ -251,7 +254,10 @@ ranks block moves of an LP-verified local search started from the LP-rounding sc
 | main + REINFORCE (`main_rl`) | 6.58 % | 4.79 % | 0.97 % |
 | main, decoding bias +1 | 4.66 % | 3.26 % | 1.00 % |
 | `main_rl`, decoding bias +1 (selected) | 4.53 % | 2.95 % | 1.05 % |
-ABL_ROWS
+| no recall (input only initialises z) | 7.77 % | 6.29 % | 0.98 % |
+| no deep supervision (loss on the last step, back-propagated through all) | 8.66 % | 6.63 % | 1.03 % |
+| per-unit heads + symmetry-aligned labels instead of count heads | 7.18 % | 6.41 % | 1.14 % |
+| no LP feedback + REINFORCE (`nofb_rl`) | 6.81 % | 6.05 % | 0.95 % |
 | LP rounding + repair, 5 LPs (no learning, reference) | | 2.14 % | 1.00 % |
 
 * **LP feedback makes the extra steps useful.** With feedback, going from 1 to 16 outer steps lowers the mean gap by
@@ -260,6 +266,12 @@ ABL_ROWS
   is identical across steps (≈ 9.6 wrong decisions per instance at steps 0, 1, 2, with or without feedback); the gain
   appears only in what the later steps change on the instances whose schedule the LP shows to be bad (shedding,
   reserve shortfall, high prices).
+* **After REINFORCE the feedback matters more**: `main_rl` − `nofb_rl` = −1.26 pp [−2.05, −0.62] at K = 16; the
+  no-feedback model gains only 0.76 pp from its extra steps, the feedback model 1.79 pp.
+* **Recall, deep supervision and count heads show no significant effect** on the whole-schedule recursion at this
+  scale: against main at K = 16, no recall +0.12 pp [−0.84, +1.12], no deep supervision +0.46 pp [−0.56, +1.44],
+  per-unit heads +0.24 pp [−0.14, +0.66] (per-unit heads are better at K = 1, 7.18 % vs 8.05 %, but gain less from the
+  steps). The CIs are wide because the mean is driven by a few instances that shed load.
 * **Cost-aware fine-tuning helps** (REINFORCE on each step's improvement, LP critic): −1.38 pp [−2.36, −0.63] at K = 16.
   Seeded RL batches with an anchor to the current schedule (`main_rls`) made the steps after the first repeat the same
   schedule (validation 4.42 % at K = 8, no gain over K = 1); not pursued.
@@ -284,12 +296,16 @@ ABL_ROWS
 | + recursive network `main_rl` (λ = 0.5, selected) | 1.81 % | 1.56 % | 0.82 % |
 | + network without LP feedback (`nofb`) | 1.80 % | 1.59 % | 0.85 % |
 | + `main`, run once on the start (no recursion) | 1.81 % | 1.63 % | 0.84 % |
-GUIDED_ROWS
+| + network without recall / without deep supervision / with per-unit heads | 1.81 / 1.82 / 1.80 % | 1.60 / 1.61 / 1.59 % | 0.88 / 0.84 / 0.84 % |
+| + network without LP feedback after REINFORCE (`nofb_rl`) | 1.80 % | 1.59 % | 0.85 % |
 | starting schedule only (LP rounding, 5 LPs) | | 2.14 % | 1.00 % |
 
 * **The LP-in-the-loop search does most of the work**: learning-free, it lowers LP rounding's gap by 0.50 pp [0.35,
   0.66] with 16 LPs; a learned prior adds 0.08 pp [0.04, 0.12] (recursive network) or 0.08 pp [0.03, 0.14] (static
   m1x ensemble).
+* **As priors the variants are within 0.03 pp of each other**: against `main`, no recall +0.02 pp [+0.01, +0.04], no
+  deep supervision +0.03 pp [+0.01, +0.06], per-unit heads +0.02 pp [−0.01, +0.04], no feedback +0.01 pp
+  [−0.01, +0.03], `main_rl` −0.01 pp [−0.04, −0.00].
 * **Recursion helps inside the search, the feedback signal less so**: re-running the network on the LP feedback of the
   current best schedule beats running it once on the start, −0.05 pp [−0.08, −0.02]; but a network trained without
   LP feedback is about as good a prior (−0.01 pp [−0.03, +0.01]), and the recursive network is level with the
