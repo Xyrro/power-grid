@@ -44,7 +44,8 @@ DEFAULTS = {
     "SHARE_GPU_JOBS": "4",          # this project's max GPU jobs, queued + running
     "SHARE_CPU_TASKS": "16",        # this project's max CPU jobs/array tasks, queued + running
     "SHARE_CPU_CONCURRENT": "8",    # max throttle (%k) allowed on a CPU array
-    "MAX_WALLTIME": "08:00:00",     # never request more than this per job
+    "MAX_WALLTIME": "08:00:00",         # cap for GPU jobs (ice-gpu allows 16:00:00)
+    "MAX_WALLTIME_CPU": "18:00:00",     # cap for CPU jobs (ice-cpu allows 18:00:00)
     "PYTHON_MODULE": "",            # passed to the jobs (trm_env.sh loads it); from `module avail`
     "CUDA_MODULE": "",              # only if the PACE ICE docs require a CUDA module for GPU jobs
 }
@@ -242,9 +243,10 @@ def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_task
                  throttle: int | None) -> list[str]:
     """Return a list of violations (empty = allowed)."""
     bad = []
-    max_wall = parse_slurm_time(cfg["MAX_WALLTIME"]) or 8.0
+    key = "MAX_WALLTIME" if kind == "gpu" else "MAX_WALLTIME_CPU"
+    max_wall = parse_slurm_time(cfg.get(key) or cfg["MAX_WALLTIME"]) or 8.0
     if hours > max_wall + 1e-9:
-        bad.append(f"walltime {hours:.2f} h exceeds MAX_WALLTIME {max_wall:.2f} h")
+        bad.append(f"walltime {hours:.2f} h exceeds {key} {max_wall:.2f} h")
     if kind == "gpu":
         if n_tasks != 1:
             bad.append("GPU jobs must not be arrays here; submit them one by one")

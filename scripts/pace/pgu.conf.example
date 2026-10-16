@@ -1,21 +1,25 @@
 # Copied to $PGU_ROOT/pgu.conf by pgu_setup.sh. KEY=VALUE, read by pgu_guard.py.
-# Fill the cluster names from `python3 scripts/pace/pgu_guard.py status` (sinfo / sacctmgr) and the PACE ICE docs.
+# The values below were read from PACE ICE (login-ice, October 2026) with `pgu_guard.py status`:
+#   account coc; partitions ice-cpu (18:00:00) and ice-gpu (16:00:00, GPU types h100 h200 l40s a100 a40 v100
+#   rtx_6000 mi210); QOS coc-ice / coe-ice with MaxTRESRunMinsPU gres/gpu=1920 (= 32 GPU-hours) and MaxSubmitPU 50.
+# Re-check them with `pgu_guard.py status` if the cluster changes.
 JOB_PREFIX=pgu-
-ACCOUNT=
-GPU_PARTITION=
-CPU_PARTITION=
-QOS=
-GPU_GRES=gpu            # e.g. gpu:H100 or gpu:H200 (exact type string as listed in the GRES column of sinfo)
-PYTHON_MODULE=          # e.g. the anaconda/python module name from `module avail` (loaded inside the jobs)
-CUDA_MODULE=            # leave empty unless the PACE ICE docs require one (the torch wheel ships CUDA)
+ACCOUNT=coc
+GPU_PARTITION=ice-gpu
+CPU_PARTITION=ice-cpu
+QOS=coc-ice
+GPU_GRES=gpu:h100       # or gpu:h200 / gpu:l40s / gpu:a100; plain `gpu` takes whatever is free
+PYTHON_MODULE=python/3.11.9
+CUDA_MODULE=            # not needed: the torch wheel ships its own CUDA runtime
 
-# Cluster per-user limits on ICE (PACE notice of September 2026). They are shared with your other projects.
-USER_GPU_HOURS_LIMIT=32 # GPU-hours of running capacity: sum of GPUs x remaining walltime over running jobs
-USER_GPU_JOBS_LIMIT=50  # GPU jobs queued + running
+# Cluster per-user limits (shared with your other projects). The guard refuses anything that would exceed them.
+USER_GPU_HOURS_LIMIT=32 # QOS MaxTRESRunMinsPU gres/gpu=1920 minutes: sum of GPUs x walltime over running jobs
+USER_GPU_JOBS_LIMIT=50  # QOS MaxSubmitPU: GPU jobs queued + running
 
-# This project's share. Pending jobs count in full, so the share is never exceeded once they start.
+# This project's share of those limits. Pending jobs count in full, so the share holds once they start.
 SHARE_GPU_HOURS=16
 SHARE_GPU_JOBS=4
 SHARE_CPU_TASKS=16
 SHARE_CPU_CONCURRENT=8
-MAX_WALLTIME=08:00:00
+MAX_WALLTIME=08:00:00       # GPU jobs (partition allows 16:00:00; shorter jobs free the GPU-hour budget sooner)
+MAX_WALLTIME_CPU=18:00:00   # CPU jobs (partition limit)
