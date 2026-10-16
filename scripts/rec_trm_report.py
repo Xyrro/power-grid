@@ -33,7 +33,8 @@ BASE = [("milp01", "full MILP, 0.1 % (reference)"), ("milp05", "full MILP, 0.5 %
         ("rl_lag7r", "REINFORCE (Lagrangian + KL), 7 thresholds + LP repair")]
 SUFFIX = [("_1", "1 LP"), ("_1r", "1 LP + LP repair"), ("_t5", "5 thresholds"), ("_t5r", "5 thresholds + LP repair"),
           ("_s5", "last 5 steps screened"), ("_s5r", "last 5 steps + LP repair"), ("_halt", "halting head, 1 LP"),
-          ("_haltr", "halting head + LP repair"), ("_fb", "1 LP + LP repair + safety-net reduced MILP")]
+          ("_haltr", "halting head + LP repair"), ("_halt2r", "cost-based halting head + LP repair"),
+          ("_fb", "1 LP + LP repair + safety-net reduced MILP")]
 
 
 def load_eval(split="test_fresh"):

@@ -47,7 +47,7 @@ def parse():
     ap.add_argument("--val_n", type=int, default=60)
     ap.add_argument("--seed", type=int, default=0)
     for k in ("hidden", "n_latent", "n_cycles", "mp_layers", "k_train", "epochs", "batch", "k_eval", "rl_updates",
-              "rl_batch", "rl_samples", "rl_k", "rl_log", "rl_ckpt"):
+              "rl_batch", "rl_samples", "rl_k", "rl_log", "rl_ckpt", "accum"):
         ap.add_argument(f"--{k}", type=int, default=None)
     for k in ("lr", "ema", "p_ext", "rl_lr", "bce_w", "halt_w", "clip", "wd", "p_seed", "w_wrong", "w_grad", "rl_temp",
               "anchor_init"):
@@ -68,7 +68,7 @@ def main():
     torch.set_num_threads(a.threads)
     os.chdir(C.ROOT)
     over = {k: getattr(a, k) for k in ("hidden", "n_latent", "n_cycles", "mp_layers", "k_train", "epochs", "batch",
-                                        "k_eval", "rl_updates", "rl_batch", "rl_samples", "rl_k", "rl_log", "rl_ckpt",
+                                        "k_eval", "rl_updates", "rl_batch", "rl_samples", "rl_k", "rl_log", "rl_ckpt", "accum",
                                         "lr", "ema", "p_ext",
                                         "rl_lr", "bce_w", "halt_w", "clip", "wd", "decode", "reward", "lp_workers",
                                         "inflight", "p_seed", "w_wrong", "w_grad", "rl_temp", "anchor_init")}

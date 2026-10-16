@@ -789,7 +789,8 @@ def train_supervised(net, feats, sysm, train_insts, labels, best_known, cfg, poo
     rng = np.random.default_rng(seed + 1000 * start_epoch)
     torch.manual_seed(seed + 1000 * start_epoch)
     opt = torch.optim.AdamW(net.parameters(), lr=cfg["lr"], weight_decay=cfg.get("wd", 1e-4))
-    total = cfg["epochs"] * math.ceil(len(train_insts) / cfg["batch"]) * cfg["k_train"]
+    accum = cfg.get("accum", 1)         # gradient accumulation over episodes (no deep supervision only)
+    total = cfg["epochs"] * math.ceil(len(train_insts) / (cfg["batch"] * accum)) * cfg["k_train"]
     sched = torch.optim.lr_scheduler.LambdaLR(
         opt, lambda s: min(1.0, (s + 1) / 200) * 0.5 * (1 + math.cos(math.pi * min(s, total) / total)))
     if opt_state is not None:
@@ -810,7 +811,8 @@ def train_supervised(net, feats, sysm, train_insts, labels, best_known, cfg, poo
         t0 = time.time()
         perm = rng.permutation(len(train_insts))
         queue = collections.deque([perm[i:i + cfg["batch"]] for i in range(0, len(perm), cfg["batch"])])
-        live, hist, n_opt = [], collections.defaultdict(list), 0
+        live, hist, n_opt, n_acc = [], collections.defaultdict(list), 0, 0
+        opt.zero_grad()
 
         def start(idx):
             e = Episode(idx, Batch(feats, [train_insts[i] for i in idx], device, gi=gi))
@@ -876,14 +878,16 @@ def train_supervised(net, feats, sysm, train_insts, labels, best_known, cfg, poo
                 if torch.is_tensor(hloss):
                     e.hacc.append(hloss)
                 if e.k == K - 1:
-                    opt.zero_grad()
-                    (loss + sum(e.hacc)).backward()
-                    torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
-                    opt.step()
-                    for _ in range(K):
-                        sched.step()
-                    ema.update(net)
-                    n_opt += 1
+                    ((loss + sum(e.hacc)) / accum).backward()
+                    n_acc += 1
+                    if n_acc % accum == 0 or (not queue and len(live) == 1):
+                        torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
+                        opt.step()
+                        opt.zero_grad()
+                        for _ in range(K):
+                            sched.step()
+                        ema.update(net)
+                        n_opt += 1
             e.halt = hf.detach()
             e.k += 1
             if e.k >= K:
@@ -1106,3 +1110,80 @@ class Inference:
                              t_fb=t2 - t1, t_net=t3 - t2, t_dec=t4 - t3, t_lp=t5 - t4, time=t_pre + (t5 - t0)))
             bests.append((best_u, best_p))
         return recs, bests
+
+
+# ============================================================================ learning-free comparator
+def lp_gradient_moves(s, grad, u0, sysm, top=64):
+    """block moves on schedule s [T, G] ranked by the first-order cost change predicted by the LP sensitivity grad
+    (d cost / d u): switch an off unit on for a block of its minimum up time starting at any hour, switch off a whole
+    on-block, or trim one hour from either end of an on-block. Returns [(predicted change, new schedule)] (best
+    first); the schedules are then made min up/down feasible by the caller."""
+    T, G = s.shape
+    moves = []
+    for g in range(G):
+        col = s[:, g]
+        U = int(sysm.min_up[g])
+        for t in range(T):
+            if col[t] == 0:
+                hi = min(T, t + U)
+                new = col.copy()
+                new[t:hi] = 1
+                d = float(grad[t:hi, g][col[t:hi] == 0].sum())
+                moves.append((d, g, new))
+        t = 0
+        while t < T:                                    # on-blocks
+            if col[t] == 1:
+                a = t
+                while t < T and col[t] == 1:
+                    t += 1
+                b = t                                   # block [a, b)
+                new = col.copy()
+                new[a:b] = 0
+                moves.append((-float(grad[a:b, g].sum()), g, new))
+                if b - a > U:
+                    for c in (a, b - 1):
+                        new = col.copy()
+                        new[c] = 0
+                        moves.append((-float(grad[c, g]), g, new))
+            else:
+                t += 1
+    moves.sort(key=lambda m: m[0])
+    out = []
+    for d, g, new in moves[:top]:
+        u = s.copy()
+        u[:, g] = new
+        out.append((d, u))
+    return out
+
+
+def lp_local_search(inst, s0, K, lp: FastLP, sysm, t_budget=None):
+    """learning-free refinement with the LP in the loop: from schedule s0, repeatedly try the best untried block move
+    by the LP's first-order prediction (made min up/down feasible by the Hamming repair, then the block adequacy
+    repair), price it, and accept it if it is cheaper. K = number of LPs after pricing s0. Returns per-LP records
+    (cost, shed, short, best so far) and the best schedule."""
+    sc = scenario_of(inst)
+    lp.reset()
+    sol = lp.solve(sc, s0)
+    best, best_s, best_sol = sol["obj"], np.asarray(s0, np.int8), sol
+    seen = {best_s.tobytes()}
+    cand = lp_gradient_moves(best_s, sol["grad"], inst["u0"], sysm)
+    recs = []
+    while len(recs) < K and cand:
+        d, u = cand.pop(0)
+        if d >= 0:
+            break
+        v = repair_min_updown(u, inst["u0"], sysm.min_up, sysm.min_dn)
+        v = adequacy_repair_blocks(v, inst["u0"], inst["load"], inst["avail"], inst["sr"], sysm)
+        v = repair_min_updown(v, inst["u0"], sysm.min_up, sysm.min_dn).astype(np.int8)
+        if v.tobytes() in seen:
+            continue
+        seen.add(v.tobytes())
+        sol = lp.solve(sc, v)
+        if sol["obj"] < best - 1e-9:
+            best, best_s, best_sol = sol["obj"], v, sol
+            cand = lp_gradient_moves(best_s, sol["grad"], inst["u0"], sysm)
+        recs.append(dict(cost=sol["obj"], shed=float(sol["shed"].sum() + sol["spill"].sum()),
+                         short=float(sol["short"].sum()), best=best,
+                         best_shed=float(best_sol["shed"].sum() + best_sol["spill"].sum()),
+                         best_short=float(best_sol["short"].sum())))
+    return recs, best_s

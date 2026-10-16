@@ -145,7 +145,7 @@ class TRMRunner:
         t_feat = time.time() - t0
         m = self.model
         T, G = xt.shape[1], xt.shape[2]
-        P, Q, tk = [], [], []
+        P, Q, tk, H = [], [], [], []
         t0 = time.time()
         with trm.autocast(self.cfg, self.dev):
             x, bus = m.inputs(xt, xb)
@@ -154,8 +154,10 @@ class TRMRunner:
                 y, z, logit, q = m.step(x, bus, y, z, grad=False)
                 P.append(torch.sigmoid(logit[0]).float().cpu().numpy().astype(np.float64))
                 Q.append(float(q[0]))
+                H.append(y[0].float().mean((0, 1)).cpu().numpy())
                 self._sync()
                 tk.append(time.time() - t0)
+        self.H = H
         return P, Q, tk, t_feat
 
     def run(self, ctx, inst, t_rel, rec, gstar):
@@ -200,6 +202,12 @@ class TRMRunner:
             u, t_d = dec(kh, kind)
             rec[f"{tag}_halt{sfx}"], _ = ctx.finish(inst, [u], t_base + ti(kh) + t_d, rep)
             rec[f"{tag}_halt{sfx}"]["k"] = kh
+        if self.cfg.mode == "trm" and self.sel.get("halt_w") is not None:   # post-hoc halting head (LP-priced targets)
+            w, b, kcap = np.array(self.sel["halt_w"]), self.sel["halt_b"], self.sel.get("halt_K", 16)
+            kh = next((k + 1 for k in range(min(kcap, K)) if float(self.H[k] @ w + b) > 0), min(kcap, K))
+            u, t_d = dec(kh, "rep")
+            rec[f"{tag}_halt2r"], _ = ctx.finish(inst, [u], t_base + ti(kh) + t_d, True)
+            rec[f"{tag}_halt2r"]["k"] = kh
         if gstar is not None:          # safety net on top of the repaired 1-LP pipeline
             base = rec[f"{tag}_1r"]
             g = (base["cost"] - inst.d1["c_rel"][0]) / base["cost"]

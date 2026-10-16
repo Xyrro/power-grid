@@ -47,6 +47,10 @@ def main():
         s = v["selection"]
         kd = s["rep"]["k_def"]
         plan["trm"][tag] = dict(ckpt=tag, k_def=kd, plain=pick(s["plain"]), rep=pick(s["rep"]))
+        hp = os.path.join(RES, f"trm_halt_{tag}.json")
+        if os.path.exists(hp):          # post-hoc halting head fitted on training instances
+            h = json.load(open(hp))
+            plan["trm"][tag].update(halt_w=h["w"], halt_b=h["b"], halt_K=h["K"])
         one[tag] = s["rep"]["one_lp"]["gap_mean"]
         st = np.load(os.path.join(OUT, "val", f"{tag}.npz"))
         c = st[f"{s['rep']['decoder']}__{s['rep']['th']}__k{kd}__rep"]
