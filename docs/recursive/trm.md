@@ -39,7 +39,36 @@ from its checkpoint, a finished job is skipped because its result file exists).*
 
 ## Summary
 
-(pending)
+**Question.** Can a tiny network applied recursively (TRM: answer y and latent z, deep supervision, halting, EMA)
+produce good 12-hour unit-commitment schedules end to end, without a MILP, and does recursion beat a one-shot network
+of the same size?
+
+**Answer on CPU scale: no, not in this form.** A 135 k-parameter TRM (n = 4, T = 2, N_sup = 8, one token per
+unit-hour, mixing across units, hours and the bus graph, group-count targets for identical units, Viterbi decoding)
+trained on the m1x data (500 MILP + 1,500 polished labels, 73 min on one core) gives, on the 120 fresh test instances:
+
+* its own schedule with one LP: **4.96 %** mean gap to the dual bound, 87.5 % served; with the LP-guided repair added in
+  this study **2.55 %** (98.3 % served), *worse* than learning-free LP rounding with 5 LPs (1.71 %, +0.84 pp
+  [+0.30, +1.49]);
+* the best TRM pipeline, chosen on validation (the TRM's schedule screened with 4 LP roundings, repair): **1.48 %
+  [1.10, 1.98], 99.2 % served, 19× faster than the full MILP** (1.2 s): better than LP rounding by 0.23 pp [0.12, 0.37]
+  but 2.3× slower, and 1.25 pp worse than the full MILP at a 0.5 % gap (which is 5.8× slower);
+* **the same network without recursion is as good or better at a third of the cost**: one-shot, 5 thresholds + repair
+  1.30 % [1.04, 1.59] in 0.6 s; one-shot + REINFORCE + safety-net reduced MILP 1.17 % [0.98, 1.37] (100 % served, 48×).
+  At equal parameters the one-shot has better probabilities (BCE 0.041 vs 0.046) after a sixth of the training time; a
+  deeper non-recursive net at matched compute is level with or better than the TRM.
+
+Recursion does something, just not enough: the answer's probability quality improves from 1 to 3–4 supervision steps
+and then stays flat up to 32 (no overthinking, also on 24-hour windows), but the decoded schedules' cost barely moves
+with more steps (test: 2.80 % at 1 step, 2.33 % at 4, 2.49 % at 32). The main obstacles are data coverage (deep
+supervision keeps each instance for 8 steps, so in equal optimiser steps the TRM sees an eighth of the instances; more
+aggressive halting did not help), the LP-relaxation input that already holds most of the answer (models and rounded
+relaxation both make ~12 wrong unit-hours per instance, but the models' errors are cost-blind), and an imitation loss
+that does not see cost. The success criterion of PLAN.md (≥ 95 % served at ≤ 0.5 % mean gap in well under a second)
+is not met by any end-to-end pipeline here; the minimum bar is met only partly (LP rounding beaten by the TRM +
+LP-rounding hybrid; the one-shot model not beaten). Useful by-products for every end-to-end method: the LP-guided
+adequacy repair, model + LP-rounding screening, and the safety net, which removes the tail (max gap 3.9–6.9 % instead
+of 21–28 %).
 
 ## Method
 
@@ -261,11 +290,74 @@ choices): LP rounding + repair 1.78 % (median 1.02 %, 95 % served); TRM `main` +
 
 ## Verdict
 
-(pending)
+* **Success criterion of PLAN.md (≥ 95 % served at ≤ 0.5 % mean gap, well under a second): not met.** The best TRM
+  pipeline serves 99.2 % at 1.48 % in 1.2 s (19× the full MILP); the best end-to-end pipeline of the study (one-shot +
+  REINFORCE + safety net) serves 100 % at 1.17 % in 2.0 s. All are 1–1.3 pp above the full MILP at a 0.5 % gap
+  (0.23 %), which is itself 3.9× faster than the reference MILP.
+* **Minimum bar, LP rounding (1.71 % here): met only as a hybrid.** The TRM's own schedule is worse than rounding the LP
+  relaxation (+0.84 pp [+0.30, +1.49]); the TRM's schedule screened together with 4 LP roundings is better (−0.23 pp
+  [−0.37, −0.12]) at 2.3× the time. The improvement comes from adding a model-made candidate to the LP roundings, and
+  every learned model does that about equally well (one-shot −0.11, deep −0.26, m1x −0.03 pp).
+* **Minimum bar, the one-shot model: not met.** At equal parameters, data and optimiser steps the one-shot network is
+  better on probabilities (BCE 0.0414 vs 0.0463 on validation), on its own schedule (2.19 vs 2.55 %, n.s.), and on its
+  best pipeline (5 thresholds + repair 1.30 % vs the TRM headline 1.48 %, +0.19 pp [−0.06, +0.51] for the TRM), at a
+  third of the inference time and a sixth of the training time. The TRM's single significant edge, −0.12 pp [−0.24,
+  −0.02] against the one-shot in the mixed screening, costs 2× the time. A deeper non-recursive network at matched
+  compute (10 unshared blocks) is level with the TRM (+0.03 pp) and better on its own pipelines.
+* **Test-time compute does not pay**: probabilities improve over the first 3–4 supervision steps and then plateau; the
+  decoded schedules' cost moves within noise (validation 4.1–5.3 %, test 2.3–2.8 % from 1 to 32 steps), on 12 and on 24
+  hours; the learned halting heads either never fire (target too strict) or pick worse steps than a fixed count.
+* **Why recursion did not help here.** (1) *Coverage*: with deep supervision each instance stays for N_sup steps, so in
+  73 min the TRM saw 3 epochs against the one-shot's 24 in 13 min; halting earlier (ACT at ≤ 8 wrong unit-hours) kept
+  ~4 steps per instance but did not improve the model. (2) *The LP relaxation already solves most of the problem*: what
+  is left is ~12 economically subtle corrections per instance, where iterative refinement has little structure to
+  exploit and imitation does not see cost. (3) *The answer is a set of 876 near-independent binaries with many
+  near-equivalent optima*, not a puzzle with one consistent solution; the Sudoku-style benefit of revisiting
+  inconsistent cells is captured here by cheap exact tools (Viterbi for min up/down, the LP-guided adequacy repair).
+
+**PACE plan (what is worth scaling).** The CPU study cannot rule out that recursion needs more data and epochs: the TRM
+was trained for 3 epochs of 2,000 instances. One decisive experiment is worth GPU time; the rest is not, unless it
+changes the picture.
+
+1. **Data** (CPU): rebuild the base splits and teachers (≈ 13 core-hours), then 50,000 polished labels (≈ 75 core-hours,
+   array of 200 tasks of 250; 100,000 ≈ 150 core-hours if step 2 shows data scaling).
+2. **Decisive comparison** (GPU, `gpu_small` blocks: hidden 128, attention mixers, n = 6, T = 3, N_sup = 16): TRM vs
+   one-shot vs deep non-recursive at **equal epochs** (≈ 20 epochs of 50k: TRM ≈ 30k steps of batch 256 with ACT,
+   one-shot ≈ 4k steps), plus the same three without LP-relaxation inputs. ≈ 3–4 GPU-hours for the TRM runs,
+   < 1 GPU-hour each for the controls; ≈ 35 GB per job (micro-batch 128 on 40 GB cards); evaluation on CPU ≈ 10–15
+   core-hours. Go / no-go: the TRM must beat the one-shot by more than the validation noise (≈ 0.2 pp on the 1-LP +
+   repair pipeline and on the 5-threshold screening) at equal epochs.
+3. **Only if step 2 is a go**: TRM's paper scale (`paper`: hidden 512, batch 768 with `--micro_batch 96–128`, 20k steps,
+   ≈ 7–9 H100-hours or 22–27 A100-hours, ≈ 60–75 GB per micro-batch), then the REINFORCE stage at a random step
+   (≈ 1 GPU-hour + 6–8 CPU cores for the LPs), evaluated with GPU inference (`--trm_device cuda`).
+4. **Regardless of recursion** (cheap): the one-shot + REINFORCE + safety-net pipeline on 50k labels (< 1 GPU-hour +
+   ≈ 2 core-hours of LPs), the current best end-to-end pipeline, to see whether more data closes the gap to the 0.5 %
+   MILP.
 
 ## Caveats
 
-(pending)
+* **CPU scale.** 135 k parameters, 3,000 optimiser steps, 2,000 training instances, one seed per configuration; TRM's
+  own setting (n = 6, T = 3, N_sup = 16, hidden 512, 60k+ steps on heavily augmented data) was not reachable. The
+  negative result on recursion is a result at this scale and data budget, not a general one; the deciding experiment is
+  in the PACE plan.
+* **Validation noise.** Mean gaps are dominated by a few instances with large penalties or wrong cheap-unit choices;
+  differences of ≈ 0.2–0.3 pp between models are within the run-to-run and instance noise (single seeds), and the
+  validation curve over steps jumps by up to 1 pp between neighbouring step counts for that reason.
+* **Additions after seeing validation results** (all before the test was read, applied identically to every model):
+  the LP-guided adequacy repair, the blend decoder (model and LP relaxation mixed in logit space) and the mixed
+  screening with LP roundings; the more aggressive ACT run (`main_act`) and the one-shot REINFORCE control
+  (`oneshot_rl`) were added after the first TRM results.
+* **Test reading.** The test set was read once by `scripts/rec_trm_eval.py` with the plan fixed in
+  `results/recursive/trm_select.json`; the 24-hour and congested runs use stored MILP references (not re-timed), so
+  only their gaps are comparable, and their inference timings were taken on a shared core and are not reported.
+* **Timing.** Method time includes the LP relaxation, features, the network on one instance, decoding, repairs and LPs.
+  The TRM's inference is ≈ 56 ms per supervision step on one core; a GPU would make the network nearly free, leaving the
+  LP relaxation (0.23 s) and the LPs (0.08 s each) as the cost.
+* **REINFORCE baselines** of the earlier study were re-run from their stored checkpoints (seed 0) in the same process,
+  with their own validation choices; the m1x ensemble used its stored validation probabilities for selection and was
+  recomputed (and timed) on test.
+* A container restart at 02:00 interrupted the deep control (resumed from its checkpoint at step 1970) and two
+  validation passes (rerun).
 
 ## Running on PACE ICE
 

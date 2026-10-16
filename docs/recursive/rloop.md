@@ -355,7 +355,32 @@ corrections, unit DPs respond), set-valued targets and cost-weighted deep superv
 
 ## Extrapolation
 
-(to be written)
+Zero-shot: no retraining, no re-tuning (the validation-selected configuration; 24 h uses 2 × K = 32 outer steps, fixed
+before any 24-hour run). Full MILP at 0.1 % re-solved in the same process (60 s limit; 600 s congested; 300 s 24 h).
+Full tables: [`results/recursive/rloop_results.md`](../../results/recursive/rloop_results.md).
+
+| benchmark (zero-shot) | LP rounding, 5 LPs | one-shot m1x, 5 LPs | whole-schedule rloop, K = 16 | rloop-guided search, 16 LPs | learning-free search, 16 LPs | guided + safety net θ = 2 % (fallback) |
+|---|---|---|---|---|---|---|
+| uc12 test (in distribution, reference) | 1.75 %, 62× | 2.00 %, 55× | 1.77 %, 33× | 1.14 %, 21× | 1.29 %, 28× | 0.64 %, 13× (25 %) |
+| line outages (30) | 1.23 %, 63× | 9.70 %, 59× | 6.87 %, 34× (53 % served) | 0.84 %, 21× | 0.95 %, 29× | 0.47 %, 18× (20 %) |
+| congested lines × 0.6 (60) | 2.37 %, 118× | 10.08 %, 109× (53 % served) | 8.24 %, 76× (52 % served) | 1.06 %, 48× | 1.08 %, 59× | 0.51 %, 27× (33 %) |
+UC24_ROW
+
+(mean gap to the full MILP's dual bound, mean speed-up.)
+
+* **Line outages.** Both learned models collapse when 1–2 critical lines are out: they were trained on the intact
+  grid and under-commit behind the outage (whole-schedule recursion 53 % served at K = 16; m1x 53 %). The LP feedback
+  repairs part of it over the steps (10.60 % at K = 1 → 6.87 % at K = 16) but not enough. The guided search, which
+  starts from the outage-aware LP rounding and lets the LP verify every move, is robust: 0.84 % [0.46, 1.33], −0.39 pp
+  [−0.65, −0.17] against LP rounding and −0.11 pp [−0.23, −0.03] against the learning-free search.
+* **Congested benchmark** (line ratings × 0.6, where learned fixing paid in accuracy in §8 Z3): the same picture. The
+  learned models shed load on half the instances (whole-schedule 8.24 %, K curve 13.41 → 9.17 → 8.24 % at K = 1, 4,
+  16; m1x 10.08 %); the guided search gives 1.06 % [0.79, 1.38], −1.31 pp [−1.68, −0.97] against LP rounding, but
+  the learned prior adds nothing over the learning-free search (−0.01 pp [−0.11, +0.10]) or the m1x prior. With the
+  safety net (θ = 2 %, 33 % fallback) 0.51 % [0.41, 0.64] at 27× mean / 15× geometric; θ = 1 %: 0.39 % at 18× / 8.5×
+  (62 % fallback); for scale, the MILP-based learned pipeline of §8 Z3 gave 0.32 % at 11.0× and the full MILP at 0.5 %
+  0.20 % at 3.2× (different runs).
+UC24_TEXT
 
 ## Verdict
 

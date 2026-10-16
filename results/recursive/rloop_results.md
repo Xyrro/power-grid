@@ -196,156 +196,294 @@ Quality against the number of outer steps K (best schedule so far; each step one
 | 31 | 1.634 % | 0.703 % | 95.8 % | 4.5 | 0.98 | 22.6× |
 | 32 | 1.634 % | 0.703 % | 95.8 % | 4.5 | 1.00 | 22.2× |
 
-## congested benchmark (60, line ratings x 0.6, zero-shot)
+## uc24 test (40, 24 h, zero-shot)
 
-5 instances; full MILP at 0.1 %: mean 28.2 s (re-solved in the same process). K = 16 chosen on validation.
+11 instances; full MILP at 0.1 %: mean 74.8 s (re-solved in the same process). K = 32 chosen on validation.
 
 | method | served | gap mean [95 % CI] | median | max | time (s) | speed-up mean / median / geo |
 |---|---|---|---|---|---|---|
-| full MILP 0.1 % | 100.0 % | 0.10 % [0.09, 0.10] | 0.10 % | 0.10 % | 28.18 | 1.0× / 1.0× / 1.0× |
-| LP rounding + repair, 5 LPs | 100.0 % | 1.52 % [0.51, 2.60] | 1.42 % | 3.60 % | 0.49 | 52.5× / 40.7× / 41.6× |
-| m1x ensemble + repair, 1 LP | 60.0 % | 14.90 % [2.87, 35.06] | 6.88 % | 54.49 % | 0.44 | 57.8× / 44.1× / 46.5× |
-| m1x ensemble + repair, 3 LPs | 60.0 % | 14.08 % [2.32, 34.32] | 6.47 % | 54.49 % | 0.49 | 52.4× / 36.2× / 42.1× |
-| m1x ensemble + repair, 5 LPs | 60.0 % | 6.36 % [2.21, 11.33] | 6.47 % | 16.16 % | 0.55 | 47.1× / 34.0× / 37.2× |
-| LP rounding (5) + m1x (5), 10 LPs | 100.0 % | 1.52 % [0.51, 2.60] | 1.42 % | 3.60 % | 0.71 | 36.6× / 25.8× / 28.5× |
-| m1x ensemble, Viterbi + repair, 1 LP | 40.0 % | 34.93 % [9.40, 61.01] | 31.89 % | 80.42 % | 0.44 | 58.2× / 43.8× / 46.6× |
-| rloop K=1 | 60.0 % | 8.46 % [1.02, 20.73] | 1.54 % | 32.14 % | 0.43 | 59.4× / 44.4× / 47.2× |
-| rloop K=2 | 60.0 % | 5.46 % [1.02, 11.75] | 1.54 % | 17.18 % | 0.46 | 55.8× / 41.7× / 44.0× |
-| rloop K=4 | 60.0 % | 2.60 % [1.02, 4.72] | 1.54 % | 6.83 % | 0.51 | 51.0× / 37.1× / 40.0× |
-| rloop K=16 | 60.0 % | 2.57 % [0.94, 4.72] | 1.54 % | 6.83 % | 0.79 | 33.2× / 23.4× / 25.6× |
-| rloop K=32 | 60.0 % | 2.54 % [0.90, 4.72] | 1.54 % | 6.83 % | 1.12 | 23.6× / 16.3× / 18.1× |
-| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | 100.0 % | 0.59 % [0.23, 1.20] | 0.39 % | 1.79 % | 0.71 | 36.9× / 25.6× / 28.8× |
-| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | 100.0 % | 0.59 % [0.23, 1.20] | 0.39 % | 1.79 % | 0.80 | 32.8× / 22.9× / 25.6× |
-| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | 100.0 % | 0.57 % [0.22, 1.19] | 0.29 % | 1.79 % | 0.98 | 27.5× / 18.9× / 20.8× |
-| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | 100.0 % | 0.54 % [0.18, 1.15] | 0.25 % | 1.75 % | 1.34 | 20.5× / 14.2× / 15.2× |
-| LP rounding + local search guided by m1x (static), +4 LPs | 100.0 % | 1.08 % [0.23, 2.30] | 0.28 % | 3.32 % | 0.74 | 35.1× / 23.9× / 27.6× |
-| LP rounding + local search guided by m1x (static), +8 LPs | 100.0 % | 1.03 % [0.21, 2.25] | 0.27 % | 3.29 % | 0.85 | 30.4× / 20.9× / 24.0× |
-| LP rounding + local search guided by m1x (static), +16 LPs | 100.0 % | 0.92 % [0.14, 2.18] | 0.17 % | 3.29 % | 1.11 | 23.5× / 15.1× / 18.4× |
-| LP rounding + local search guided by m1x (static), +32 LPs | 100.0 % | 0.91 % [0.14, 2.16] | 0.17 % | 3.29 % | 1.50 | 17.8× / 10.8× / 13.6× |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | 100.0 % | 0.85 % [0.18, 2.10] | 0.22 % | 3.32 % | 0.74 | 35.8× / 25.5× / 27.3× |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | 100.0 % | 0.85 % [0.18, 2.08] | 0.22 % | 3.29 % | 0.88 | 30.2× / 21.5× / 23.1× |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs | 100.0 % | 0.82 % [0.15, 2.08] | 0.17 % | 3.29 % | 1.23 | 21.8× / 15.8× / 16.5× |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | 100.0 % | 0.81 % [0.14, 2.06] | 0.17 % | 3.29 % | 2.22 | 12.3× / 8.8× / 9.1× |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +4 LPs | 100.0 % | 0.59 % [0.23, 1.20] | 0.39 % | 1.79 % | 0.92 | 28.7× / 20.9× / 21.9× |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +8 LPs | 100.0 % | 0.59 % [0.23, 1.20] | 0.39 % | 1.79 % | 1.01 | 26.0× / 19.2× / 20.0× |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +16 LPs | 100.0 % | 0.57 % [0.22, 1.19] | 0.29 % | 1.79 % | 1.20 | 22.3× / 16.7× / 16.9× |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +32 LPs | 100.0 % | 0.54 % [0.18, 1.15] | 0.25 % | 1.75 % | 1.57 | 17.3× / 13.6× / 12.9× |
-| LP rounding ∪ m1x + local search guided by m1x, +4 LPs | 100.0 % | 1.08 % [0.23, 2.30] | 0.28 % | 3.32 % | 0.92 | 28.4× / 21.0× / 22.0× |
-| LP rounding ∪ m1x + local search guided by m1x, +8 LPs | 100.0 % | 1.03 % [0.21, 2.25] | 0.27 % | 3.29 % | 1.04 | 25.2× / 19.3× / 19.5× |
-| LP rounding ∪ m1x + local search guided by m1x, +16 LPs | 100.0 % | 0.92 % [0.14, 2.18] | 0.17 % | 3.29 % | 1.28 | 20.7× / 14.7× / 15.8× |
-| LP rounding ∪ m1x + local search guided by m1x, +32 LPs | 100.0 % | 0.91 % [0.14, 2.16] | 0.17 % | 3.29 % | 1.66 | 16.3× / 11.1× / 12.2× |
-| LP rounding ∪ m1x + local search guided by rloop, +4 LPs | 100.0 % | 0.85 % [0.18, 2.10] | 0.22 % | 3.32 % | 0.95 | 27.9× / 20.1× / 21.2× |
-| LP rounding ∪ m1x + local search guided by rloop, +8 LPs | 100.0 % | 0.85 % [0.18, 2.08] | 0.22 % | 3.29 % | 1.10 | 24.2× / 17.4× / 18.3× |
-| LP rounding ∪ m1x + local search guided by rloop, +16 LPs | 100.0 % | 0.82 % [0.15, 2.08] | 0.17 % | 3.29 % | 1.47 | 18.5× / 12.7× / 13.8× |
-| LP rounding ∪ m1x + local search guided by rloop, +32 LPs | 100.0 % | 0.81 % [0.14, 2.06] | 0.17 % | 3.29 % | 2.45 | 11.1× / 7.7× / 8.3× |
-| rloop seeded with LP rounding, K=16 | 100.0 % | 1.23 % [0.34, 2.48] | 0.54 % | 3.60 % | 0.94 | 29.2× / 18.6× / 21.4× |
-| rloop, learned halting | 60.0 % | 2.57 % [0.95, 4.72] | 1.54 % | 6.83 % | 0.98 | 29.0× / 28.3× / 22.3× |
-| rloop-guided search (+16 LPs) + safety net (theta 1 %) (fallback 60 %) | 100.0 % | 0.19 % [0.12, 0.29] | 0.14 % | 0.39 % | 6.14 | 6.8× / 4.6× / 5.8× |
-| rloop-guided search (+16 LPs) + safety net (theta 2 %) (fallback 20 %) | 100.0 % | 0.20 % [0.15, 0.29] | 0.17 % | 0.39 % | 4.31 | 12.9× / 12.6× / 10.1× |
-| rloop-guided search (+16 LPs) + safety net (theta 4 %) (fallback 20 %) | 100.0 % | 0.20 % [0.15, 0.29] | 0.17 % | 0.39 % | 4.31 | 12.9× / 12.6× / 10.1× |
+| full MILP 0.1 % | 100.0 % | 0.08 % [0.06, 0.09] | 0.09 % | 0.10 % | 74.81 | 1.0× / 1.0× / 1.0× |
+| LP rounding + repair, 5 LPs | 100.0 % | 1.34 % [0.78, 1.97] | 0.90 % | 3.23 % | 1.08 | 66.1× / 42.9× / 37.3× |
+| rloop K=1 | 100.0 % | 1.93 % [0.86, 3.10] | 1.12 % | 6.29 % | 0.99 | 71.8× / 48.2× / 40.8× |
+| rloop K=2 | 100.0 % | 1.93 % [0.86, 3.10] | 1.12 % | 6.29 % | 1.05 | 68.5× / 46.3× / 38.6× |
+| rloop K=4 | 100.0 % | 1.92 % [0.86, 3.09] | 1.12 % | 6.29 % | 1.14 | 62.8× / 43.0× / 35.3× |
+| rloop K=32 | 100.0 % | 1.21 % [0.66, 1.81] | 1.03 % | 3.11 % | 2.47 | 29.1× / 19.6× / 16.1× |
+| rloop K=64 | 100.0 % | 1.21 % [0.65, 1.80] | 1.03 % | 3.11 % | 3.89 | 18.6× / 12.6× / 10.2× |
+| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | 100.0 % | 1.29 % [0.74, 1.91] | 0.82 % | 3.23 % | 1.49 | 48.2× / 31.8× / 27.0× |
+| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | 100.0 % | 1.29 % [0.73, 1.90] | 0.82 % | 3.23 % | 1.70 | 41.9× / 27.1× / 23.6× |
+| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | 100.0 % | 1.29 % [0.73, 1.90] | 0.82 % | 3.23 % | 2.07 | 34.3× / 23.1× / 19.2× |
+| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | 100.0 % | 1.26 % [0.70, 1.89] | 0.71 % | 3.23 % | 2.75 | 26.0× / 17.7× / 14.5× |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | 100.0 % | 1.29 % [0.73, 1.94] | 0.82 % | 3.21 % | 1.55 | 46.4× / 28.5× / 25.8× |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | 100.0 % | 1.21 % [0.66, 1.82] | 0.81 % | 3.21 % | 1.89 | 38.8× / 23.2× / 21.2× |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs | 100.0 % | 1.08 % [0.61, 1.61] | 0.81 % | 2.83 % | 2.75 | 26.8× / 16.8× / 14.5× |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | 100.0 % | 1.04 % [0.57, 1.57] | 0.77 % | 2.83 % | 4.89 | 16.4× / 8.7× / 8.2× |
+| rloop seeded with LP rounding, K=32 | 100.0 % | 1.07 % [0.55, 1.63] | 0.83 % | 2.84 % | 2.83 | 26.3× / 17.5× / 14.1× |
+| rloop, learned halting | 100.0 % | 1.22 % [0.66, 1.80] | 1.03 % | 3.11 % | 2.87 | 24.0× / 16.1× / 17.3× |
+| rloop-guided search (+16 LPs) + safety net (theta 1 %) (fallback 45 %) | 100.0 % | 0.49 % [0.24, 0.82] | 0.36 % | 1.83 % | 8.15 | 10.9× / 5.8× / 7.5× |
+| rloop-guided search (+16 LPs) + safety net (theta 2 %) (fallback 27 %) | 100.0 % | 0.64 % [0.36, 0.95] | 0.66 % | 1.83 % | 7.10 | 14.0× / 8.9× / 9.0× |
+| rloop-guided search (+16 LPs) + safety net (theta 4 %) (fallback 0 %) | 100.0 % | 1.08 % [0.61, 1.61] | 0.81 % | 2.83 % | 2.75 | 26.8× / 16.8× / 14.5× |
 
 Paired differences, **LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs** minus each reference (Δ gap < 0: LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs more accurate; Δ log speed-up > 0: LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs faster):
 
 | reference | Δ gap, pp [95 % CI] | Δ log speed-up [CI] | Δ served, pp [CI] |
 |---|---|---|---|
-| LP rounding + repair, 5 LPs | -0.69 [-1.33, -0.17] | -0.93 [-1.06, -0.81] | +0.0 [+0.00, +0.00] |
-| m1x ensemble + repair, 1 LP | -14.07 [-34.15, -2.59] | -1.04 [-1.17, -0.91] | +40.0 [+0.00, +80.00] |
-| m1x ensemble + repair, 3 LPs | -13.26 [-34.03, -1.54] | -0.94 [-1.04, -0.83] | +40.0 [+0.00, +80.00] |
-| m1x ensemble + repair, 5 LPs | -5.54 [-11.03, -1.47] | -0.82 [-0.88, -0.74] | +40.0 [+0.00, +80.00] |
-| LP rounding (5) + m1x (5), 10 LPs | -0.69 [-1.33, -0.17] | -0.55 [-0.60, -0.50] | +0.0 [+0.00, +0.00] |
-| m1x ensemble, Viterbi + repair, 1 LP | -34.11 [-60.85, -8.00] | -1.04 [-1.16, -0.92] | +60.0 [+20.00, +100.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | +0.23 [-0.14, +0.88] | -0.56 [-0.62, -0.49] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | +0.23 [-0.14, +0.88] | -0.44 [-0.51, -0.37] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | +0.25 [-0.08, +0.88] | -0.24 [-0.32, -0.16] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | +0.29 [-0.05, +0.91] | +0.08 [+0.01, +0.16] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +4 LPs | -0.26 [-0.63, -0.05] | -0.52 [-0.61, -0.43] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +8 LPs | -0.21 [-0.53, -0.03] | -0.38 [-0.47, -0.29] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +16 LPs | -0.10 [-0.31, +0.01] | -0.11 [-0.23, +0.00] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +32 LPs | -0.09 [-0.29, +0.03] | +0.19 [+0.08, +0.29] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | -0.03 [-0.05, -0.01] | -0.51 [-0.54, -0.48] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | -0.02 [-0.05, +0.00] | -0.34 [-0.36, -0.31] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | +0.01 [+0.00, +0.02] | +0.59 [+0.55, +0.65] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +4 LPs | +0.23 [-0.14, +0.88] | -0.29 [-0.32, -0.26] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +8 LPs | +0.23 [-0.14, +0.88] | -0.19 [-0.23, -0.17] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +16 LPs | +0.25 [-0.08, +0.88] | -0.03 [-0.07, +0.03] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +32 LPs | +0.29 [-0.05, +0.91] | +0.24 [+0.19, +0.31] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +4 LPs | -0.26 [-0.63, -0.05] | -0.29 [-0.32, -0.25] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +8 LPs | -0.21 [-0.53, -0.03] | -0.17 [-0.21, -0.12] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +16 LPs | -0.10 [-0.31, +0.01] | +0.04 [+0.01, +0.07] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +32 LPs | -0.09 [-0.29, +0.03] | +0.30 [+0.27, +0.33] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +4 LPs | -0.03 [-0.05, -0.01] | -0.25 [-0.27, -0.24] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +8 LPs | -0.02 [-0.05, +0.00] | -0.11 [-0.13, -0.09] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +16 LPs | +0.00 [+0.00, +0.00] | +0.18 [+0.15, +0.21] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +32 LPs | +0.01 [+0.00, +0.02] | +0.69 [+0.65, +0.72] | +0.0 [+0.00, +0.00] |
+| LP rounding + repair, 5 LPs | -0.26 [-0.52, -0.06] | -0.95 [-1.00, -0.89] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | -0.21 [-0.41, -0.05] | -0.62 [-0.66, -0.58] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | -0.20 [-0.41, -0.04] | -0.49 [-0.53, -0.44] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | -0.20 [-0.41, -0.04] | -0.28 [-0.33, -0.23] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | -0.18 [-0.39, -0.00] | +0.00 [-0.04, +0.04] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | -0.21 [-0.47, -0.02] | -0.58 [-0.61, -0.54] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | -0.13 [-0.31, -0.00] | -0.38 [-0.40, -0.36] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | +0.04 [+0.01, +0.09] | +0.57 [+0.50, +0.64] | +0.0 [+0.00, +0.00] |
 
 Paired differences, **rloop-guided search (+16 LPs) + safety net (theta 2 %)** minus each reference (Δ gap < 0: rloop-guided search (+16 LPs) + safety net (theta 2 %) more accurate; Δ log speed-up > 0: rloop-guided search (+16 LPs) + safety net (theta 2 %) faster):
 
 | reference | Δ gap, pp [95 % CI] | Δ log speed-up [CI] | Δ served, pp [CI] |
 |---|---|---|---|
-| LP rounding + repair, 5 LPs | -1.32 [-2.44, -0.31] | -1.42 [-2.36, -0.86] | +0.0 [+0.00, +0.00] |
-| m1x ensemble + repair, 1 LP | -14.69 [-34.77, -2.72] | -1.53 [-2.44, -1.01] | +40.0 [+0.00, +80.00] |
-| m1x ensemble + repair, 3 LPs | -13.88 [-34.03, -2.16] | -1.43 [-2.34, -0.91] | +40.0 [+0.00, +80.00] |
-| m1x ensemble + repair, 5 LPs | -6.16 [-11.03, -2.05] | -1.31 [-2.25, -0.80] | +40.0 [+0.00, +80.00] |
-| LP rounding (5) + m1x (5), 10 LPs | -1.32 [-2.44, -0.31] | -1.04 [-2.00, -0.52] | +0.0 [+0.00, +0.00] |
-| m1x ensemble, Viterbi + repair, 1 LP | -34.73 [-60.85, -9.24] | -1.53 [-2.46, -1.00] | +60.0 [+20.00, +100.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | -0.39 [-1.02, -0.03] | -1.05 [-2.02, -0.52] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | -0.39 [-1.02, -0.03] | -0.93 [-1.92, -0.38] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | -0.37 [-1.00, -0.03] | -0.73 [-1.76, -0.16] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | -0.33 [-0.96, +0.01] | -0.41 [-1.45, +0.16] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +4 LPs | -0.88 [-2.09, -0.08] | -1.01 [-1.97, -0.45] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +8 LPs | -0.83 [-2.04, -0.07] | -0.87 [-1.83, -0.32] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +16 LPs | -0.72 [-1.97, +0.01] | -0.60 [-1.60, -0.01] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +32 LPs | -0.71 [-1.96, +0.02] | -0.31 [-1.32, +0.29] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | -0.65 [-1.90, -0.01] | -1.00 [-1.97, -0.50] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | -0.64 [-1.88, -0.01] | -0.83 [-1.80, -0.33] | +0.0 [+0.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | -0.61 [-1.86, +0.02] | +0.10 [-0.93, +0.65] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +4 LPs | -0.39 [-1.02, -0.03] | -0.78 [-1.76, -0.27] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +8 LPs | -0.39 [-1.02, -0.03] | -0.69 [-1.66, -0.18] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +16 LPs | -0.37 [-1.00, -0.03] | -0.52 [-1.51, +0.02] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +32 LPs | -0.33 [-0.96, +0.01] | -0.25 [-1.25, +0.29] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +4 LPs | -0.88 [-2.09, -0.08] | -0.78 [-1.76, -0.27] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +8 LPs | -0.83 [-2.04, -0.07] | -0.66 [-1.64, -0.14] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +16 LPs | -0.72 [-1.97, +0.01] | -0.45 [-1.44, +0.07] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +32 LPs | -0.71 [-1.96, +0.02] | -0.19 [-1.20, +0.33] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +4 LPs | -0.65 [-1.90, -0.01] | -0.75 [-1.72, -0.25] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +8 LPs | -0.64 [-1.88, -0.01] | -0.60 [-1.58, -0.10] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +16 LPs | -0.62 [-1.87, +0.00] | -0.32 [-1.33, +0.21] | +0.0 [+0.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +32 LPs | -0.61 [-1.86, +0.02] | +0.20 [-0.83, +0.72] | +0.0 [+0.00, +0.00] |
+| LP rounding + repair, 5 LPs | -0.70 [-1.29, -0.23] | -1.42 [-1.95, -0.98] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | -0.65 [-1.24, -0.18] | -1.09 [-1.65, -0.64] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | -0.65 [-1.23, -0.17] | -0.96 [-1.50, -0.52] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | -0.65 [-1.23, -0.17] | -0.76 [-1.30, -0.31] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | -0.62 [-1.21, -0.12] | -0.47 [-1.02, -0.02] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | -0.65 [-1.26, -0.15] | -1.05 [-1.60, -0.60] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | -0.57 [-1.16, -0.08] | -0.85 [-1.41, -0.39] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | -0.41 [-0.87, +0.03] | +0.10 [-0.47, +0.57] | +0.0 [+0.00, +0.00] |
+
+Paired differences, **rloop K=32** minus each reference (Δ gap < 0: rloop K=32 more accurate; Δ log speed-up > 0: rloop K=32 faster):
+
+| reference | Δ gap, pp [95 % CI] | Δ log speed-up [CI] | Δ served, pp [CI] |
+|---|---|---|---|
+| LP rounding + repair, 5 LPs | -0.13 [-0.50, +0.19] | -0.84 [-0.89, -0.79] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | -0.08 [-0.42, +0.22] | -0.51 [-0.55, -0.48] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | -0.07 [-0.42, +0.23] | -0.38 [-0.42, -0.34] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | -0.07 [-0.42, +0.23] | -0.18 [-0.22, -0.13] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | -0.05 [-0.40, +0.27] | +0.11 [+0.07, +0.15] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | -0.08 [-0.46, +0.25] | -0.47 [-0.50, -0.43] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | +0.00 [-0.34, +0.29] | -0.27 [-0.30, -0.24] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | +0.17 [-0.05, +0.37] | +0.68 [+0.59, +0.77] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs | +0.13 [-0.10, +0.34] | +0.11 [+0.08, +0.14] | +0.0 [+0.00, +0.00] |
+
+![quality against time](rloop_quality_time_uc24.png)
+
+Quality against the number of outer steps K (best schedule so far; each step one network pass and at most one LP):
+
+| K | gap mean | median | served | LPs | time (s) | speed-up mean |
+|---|---|---|---|---|---|---|
+| 1 | 1.928 % | 1.122 % | 100.0 % | 1.0 | 0.99 | 71.8× |
+| 2 | 1.928 % | 1.122 % | 100.0 % | 1.2 | 1.05 | 68.5× |
+| 3 | 1.920 % | 1.122 % | 100.0 % | 1.4 | 1.10 | 65.2× |
+| 4 | 1.919 % | 1.122 % | 100.0 % | 1.5 | 1.14 | 62.8× |
+| 5 | 1.919 % | 1.122 % | 100.0 % | 1.5 | 1.19 | 60.6× |
+| 6 | 1.909 % | 1.122 % | 100.0 % | 1.7 | 1.24 | 57.7× |
+| 7 | 1.499 % | 1.122 % | 100.0 % | 2.0 | 1.29 | 55.1× |
+| 8 | 1.427 % | 1.122 % | 100.0 % | 2.5 | 1.34 | 52.7× |
+| 9 | 1.360 % | 1.122 % | 100.0 % | 2.9 | 1.40 | 50.7× |
+| 10 | 1.348 % | 1.122 % | 100.0 % | 3.4 | 1.46 | 48.9× |
+| 11 | 1.333 % | 1.122 % | 100.0 % | 3.7 | 1.51 | 47.2× |
+| 12 | 1.328 % | 1.122 % | 100.0 % | 4.0 | 1.56 | 45.7× |
+| 13 | 1.327 % | 1.122 % | 100.0 % | 4.1 | 1.60 | 44.6× |
+| 14 | 1.327 % | 1.122 % | 100.0 % | 4.3 | 1.65 | 43.2× |
+| 15 | 1.313 % | 1.122 % | 100.0 % | 4.6 | 1.70 | 41.6× |
+| 16 | 1.296 % | 1.065 % | 100.0 % | 5.1 | 1.76 | 40.3× |
+| 17 | 1.296 % | 1.065 % | 100.0 % | 5.5 | 1.81 | 39.2× |
+| 18 | 1.294 % | 1.065 % | 100.0 % | 5.9 | 1.86 | 38.1× |
+| 19 | 1.289 % | 1.065 % | 100.0 % | 6.4 | 1.92 | 37.1× |
+| 20 | 1.287 % | 1.051 % | 100.0 % | 6.5 | 1.96 | 36.3× |
+| 21 | 1.249 % | 1.051 % | 100.0 % | 6.8 | 2.01 | 35.4× |
+| 22 | 1.249 % | 1.051 % | 100.0 % | 6.8 | 2.05 | 34.8× |
+| 23 | 1.249 % | 1.051 % | 100.0 % | 6.8 | 2.09 | 34.1× |
+| 24 | 1.249 % | 1.051 % | 100.0 % | 6.8 | 2.13 | 33.5× |
+| 25 | 1.239 % | 1.051 % | 100.0 % | 7.1 | 2.18 | 32.8× |
+| 26 | 1.239 % | 1.051 % | 100.0 % | 7.1 | 2.22 | 32.3× |
+| 27 | 1.239 % | 1.051 % | 100.0 % | 7.2 | 2.26 | 31.7× |
+| 28 | 1.239 % | 1.051 % | 100.0 % | 7.2 | 2.30 | 31.2× |
+| 29 | 1.239 % | 1.051 % | 100.0 % | 7.3 | 2.34 | 30.7× |
+| 30 | 1.215 % | 1.031 % | 100.0 % | 7.5 | 2.38 | 30.2× |
+| 31 | 1.214 % | 1.031 % | 100.0 % | 7.6 | 2.43 | 29.7× |
+| 32 | 1.214 % | 1.031 % | 100.0 % | 7.8 | 2.47 | 29.1× |
+| 33 | 1.214 % | 1.031 % | 100.0 % | 7.8 | 2.51 | 28.7× |
+| 34 | 1.214 % | 1.031 % | 100.0 % | 7.8 | 2.55 | 28.2× |
+| 35 | 1.214 % | 1.031 % | 100.0 % | 7.9 | 2.60 | 27.8× |
+| 36 | 1.214 % | 1.031 % | 100.0 % | 8.0 | 2.64 | 27.2× |
+| 37 | 1.214 % | 1.031 % | 100.0 % | 8.0 | 2.69 | 26.8× |
+| 38 | 1.214 % | 1.031 % | 100.0 % | 8.1 | 2.73 | 26.4× |
+| 39 | 1.214 % | 1.031 % | 100.0 % | 8.2 | 2.78 | 25.9× |
+| 40 | 1.213 % | 1.031 % | 100.0 % | 8.3 | 2.82 | 25.5× |
+| 41 | 1.213 % | 1.031 % | 100.0 % | 8.3 | 2.86 | 25.1× |
+| 42 | 1.213 % | 1.031 % | 100.0 % | 8.4 | 2.91 | 24.7× |
+| 43 | 1.211 % | 1.031 % | 100.0 % | 8.5 | 2.96 | 24.4× |
+| 44 | 1.211 % | 1.031 % | 100.0 % | 8.5 | 3.00 | 24.0× |
+| 45 | 1.211 % | 1.031 % | 100.0 % | 8.7 | 3.05 | 23.6× |
+| 46 | 1.211 % | 1.031 % | 100.0 % | 8.8 | 3.10 | 23.3× |
+| 47 | 1.211 % | 1.031 % | 100.0 % | 8.8 | 3.14 | 23.0× |
+| 48 | 1.211 % | 1.031 % | 100.0 % | 8.9 | 3.18 | 22.7× |
+| 49 | 1.211 % | 1.031 % | 100.0 % | 9.0 | 3.23 | 22.3× |
+| 50 | 1.211 % | 1.031 % | 100.0 % | 9.0 | 3.28 | 22.1× |
+| 51 | 1.211 % | 1.031 % | 100.0 % | 9.0 | 3.32 | 21.8× |
+| 52 | 1.211 % | 1.031 % | 100.0 % | 9.0 | 3.36 | 21.5× |
+| 53 | 1.211 % | 1.031 % | 100.0 % | 9.1 | 3.41 | 21.2× |
+| 54 | 1.211 % | 1.031 % | 100.0 % | 9.1 | 3.45 | 21.0× |
+| 55 | 1.211 % | 1.031 % | 100.0 % | 9.1 | 3.49 | 20.7× |
+| 56 | 1.211 % | 1.031 % | 100.0 % | 9.2 | 3.54 | 20.5× |
+| 57 | 1.211 % | 1.031 % | 100.0 % | 9.2 | 3.58 | 20.2× |
+| 58 | 1.211 % | 1.031 % | 100.0 % | 9.3 | 3.62 | 20.0× |
+| 59 | 1.211 % | 1.031 % | 100.0 % | 9.4 | 3.67 | 19.7× |
+| 60 | 1.211 % | 1.031 % | 100.0 % | 9.4 | 3.72 | 19.5× |
+| 61 | 1.211 % | 1.031 % | 100.0 % | 9.5 | 3.76 | 19.2× |
+| 62 | 1.211 % | 1.031 % | 100.0 % | 9.5 | 3.81 | 19.0× |
+| 63 | 1.211 % | 1.031 % | 100.0 % | 9.5 | 3.85 | 18.8× |
+| 64 | 1.211 % | 1.031 % | 100.0 % | 9.5 | 3.89 | 18.6× |
+
+## congested benchmark (60, line ratings x 0.6, zero-shot)
+
+60 instances; full MILP at 0.1 %: mean 62.1 s (re-solved in the same process). K = 16 chosen on validation.
+
+| method | served | gap mean [95 % CI] | median | max | time (s) | speed-up mean / median / geo |
+|---|---|---|---|---|---|---|
+| full MILP 0.1 % | 100.0 % | 0.10 % [0.09, 0.10] | 0.10 % | 0.27 % | 62.15 | 1.0× / 1.0× / 1.0× |
+| LP rounding + repair, 5 LPs | 96.7 % | 2.37 % [1.90, 2.88] | 2.26 % | 7.08 % | 0.52 | 117.5× / 69.6× / 75.5× |
+| m1x ensemble + repair, 1 LP | 45.0 % | 16.01 % [11.75, 20.88] | 8.69 % | 72.97 % | 0.44 | 137.0× / 83.3× / 88.2× |
+| m1x ensemble + repair, 3 LPs | 43.3 % | 15.03 % [10.44, 20.06] | 6.68 % | 72.87 % | 0.50 | 121.5× / 71.9× / 78.2× |
+| m1x ensemble + repair, 5 LPs | 53.3 % | 10.08 % [6.63, 14.16] | 4.10 % | 70.22 % | 0.55 | 109.3× / 62.3× / 70.3× |
+| LP rounding (5) + m1x (5), 10 LPs | 96.7 % | 1.99 % [1.61, 2.41] | 1.75 % | 6.62 % | 0.73 | 82.7× / 45.5× / 53.0× |
+| m1x ensemble, Viterbi + repair, 1 LP | 25.0 % | 40.78 % [32.65, 48.64] | 48.25 % | 91.83 % | 0.44 | 136.3× / 82.7× / 87.7× |
+| rloop K=1 | 48.3 % | 13.41 % [9.13, 17.90] | 4.85 % | 73.04 % | 0.44 | 137.8× / 84.9× / 88.9× |
+| rloop K=2 | 51.7 % | 11.01 % [7.35, 14.93] | 4.45 % | 61.19 % | 0.47 | 128.9× / 78.1× / 83.0× |
+| rloop K=4 | 51.7 % | 9.17 % [6.09, 12.69] | 4.10 % | 61.19 % | 0.52 | 117.5× / 68.2× / 75.2× |
+| rloop K=16 | 51.7 % | 8.24 % [5.21, 11.74] | 3.02 % | 60.87 % | 0.80 | 75.8× / 41.3× / 48.4× |
+| rloop K=32 | 51.7 % | 8.16 % [5.12, 11.68] | 2.95 % | 60.87 % | 1.16 | 52.7× / 28.1× / 33.2× |
+| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | 96.7 % | 1.41 % [1.07, 1.80] | 0.95 % | 7.04 % | 0.74 | 81.6× / 45.7× / 52.4× |
+| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | 96.7 % | 1.22 % [0.94, 1.54] | 0.90 % | 5.31 % | 0.85 | 71.6× / 39.5× / 45.8× |
+| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | 98.3 % | 1.08 % [0.83, 1.36] | 0.88 % | 5.31 % | 1.04 | 58.9× / 33.3× / 37.4× |
+| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | 98.3 % | 1.02 % [0.79, 1.29] | 0.88 % | 5.31 % | 1.41 | 43.7× / 25.3× / 27.5× |
+| LP rounding + local search guided by m1x (static), +4 LPs | 98.3 % | 1.32 % [0.99, 1.67] | 0.89 % | 6.16 % | 0.74 | 81.1× / 45.0× / 52.0× |
+| LP rounding + local search guided by m1x (static), +8 LPs | 98.3 % | 1.26 % [0.94, 1.62] | 0.76 % | 6.16 % | 0.86 | 69.7× / 37.8× / 44.9× |
+| LP rounding + local search guided by m1x (static), +16 LPs | 98.3 % | 1.11 % [0.81, 1.45] | 0.63 % | 5.85 % | 1.08 | 55.6× / 29.5× / 35.7× |
+| LP rounding + local search guided by m1x (static), +32 LPs | 98.3 % | 1.05 % [0.76, 1.36] | 0.63 % | 5.54 % | 1.49 | 40.5× / 20.9× / 25.8× |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | 98.3 % | 1.38 % [1.02, 1.79] | 0.91 % | 7.04 % | 0.76 | 79.3× / 46.6× / 50.6× |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | 98.3 % | 1.24 % [0.92, 1.59] | 0.90 % | 6.09 % | 0.93 | 65.2× / 37.9× / 41.7× |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs | 98.3 % | 1.06 % [0.79, 1.38] | 0.73 % | 5.10 % | 1.30 | 47.7× / 26.6× / 29.8× |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | 98.3 % | 0.95 % [0.69, 1.24] | 0.49 % | 4.18 % | 2.19 | 29.8× / 15.6× / 17.7× |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +4 LPs | 98.3 % | 1.33 % [1.03, 1.66] | 0.95 % | 6.12 % | 0.95 | 64.6× / 35.4× / 40.9× |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +8 LPs | 98.3 % | 1.20 % [0.92, 1.51] | 0.90 % | 5.31 % | 1.05 | 58.0× / 31.9× / 36.8× |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +16 LPs | 100.0 % | 1.12 % [0.87, 1.42] | 0.90 % | 5.31 % | 1.24 | 49.7× / 27.1× / 31.3× |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +32 LPs | 100.0 % | 1.05 % [0.81, 1.32] | 0.90 % | 5.31 % | 1.61 | 38.8× / 21.3× / 24.0× |
+| LP rounding ∪ m1x + local search guided by m1x, +4 LPs | 98.3 % | 1.34 % [1.03, 1.69] | 0.96 % | 6.16 % | 0.95 | 64.6× / 34.2× / 41.0× |
+| LP rounding ∪ m1x + local search guided by m1x, +8 LPs | 98.3 % | 1.28 % [0.96, 1.62] | 0.82 % | 6.16 % | 1.06 | 57.3× / 30.1× / 36.5× |
+| LP rounding ∪ m1x + local search guided by m1x, +16 LPs | 98.3 % | 1.12 % [0.82, 1.44] | 0.65 % | 5.85 % | 1.28 | 47.5× / 25.2× / 30.2× |
+| LP rounding ∪ m1x + local search guided by m1x, +32 LPs | 98.3 % | 1.05 % [0.77, 1.36] | 0.65 % | 5.54 % | 1.69 | 36.2× / 19.2× / 22.8× |
+| LP rounding ∪ m1x + local search guided by rloop, +4 LPs | 98.3 % | 1.26 % [0.95, 1.62] | 0.91 % | 6.62 % | 0.98 | 62.8× / 34.7× / 39.4× |
+| LP rounding ∪ m1x + local search guided by rloop, +8 LPs | 98.3 % | 1.20 % [0.90, 1.53] | 0.90 % | 6.09 % | 1.14 | 53.8× / 30.2× / 33.8× |
+| LP rounding ∪ m1x + local search guided by rloop, +16 LPs | 98.3 % | 1.07 % [0.81, 1.37] | 0.78 % | 5.10 % | 1.50 | 41.6× / 22.5× / 25.6× |
+| LP rounding ∪ m1x + local search guided by rloop, +32 LPs | 98.3 % | 0.94 % [0.70, 1.20] | 0.60 % | 4.18 % | 2.38 | 27.5× / 13.6× / 16.2× |
+| rloop seeded with LP rounding, K=16 | 93.3 % | 1.80 % [1.41, 2.24] | 1.39 % | 7.04 % | 0.99 | 61.6× / 34.1× / 38.8× |
+| rloop, learned halting | 51.7 % | 10.46 % [6.93, 14.49] | 3.19 % | 62.42 % | 0.93 | 76.1× / 47.9× / 45.3× |
+| rloop-guided search (+16 LPs) + safety net (theta 1 %) (fallback 62 %) | 96.7 % | 0.39 % [0.29, 0.51] | 0.24 % | 2.81 % | 7.39 | 17.9× / 8.3× / 8.5× |
+| rloop-guided search (+16 LPs) + safety net (theta 2 %) (fallback 33 %) | 98.3 % | 0.51 % [0.41, 0.64] | 0.40 % | 2.81 % | 4.90 | 27.3× / 14.9× / 14.8× |
+| rloop-guided search (+16 LPs) + safety net (theta 4 %) (fallback 10 %) | 98.3 % | 0.79 % [0.63, 0.98] | 0.52 % | 2.81 % | 2.61 | 35.7× / 21.3× / 23.6× |
+
+Paired differences, **LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs** minus each reference (Δ gap < 0: LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs more accurate; Δ log speed-up > 0: LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs faster):
+
+| reference | Δ gap, pp [95 % CI] | Δ log speed-up [CI] | Δ served, pp [CI] |
+|---|---|---|---|
+| LP rounding + repair, 5 LPs | -1.31 [-1.68, -0.97] | -0.93 [-0.97, -0.90] | +1.7 [+0.00, +5.00] |
+| m1x ensemble + repair, 1 LP | -14.95 [-19.81, -10.62] | -1.09 [-1.12, -1.05] | +53.3 [+40.00, +66.67] |
+| m1x ensemble + repair, 3 LPs | -13.97 [-18.97, -9.37] | -0.97 [-1.00, -0.93] | +55.0 [+41.67, +68.33] |
+| m1x ensemble + repair, 5 LPs | -9.02 [-13.11, -5.60] | -0.86 [-0.89, -0.83] | +45.0 [+31.67, +56.71] |
+| LP rounding (5) + m1x (5), 10 LPs | -0.93 [-1.21, -0.65] | -0.58 [-0.61, -0.55] | +1.7 [+0.00, +5.00] |
+| m1x ensemble, Viterbi + repair, 1 LP | -39.71 [-47.49, -31.62] | -1.08 [-1.11, -1.05] | +73.3 [+61.67, +85.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | -0.35 [-0.65, -0.11] | -0.57 [-0.59, -0.54] | +1.7 [+0.00, +5.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | -0.16 [-0.33, -0.01] | -0.43 [-0.46, -0.40] | +1.7 [+0.00, +5.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | -0.01 [-0.11, +0.10] | -0.23 [-0.26, -0.20] | +0.0 [-5.00, +5.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | +0.04 [-0.06, +0.15] | +0.08 [+0.05, +0.11] | +0.0 [-5.00, +5.00] |
+| LP rounding + local search guided by m1x (static), +4 LPs | -0.25 [-0.39, -0.13] | -0.56 [-0.58, -0.53] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by m1x (static), +8 LPs | -0.20 [-0.34, -0.08] | -0.41 [-0.43, -0.39] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by m1x (static), +16 LPs | -0.05 [-0.15, +0.03] | -0.18 [-0.20, -0.16] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by m1x (static), +32 LPs | +0.01 [-0.07, +0.09] | +0.14 [+0.12, +0.17] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | -0.32 [-0.58, -0.15] | -0.53 [-0.55, -0.51] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | -0.18 [-0.32, -0.08] | -0.34 [-0.35, -0.32] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | +0.11 [+0.06, +0.17] | +0.52 [+0.49, +0.55] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +4 LPs | -0.26 [-0.48, -0.07] | -0.32 [-0.34, -0.29] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +8 LPs | -0.13 [-0.31, +0.02] | -0.21 [-0.24, -0.19] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +16 LPs | -0.06 [-0.22, +0.08] | -0.05 [-0.08, -0.03] | -1.7 [-5.00, +0.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +32 LPs | +0.02 [-0.12, +0.15] | +0.21 [+0.19, +0.24] | -1.7 [-5.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +4 LPs | -0.28 [-0.45, -0.11] | -0.32 [-0.35, -0.29] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +8 LPs | -0.21 [-0.37, -0.06] | -0.21 [-0.23, -0.18] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +16 LPs | -0.05 [-0.19, +0.09] | -0.01 [-0.04, +0.01] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +32 LPs | +0.01 [-0.12, +0.15] | +0.27 [+0.24, +0.29] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by rloop, +4 LPs | -0.20 [-0.35, -0.05] | -0.28 [-0.30, -0.26] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by rloop, +8 LPs | -0.13 [-0.28, -0.00] | -0.13 [-0.15, -0.11] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by rloop, +16 LPs | -0.01 [-0.12, +0.10] | +0.15 [+0.13, +0.17] | +0.0 [+0.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by rloop, +32 LPs | +0.12 [+0.03, +0.24] | +0.61 [+0.58, +0.64] | +0.0 [+0.00, +0.00] |
+
+Paired differences, **rloop-guided search (+16 LPs) + safety net (theta 2 %)** minus each reference (Δ gap < 0: rloop-guided search (+16 LPs) + safety net (theta 2 %) more accurate; Δ log speed-up > 0: rloop-guided search (+16 LPs) + safety net (theta 2 %) faster):
+
+| reference | Δ gap, pp [95 % CI] | Δ log speed-up [CI] | Δ served, pp [CI] |
+|---|---|---|---|
+| LP rounding + repair, 5 LPs | -1.86 [-2.34, -1.42] | -1.63 [-1.93, -1.38] | +1.7 [-3.33, +8.33] |
+| m1x ensemble + repair, 1 LP | -15.50 [-20.37, -11.22] | -1.79 [-2.08, -1.53] | +53.3 [+38.33, +66.67] |
+| m1x ensemble + repair, 3 LPs | -14.51 [-19.52, -9.94] | -1.67 [-1.95, -1.41] | +55.0 [+41.67, +68.33] |
+| m1x ensemble + repair, 5 LPs | -9.57 [-13.62, -6.13] | -1.56 [-1.85, -1.30] | +45.0 [+30.00, +58.33] |
+| LP rounding (5) + m1x (5), 10 LPs | -1.48 [-1.84, -1.15] | -1.28 [-1.57, -1.02] | +1.7 [-3.33, +8.33] |
+| m1x ensemble, Viterbi + repair, 1 LP | -40.26 [-48.08, -32.17] | -1.78 [-2.07, -1.53] | +73.3 [+61.67, +85.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | -0.90 [-1.25, -0.59] | -1.27 [-1.55, -1.02] | +1.7 [+0.00, +5.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | -0.71 [-0.98, -0.46] | -1.13 [-1.41, -0.88] | +1.7 [+0.00, +5.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | -0.56 [-0.79, -0.36] | -0.93 [-1.21, -0.68] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | -0.51 [-0.74, -0.31] | -0.62 [-0.91, -0.37] | +0.0 [+0.00, +0.00] |
+| LP rounding + local search guided by m1x (static), +4 LPs | -0.80 [-1.11, -0.52] | -1.26 [-1.55, -1.01] | +0.0 [-5.00, +5.00] |
+| LP rounding + local search guided by m1x (static), +8 LPs | -0.75 [-1.06, -0.47] | -1.11 [-1.40, -0.86] | +0.0 [-5.00, +5.00] |
+| LP rounding + local search guided by m1x (static), +16 LPs | -0.60 [-0.89, -0.34] | -0.88 [-1.17, -0.63] | +0.0 [-5.00, +5.00] |
+| LP rounding + local search guided by m1x (static), +32 LPs | -0.53 [-0.81, -0.29] | -0.56 [-0.85, -0.31] | +0.0 [-5.00, +5.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | -0.87 [-1.24, -0.55] | -1.23 [-1.52, -0.98] | +0.0 [-5.00, +5.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | -0.72 [-1.03, -0.45] | -1.04 [-1.32, -0.79] | +0.0 [-5.00, +5.00] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | -0.44 [-0.69, -0.21] | -0.18 [-0.47, +0.07] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +4 LPs | -0.81 [-1.10, -0.55] | -1.02 [-1.30, -0.77] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +8 LPs | -0.68 [-0.95, -0.45] | -0.91 [-1.20, -0.66] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +16 LPs | -0.61 [-0.86, -0.39] | -0.75 [-1.04, -0.50] | -1.7 [-5.00, +0.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +32 LPs | -0.53 [-0.78, -0.33] | -0.49 [-0.78, -0.23] | -1.7 [-5.00, +0.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +4 LPs | -0.83 [-1.13, -0.55] | -1.02 [-1.31, -0.77] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +8 LPs | -0.76 [-1.06, -0.50] | -0.91 [-1.19, -0.65] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +16 LPs | -0.60 [-0.87, -0.36] | -0.71 [-1.00, -0.46] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +32 LPs | -0.54 [-0.80, -0.31] | -0.43 [-0.72, -0.18] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search guided by rloop, +4 LPs | -0.75 [-1.05, -0.48] | -0.98 [-1.27, -0.73] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search guided by rloop, +8 LPs | -0.68 [-0.96, -0.43] | -0.83 [-1.11, -0.58] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search guided by rloop, +16 LPs | -0.56 [-0.80, -0.34] | -0.55 [-0.84, -0.30] | +0.0 [-5.00, +5.00] |
+| LP rounding ∪ m1x + local search guided by rloop, +32 LPs | -0.42 [-0.65, -0.23] | -0.09 [-0.39, +0.17] | +0.0 [-5.00, +5.00] |
 
 Paired differences, **rloop K=16** minus each reference (Δ gap < 0: rloop K=16 more accurate; Δ log speed-up > 0: rloop K=16 faster):
 
 | reference | Δ gap, pp [95 % CI] | Δ log speed-up [CI] | Δ served, pp [CI] |
 |---|---|---|---|
-| LP rounding + repair, 5 LPs | +1.05 [-0.90, +3.10] | -0.48 [-0.56, -0.41] | -40.0 [-80.00, +0.00] |
-| m1x ensemble + repair, 1 LP | -12.33 [-32.55, -0.65] | -0.60 [-0.69, -0.50] | +0.0 [+0.00, +0.00] |
-| m1x ensemble + repair, 3 LPs | -11.52 [-31.96, -0.24] | -0.50 [-0.57, -0.42] | +0.0 [+0.00, +0.00] |
-| m1x ensemble + repair, 5 LPs | -3.79 [-8.91, -0.22] | -0.37 [-0.44, -0.31] | +0.0 [+0.00, +0.00] |
-| LP rounding (5) + m1x (5), 10 LPs | +1.05 [-0.90, +3.10] | -0.10 [-0.13, -0.08] | -40.0 [-80.00, +0.00] |
-| m1x ensemble, Viterbi + repair, 1 LP | -32.37 [-59.46, -6.89] | -0.60 [-0.67, -0.52] | +20.0 [+0.00, +60.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | +1.97 [+0.08, +4.42] | -0.12 [-0.15, -0.09] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | +1.97 [+0.08, +4.42] | +0.00 [-0.04, +0.03] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | +2.00 [+0.12, +4.42] | +0.21 [+0.13, +0.32] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | +2.03 [+0.15, +4.47] | +0.52 [+0.44, +0.64] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +4 LPs | +1.48 [-0.71, +4.16] | -0.07 [-0.12, -0.03] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +8 LPs | +1.53 [-0.70, +4.20] | +0.07 [+0.02, +0.10] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +16 LPs | +1.64 [-0.63, +4.27] | +0.33 [+0.25, +0.40] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search guided by m1x (static), +32 LPs | +1.65 [-0.63, +4.28] | +0.63 [+0.54, +0.72] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | +1.71 [-0.55, +4.22] | -0.06 [-0.12, -0.01] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | +1.72 [-0.53, +4.22] | +0.11 [+0.05, +0.16] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | +1.75 [-0.52, +4.28] | +1.04 [+0.96, +1.13] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +4 LPs | +1.97 [+0.08, +4.42] | +0.16 [+0.10, +0.22] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +8 LPs | +1.97 [+0.08, +4.42] | +0.25 [+0.20, +0.31] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +16 LPs | +2.00 [+0.12, +4.42] | +0.42 [+0.35, +0.52] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search, LP-gradient ranking, +32 LPs | +2.03 [+0.15, +4.47] | +0.68 [+0.59, +0.80] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +4 LPs | +1.48 [-0.71, +4.16] | +0.15 [+0.13, +0.19] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +8 LPs | +1.53 [-0.70, +4.20] | +0.27 [+0.23, +0.32] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +16 LPs | +1.64 [-0.63, +4.27] | +0.48 [+0.46, +0.53] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by m1x, +32 LPs | +1.65 [-0.63, +4.28] | +0.74 [+0.70, +0.79] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +4 LPs | +1.71 [-0.55, +4.22] | +0.19 [+0.14, +0.24] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +8 LPs | +1.72 [-0.53, +4.22] | +0.33 [+0.28, +0.38] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +16 LPs | +1.74 [-0.53, +4.27] | +0.62 [+0.56, +0.68] | -40.0 [-80.00, +0.00] |
-| LP rounding ∪ m1x + local search guided by rloop, +32 LPs | +1.75 [-0.52, +4.28] | +1.13 [+1.07, +1.20] | -40.0 [-80.00, +0.00] |
-| LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs | +1.74 [-0.53, +4.27] | +0.44 [+0.39, +0.50] | -40.0 [-80.00, +0.00] |
+| LP rounding + repair, 5 LPs | +5.87 [+2.94, +9.39] | -0.44 [-0.47, -0.42] | -45.0 [-58.33, -31.67] |
+| m1x ensemble + repair, 1 LP | -7.77 [-11.83, -4.06] | -0.60 [-0.62, -0.58] | +6.7 [-5.00, +18.33] |
+| m1x ensemble + repair, 3 LPs | -6.79 [-11.00, -3.00] | -0.48 [-0.50, -0.46] | +8.3 [+0.00, +18.33] |
+| m1x ensemble + repair, 5 LPs | -1.84 [-5.26, +1.19] | -0.37 [-0.40, -0.35] | -1.7 [-13.33, +10.00] |
+| LP rounding (5) + m1x (5), 10 LPs | +6.25 [+3.33, +9.68] | -0.09 [-0.11, -0.07] | -45.0 [-58.33, -31.67] |
+| m1x ensemble, Viterbi + repair, 1 LP | -32.54 [-40.20, -25.14] | -0.59 [-0.61, -0.57] | +26.7 [+16.67, +38.33] |
+| LP rounding + local search, LP-gradient ranking (no learning), +4 LPs | +6.83 [+3.86, +10.30] | -0.08 [-0.10, -0.06] | -45.0 [-58.33, -31.67] |
+| LP rounding + local search, LP-gradient ranking (no learning), +8 LPs | +7.02 [+4.05, +10.48] | +0.06 [+0.03, +0.08] | -45.0 [-58.33, -31.67] |
+| LP rounding + local search, LP-gradient ranking (no learning), +16 LPs | +7.16 [+4.18, +10.61] | +0.26 [+0.23, +0.29] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search, LP-gradient ranking (no learning), +32 LPs | +7.22 [+4.22, +10.70] | +0.57 [+0.54, +0.60] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search guided by m1x (static), +4 LPs | +6.92 [+3.94, +10.36] | -0.07 [-0.09, -0.05] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search guided by m1x (static), +8 LPs | +6.98 [+3.99, +10.40] | +0.08 [+0.06, +0.09] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search guided by m1x (static), +16 LPs | +7.13 [+4.16, +10.54] | +0.31 [+0.28, +0.33] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search guided by m1x (static), +32 LPs | +7.19 [+4.23, +10.63] | +0.63 [+0.60, +0.66] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +4 LPs | +6.86 [+3.94, +10.34] | -0.04 [-0.06, -0.03] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +8 LPs | +7.00 [+4.08, +10.44] | +0.15 [+0.13, +0.17] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +32 LPs | +7.29 [+4.31, +10.78] | +1.01 [+0.97, +1.05] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +4 LPs | +6.91 [+3.96, +10.38] | +0.17 [+0.15, +0.19] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +8 LPs | +7.04 [+4.05, +10.54] | +0.27 [+0.25, +0.30] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +16 LPs | +7.12 [+4.12, +10.62] | +0.44 [+0.41, +0.46] | -48.3 [-61.67, -35.00] |
+| LP rounding ∪ m1x + local search, LP-gradient ranking, +32 LPs | +7.19 [+4.20, +10.71] | +0.70 [+0.67, +0.73] | -48.3 [-61.67, -35.00] |
+| LP rounding ∪ m1x + local search guided by m1x, +4 LPs | +6.90 [+3.91, +10.34] | +0.17 [+0.15, +0.19] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search guided by m1x, +8 LPs | +6.96 [+3.97, +10.39] | +0.28 [+0.26, +0.30] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search guided by m1x, +16 LPs | +7.12 [+4.17, +10.56] | +0.47 [+0.45, +0.50] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search guided by m1x, +32 LPs | +7.19 [+4.24, +10.64] | +0.75 [+0.73, +0.78] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search guided by rloop, +4 LPs | +6.98 [+4.05, +10.42] | +0.20 [+0.18, +0.22] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search guided by rloop, +8 LPs | +7.04 [+4.11, +10.50] | +0.36 [+0.33, +0.38] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search guided by rloop, +16 LPs | +7.17 [+4.23, +10.65] | +0.64 [+0.61, +0.67] | -46.7 [-60.00, -33.33] |
+| LP rounding ∪ m1x + local search guided by rloop, +32 LPs | +7.30 [+4.32, +10.81] | +1.09 [+1.05, +1.14] | -46.7 [-60.00, -33.33] |
+| LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs | +7.18 [+4.22, +10.63] | +0.49 [+0.46, +0.51] | -46.7 [-60.00, -33.33] |
 
 ![quality against time](rloop_quality_time_hard.png)
 
@@ -353,38 +491,38 @@ Quality against the number of outer steps K (best schedule so far; each step one
 
 | K | gap mean | median | served | LPs | time (s) | speed-up mean |
 |---|---|---|---|---|---|---|
-| 1 | 8.457 % | 1.544 % | 60.0 % | 1.0 | 0.43 | 59.4× |
-| 2 | 5.464 % | 1.544 % | 60.0 % | 1.4 | 0.46 | 55.8× |
-| 3 | 2.602 % | 1.544 % | 60.0 % | 1.6 | 0.49 | 53.1× |
-| 4 | 2.602 % | 1.544 % | 60.0 % | 1.6 | 0.51 | 51.0× |
-| 5 | 2.602 % | 1.544 % | 60.0 % | 1.6 | 0.53 | 49.1× |
-| 6 | 2.602 % | 1.544 % | 60.0 % | 1.8 | 0.56 | 46.4× |
-| 7 | 2.602 % | 1.544 % | 60.0 % | 2.0 | 0.58 | 44.7× |
-| 8 | 2.602 % | 1.544 % | 60.0 % | 2.0 | 0.60 | 43.3× |
-| 9 | 2.591 % | 1.544 % | 60.0 % | 2.4 | 0.63 | 41.4× |
-| 10 | 2.591 % | 1.544 % | 60.0 % | 2.4 | 0.65 | 40.1× |
-| 11 | 2.591 % | 1.544 % | 60.0 % | 2.4 | 0.67 | 38.9× |
-| 12 | 2.591 % | 1.544 % | 60.0 % | 2.4 | 0.69 | 37.8× |
-| 13 | 2.591 % | 1.544 % | 60.0 % | 2.6 | 0.72 | 36.3× |
-| 14 | 2.566 % | 1.544 % | 60.0 % | 2.8 | 0.74 | 35.2× |
-| 15 | 2.566 % | 1.544 % | 60.0 % | 2.8 | 0.77 | 34.3× |
-| 16 | 2.566 % | 1.544 % | 60.0 % | 3.2 | 0.79 | 33.2× |
-| 17 | 2.566 % | 1.544 % | 60.0 % | 3.2 | 0.81 | 32.4× |
-| 18 | 2.566 % | 1.544 % | 60.0 % | 3.2 | 0.83 | 31.6× |
-| 19 | 2.566 % | 1.544 % | 60.0 % | 3.2 | 0.85 | 30.9× |
-| 20 | 2.566 % | 1.544 % | 60.0 % | 3.2 | 0.87 | 30.2× |
-| 21 | 2.566 % | 1.544 % | 60.0 % | 3.2 | 0.89 | 29.5× |
-| 22 | 2.566 % | 1.544 % | 60.0 % | 3.2 | 0.91 | 28.9× |
-| 23 | 2.566 % | 1.544 % | 60.0 % | 3.2 | 0.93 | 28.3× |
-| 24 | 2.543 % | 1.544 % | 60.0 % | 3.4 | 0.96 | 27.7× |
-| 25 | 2.543 % | 1.544 % | 60.0 % | 3.4 | 0.98 | 27.1× |
-| 26 | 2.543 % | 1.544 % | 60.0 % | 3.4 | 1.00 | 26.6× |
-| 27 | 2.543 % | 1.544 % | 60.0 % | 3.4 | 1.02 | 26.1× |
-| 28 | 2.543 % | 1.544 % | 60.0 % | 3.4 | 1.04 | 25.6× |
-| 29 | 2.543 % | 1.544 % | 60.0 % | 3.4 | 1.06 | 25.1× |
-| 30 | 2.543 % | 1.544 % | 60.0 % | 3.4 | 1.08 | 24.6× |
-| 31 | 2.543 % | 1.544 % | 60.0 % | 3.6 | 1.10 | 24.0× |
-| 32 | 2.543 % | 1.544 % | 60.0 % | 3.6 | 1.12 | 23.6× |
+| 1 | 13.414 % | 4.851 % | 48.3 % | 1.0 | 0.44 | 137.8× |
+| 2 | 11.008 % | 4.448 % | 51.7 % | 1.5 | 0.47 | 128.9× |
+| 3 | 10.260 % | 4.104 % | 51.7 % | 1.7 | 0.49 | 122.9× |
+| 4 | 9.167 % | 4.104 % | 51.7 % | 1.9 | 0.52 | 117.5× |
+| 5 | 8.834 % | 4.104 % | 51.7 % | 2.0 | 0.54 | 112.9× |
+| 6 | 8.675 % | 3.522 % | 51.7 % | 2.1 | 0.56 | 108.6× |
+| 7 | 8.673 % | 3.522 % | 51.7 % | 2.2 | 0.58 | 104.4× |
+| 8 | 8.628 % | 3.522 % | 51.7 % | 2.4 | 0.60 | 100.3× |
+| 9 | 8.622 % | 3.522 % | 51.7 % | 2.6 | 0.63 | 96.2× |
+| 10 | 8.555 % | 3.522 % | 51.7 % | 2.9 | 0.65 | 92.7× |
+| 11 | 8.494 % | 3.185 % | 51.7 % | 3.0 | 0.68 | 89.6× |
+| 12 | 8.455 % | 3.185 % | 51.7 % | 3.3 | 0.70 | 86.6× |
+| 13 | 8.287 % | 3.185 % | 51.7 % | 3.6 | 0.73 | 83.8× |
+| 14 | 8.268 % | 3.185 % | 51.7 % | 3.9 | 0.75 | 81.0× |
+| 15 | 8.262 % | 3.185 % | 51.7 % | 4.2 | 0.78 | 78.3× |
+| 16 | 8.240 % | 3.015 % | 51.7 % | 4.4 | 0.80 | 75.8× |
+| 17 | 8.223 % | 3.015 % | 51.7 % | 4.7 | 0.82 | 73.5× |
+| 18 | 8.223 % | 3.015 % | 51.7 % | 5.0 | 0.85 | 71.5× |
+| 19 | 8.223 % | 3.015 % | 51.7 % | 5.2 | 0.87 | 69.4× |
+| 20 | 8.187 % | 2.949 % | 51.7 % | 5.3 | 0.90 | 67.7× |
+| 21 | 8.184 % | 2.949 % | 51.7 % | 5.5 | 0.92 | 66.0× |
+| 22 | 8.163 % | 2.949 % | 51.7 % | 5.7 | 0.94 | 64.3× |
+| 23 | 8.163 % | 2.949 % | 51.7 % | 5.8 | 0.97 | 62.7× |
+| 24 | 8.162 % | 2.949 % | 51.7 % | 6.0 | 0.99 | 61.4× |
+| 25 | 8.162 % | 2.949 % | 51.7 % | 6.1 | 1.01 | 60.1× |
+| 26 | 8.162 % | 2.949 % | 51.7 % | 6.1 | 1.03 | 59.0× |
+| 27 | 8.162 % | 2.949 % | 51.7 % | 6.2 | 1.06 | 57.8× |
+| 28 | 8.162 % | 2.949 % | 51.7 % | 6.2 | 1.08 | 56.7× |
+| 29 | 8.162 % | 2.949 % | 51.7 % | 6.3 | 1.10 | 55.7× |
+| 30 | 8.162 % | 2.949 % | 51.7 % | 6.4 | 1.12 | 54.6× |
+| 31 | 8.162 % | 2.949 % | 51.7 % | 6.5 | 1.14 | 53.6× |
+| 32 | 8.162 % | 2.949 % | 51.7 % | 6.5 | 1.16 | 52.7× |
 
 ## line-outage shift (30, 1-2 critical lines out, zero-shot)
 
@@ -614,6 +752,24 @@ Quality against the number of outer steps K (best schedule so far; each step one
 | guided_net-main_rl_lam0.5 K=8 | 96.9 % | 1.714 % | 0.862 % | 19.20 % |
 | guided_net-main_rl_lam0.5 K=12 | 97.2 % | 1.615 % | 0.836 % | 19.20 % |
 | guided_net-main_rl_lam0.5 K=16 | 97.5 % | 1.559 % | 0.818 % | 16.77 % |
+| guided_net-nocount_lam0.5 K=0 | 97.2 % | 2.138 % | 0.996 % | 22.75 % |
+| guided_net-nocount_lam0.5 K=1 | 96.9 % | 1.977 % | 0.965 % | 20.02 % |
+| guided_net-nocount_lam0.5 K=2 | 96.9 % | 1.867 % | 0.954 % | 19.20 % |
+| guided_net-nocount_lam0.5 K=3 | 96.9 % | 1.835 % | 0.938 % | 19.20 % |
+| guided_net-nocount_lam0.5 K=4 | 96.9 % | 1.804 % | 0.938 % | 19.20 % |
+| guided_net-nocount_lam0.5 K=6 | 96.9 % | 1.747 % | 0.933 % | 19.20 % |
+| guided_net-nocount_lam0.5 K=8 | 96.9 % | 1.716 % | 0.922 % | 19.20 % |
+| guided_net-nocount_lam0.5 K=12 | 97.2 % | 1.637 % | 0.860 % | 19.20 % |
+| guided_net-nocount_lam0.5 K=16 | 97.5 % | 1.591 % | 0.843 % | 16.77 % |
+| guided_net-nods_lam0.5 K=0 | 97.2 % | 2.138 % | 0.996 % | 22.75 % |
+| guided_net-nods_lam0.5 K=1 | 96.9 % | 1.987 % | 0.954 % | 20.02 % |
+| guided_net-nods_lam0.5 K=2 | 96.9 % | 1.886 % | 0.941 % | 19.20 % |
+| guided_net-nods_lam0.5 K=3 | 96.9 % | 1.855 % | 0.938 % | 19.20 % |
+| guided_net-nods_lam0.5 K=4 | 96.9 % | 1.822 % | 0.935 % | 19.20 % |
+| guided_net-nods_lam0.5 K=6 | 96.9 % | 1.765 % | 0.928 % | 19.20 % |
+| guided_net-nods_lam0.5 K=8 | 96.9 % | 1.729 % | 0.902 % | 19.20 % |
+| guided_net-nods_lam0.5 K=12 | 97.2 % | 1.652 % | 0.843 % | 19.20 % |
+| guided_net-nods_lam0.5 K=16 | 97.5 % | 1.606 % | 0.843 % | 18.47 % |
 | guided_net-nofb_lam0.5 K=0 | 97.2 % | 2.138 % | 0.996 % | 22.75 % |
 | guided_net-nofb_lam0.5 K=1 | 96.9 % | 1.953 % | 0.946 % | 20.02 % |
 | guided_net-nofb_lam0.5 K=2 | 96.9 % | 1.870 % | 0.935 % | 19.20 % |
@@ -623,6 +779,24 @@ Quality against the number of outer steps K (best schedule so far; each step one
 | guided_net-nofb_lam0.5 K=8 | 96.9 % | 1.712 % | 0.902 % | 19.20 % |
 | guided_net-nofb_lam0.5 K=12 | 97.2 % | 1.625 % | 0.862 % | 19.20 % |
 | guided_net-nofb_lam0.5 K=16 | 97.5 % | 1.585 % | 0.846 % | 16.82 % |
+| guided_net-nofb_rl_lam0.5 K=0 | 97.2 % | 2.138 % | 0.996 % | 22.75 % |
+| guided_net-nofb_rl_lam0.5 K=1 | 96.9 % | 1.951 % | 0.946 % | 20.02 % |
+| guided_net-nofb_rl_lam0.5 K=2 | 96.9 % | 1.871 % | 0.938 % | 19.20 % |
+| guided_net-nofb_rl_lam0.5 K=3 | 96.9 % | 1.845 % | 0.938 % | 19.20 % |
+| guided_net-nofb_rl_lam0.5 K=4 | 96.9 % | 1.803 % | 0.938 % | 19.20 % |
+| guided_net-nofb_rl_lam0.5 K=6 | 96.9 % | 1.730 % | 0.918 % | 19.20 % |
+| guided_net-nofb_rl_lam0.5 K=8 | 96.9 % | 1.709 % | 0.887 % | 19.20 % |
+| guided_net-nofb_rl_lam0.5 K=12 | 97.2 % | 1.618 % | 0.854 % | 19.20 % |
+| guided_net-nofb_rl_lam0.5 K=16 | 97.5 % | 1.585 % | 0.846 % | 16.77 % |
+| guided_net-norecall_lam0.5 K=0 | 97.2 % | 2.138 % | 0.996 % | 22.75 % |
+| guided_net-norecall_lam0.5 K=1 | 96.9 % | 1.964 % | 0.941 % | 20.02 % |
+| guided_net-norecall_lam0.5 K=2 | 96.9 % | 1.901 % | 0.941 % | 19.20 % |
+| guided_net-norecall_lam0.5 K=3 | 96.9 % | 1.850 % | 0.938 % | 19.20 % |
+| guided_net-norecall_lam0.5 K=4 | 96.9 % | 1.814 % | 0.938 % | 19.20 % |
+| guided_net-norecall_lam0.5 K=6 | 96.9 % | 1.749 % | 0.935 % | 19.20 % |
+| guided_net-norecall_lam0.5 K=8 | 96.9 % | 1.722 % | 0.931 % | 19.20 % |
+| guided_net-norecall_lam0.5 K=12 | 97.2 % | 1.629 % | 0.906 % | 19.20 % |
+| guided_net-norecall_lam0.5 K=16 | 97.5 % | 1.596 % | 0.883 % | 16.77 % |
 | guided_net_once-main_lam0.5 K=0 | 97.2 % | 2.138 % | 0.996 % | 22.75 % |
 | guided_net_once-main_lam0.5 K=1 | 96.9 % | 1.971 % | 0.941 % | 20.02 % |
 | guided_net_once-main_lam0.5 K=2 | 96.9 % | 1.887 % | 0.935 % | 19.20 % |
@@ -682,6 +856,22 @@ Quality against the number of outer steps K (best schedule so far; each step one
 | main_start-lpround K=8 | 96.9 % | 1.935 % | 0.946 % | 22.75 % |
 | main_start-lpround K=12 | 96.9 % | 1.904 % | 0.930 % | 22.75 % |
 | main_start-lpround K=16 | 96.9 % | 1.866 % | 0.928 % | 22.75 % |
+| nocount K=1 | 81.9 % | 7.180 % | 1.208 % | 93.01 % |
+| nocount K=2 | 82.5 % | 6.931 % | 1.208 % | 93.01 % |
+| nocount K=3 | 82.8 % | 6.825 % | 1.203 % | 93.01 % |
+| nocount K=4 | 83.1 % | 6.634 % | 1.203 % | 93.01 % |
+| nocount K=6 | 83.3 % | 6.612 % | 1.200 % | 93.01 % |
+| nocount K=8 | 83.6 % | 6.606 % | 1.191 % | 93.01 % |
+| nocount K=12 | 84.4 % | 6.444 % | 1.145 % | 93.01 % |
+| nocount K=16 | 84.4 % | 6.405 % | 1.136 % | 93.01 % |
+| nods K=1 | 80.6 % | 8.659 % | 1.261 % | 93.47 % |
+| nods K=2 | 81.7 % | 7.921 % | 1.200 % | 92.68 % |
+| nods K=3 | 81.9 % | 7.358 % | 1.173 % | 90.44 % |
+| nods K=4 | 82.2 % | 7.027 % | 1.162 % | 90.44 % |
+| nods K=6 | 82.2 % | 6.884 % | 1.149 % | 90.44 % |
+| nods K=8 | 83.3 % | 6.739 % | 1.136 % | 90.44 % |
+| nods K=12 | 83.3 % | 6.650 % | 1.046 % | 90.44 % |
+| nods K=16 | 83.3 % | 6.627 % | 1.029 % | 90.44 % |
 | nofb K=1 | 80.6 % | 7.627 % | 1.249 % | 93.15 % |
 | nofb K=2 | 80.8 % | 7.459 % | 1.216 % | 93.15 % |
 | nofb K=3 | 81.1 % | 7.407 % | 1.207 % | 93.15 % |
@@ -690,6 +880,14 @@ Quality against the number of outer steps K (best schedule so far; each step one
 | nofb K=8 | 81.1 % | 7.288 % | 1.088 % | 93.15 % |
 | nofb K=12 | 81.1 % | 7.229 % | 1.034 % | 93.15 % |
 | nofb K=16 | 81.4 % | 6.945 % | 0.980 % | 93.15 % |
+| nofb_rl K=1 | 83.1 % | 6.808 % | 1.224 % | 89.95 % |
+| nofb_rl K=2 | 83.1 % | 6.761 % | 1.198 % | 89.95 % |
+| nofb_rl K=3 | 83.3 % | 6.706 % | 1.179 % | 89.95 % |
+| nofb_rl K=4 | 83.3 % | 6.667 % | 1.179 % | 89.95 % |
+| nofb_rl K=6 | 83.3 % | 6.570 % | 1.144 % | 89.95 % |
+| nofb_rl K=8 | 83.3 % | 6.502 % | 1.065 % | 89.95 % |
+| nofb_rl K=12 | 83.6 % | 6.157 % | 0.967 % | 89.95 % |
+| nofb_rl K=16 | 83.6 % | 6.053 % | 0.946 % | 89.95 % |
 | nofb_start-lpround K=0 | 97.2 % | 2.138 % | 0.996 % | 22.75 % |
 | nofb_start-lpround K=1 | 96.9 % | 2.033 % | 0.965 % | 22.75 % |
 | nofb_start-lpround K=2 | 96.9 % | 2.015 % | 0.938 % | 22.75 % |
@@ -699,4 +897,12 @@ Quality against the number of outer steps K (best schedule so far; each step one
 | nofb_start-lpround K=8 | 96.9 % | 1.946 % | 0.933 % | 22.75 % |
 | nofb_start-lpround K=12 | 96.9 % | 1.909 % | 0.921 % | 22.75 % |
 | nofb_start-lpround K=16 | 96.9 % | 1.875 % | 0.921 % | 22.75 % |
+| norecall K=1 | 81.7 % | 7.769 % | 1.203 % | 91.61 % |
+| norecall K=2 | 82.5 % | 7.218 % | 1.181 % | 88.86 % |
+| norecall K=3 | 82.8 % | 6.813 % | 1.146 % | 88.86 % |
+| norecall K=4 | 82.8 % | 6.686 % | 1.146 % | 88.86 % |
+| norecall K=6 | 82.8 % | 6.522 % | 1.121 % | 84.78 % |
+| norecall K=8 | 83.3 % | 6.420 % | 0.996 % | 84.78 % |
+| norecall K=12 | 83.3 % | 6.334 % | 0.978 % | 84.78 % |
+| norecall K=16 | 83.3 % | 6.291 % | 0.978 % | 84.78 % |
 
