@@ -191,11 +191,12 @@ class TRMRunner:
             if rep:
                 u1r = u_fin
             us, t_ds = [], 0.0
-            for th in self.sel[kind]["screen_th"]:
+            for th in self.sel[kind].get("screen_th") or []:
                 u, t_d = dec(kd, kind, th)
                 us.append(u)
                 t_ds += t_d
-            rec[f"{tag}_t5{sfx}"], _ = ctx.finish(inst, us, t_base + ti(kd) + t_ds, rep)
+            if us:
+                rec[f"{tag}_t5{sfx}"], _ = ctx.finish(inst, us, t_base + ti(kd) + t_ds, rep)
             if self.cfg.mode != "trm":
                 continue
             for k in K_CURVE:

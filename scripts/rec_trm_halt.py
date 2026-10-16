@@ -49,6 +49,8 @@ def main():
     ap.add_argument("--n_fit", type=int, default=400)
     ap.add_argument("--K", type=int, default=16)
     ap.add_argument("--tol", type=float, default=0.005)
+    ap.add_argument("--n_val", type=int, default=360)
+    ap.add_argument("--out", default=None)
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     torch.set_num_threads(1)
@@ -63,7 +65,7 @@ def main():
     good = Cf[:, :, 0] <= (1 + a.tol) * best[:, None]
     w, b = trm.fit_halting(Hf.reshape(-1, Hf.shape[-1]), good.reshape(-1).astype(float))
     t_fit = time.time() - t0
-    va = trm.val_data()
+    va = trm.subset(trm.val_data(), np.arange(a.n_val))
     Hv, Cv = priced_steps(model, feats, cfg, sel, va, sysm, a.K, Pricer(sysm, va))
     logit = Hv @ w + b                                            # [N, K]
     kh = np.array([int(np.argmax(l > 0)) + 1 if (l > 0).any() else a.K for l in logit])
@@ -80,7 +82,7 @@ def main():
                         steps_mean=float(kh.mean()), steps_median=float(np.median(kh)),
                         steps_hist=np.bincount(kh, minlength=a.K + 1)[1:].tolist()),
                val_fixed_steps=fixed, val_oracle_best_step_gap=float(oracle.mean()))
-    with open(os.path.join(RES, f"trm_halt_{a.tag}.json"), "w") as f:
+    with open(a.out or os.path.join(RES, f"trm_halt_{a.tag}.json"), "w") as f:
         json.dump(out, f, indent=1, default=float)
     print(json.dumps({k: v for k, v in out.items() if k not in ("w", "val_fixed_steps")}, default=float))
     print("fixed steps:", {k: round(v["gap_mean"], 3) for k, v in fixed.items()})

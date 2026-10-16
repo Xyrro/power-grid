@@ -40,8 +40,8 @@ def main():
 
     def pick(s):
         return dict(decoder=s["decoder"], th=s["th"], screen_dec=s.get("screen_dec", s["decoder"]),
-                    screen_th=s["screen_th"], mix_th=s.get("mix_th"), val_one_lp=s["one_lp"],
-                    val_screen=s["screen_th_metrics"], val_mix=s.get("mix_metrics"))
+                    screen_th=s.get("screen_th", []), mix_th=s.get("mix_th"), val_one_lp=s["one_lp"],
+                    val_screen=s.get("screen_th_metrics"), val_mix=s.get("mix_metrics"))
 
     for tag in a.final + a.controls:
         v = json.load(open(os.path.join(RES, f"trm_val_{tag}.json")))
@@ -64,6 +64,15 @@ def main():
     plan["final"] = min(a.final, key=lambda t: one[t])
     plan["notes"]["final_rule"] = ("lowest validation mean gap of the 1-LP + LP-repair pipeline among " +
                                    ", ".join(a.final))
+    # headline pipeline of the final model: the lowest validation mean gap among its repaired pipelines
+    v = json.load(open(os.path.join(RES, f"trm_val_{plan['final']}.json")))["selection"]
+    kd = v["rep"]["k_def"]
+    cand = {"_1r": v["rep"]["one_lp"], "_t5r": v["rep"].get("screen_th_metrics"), "_mix5r": v["rep"].get("mix_metrics"),
+            "_s5r": v.get(f"screen_steps_k{kd}_rep")}
+    cand = {k: c["gap_mean"] for k, c in cand.items() if c}
+    plan["headline"] = plan["final"] + min(cand, key=cand.get)
+    plan["notes"]["headline_rule"] = "lowest validation mean gap among the final model's repaired pipelines: " + \
+        json.dumps({k: round(x, 3) for k, x in cand.items()})
     m = json.load(open(os.path.join(RES, "trm_val_m1x.json")))["selection"]
     plan["m1x"] = dict(plain=pick(m["plain"]), rep=pick(m["rep"]))
     with open(os.path.join(RES, "trm_select.json"), "w") as f:
