@@ -83,6 +83,7 @@ def main():
     ap.add_argument("--K", type=int, default=None)
     ap.add_argument("--k_sel", type=int, default=None)
     ap.add_argument("--bias", type=float, default=None, help="decoding logit shift (default: selection file)")
+    ap.add_argument("--seeded", type=int, default=1, help="also run rloop seeded with the LP-rounding schedule")
     ap.add_argument("--theta_min", type=float, default=0.5, help="% certified gap that triggers the safety net")
     ap.add_argument("--gaps", default=None, help="full-MILP gaps, comma separated (default 0.001,0.005)")
     ap.add_argument("--shard", type=int, default=0)
@@ -141,6 +142,8 @@ def main():
         cands = [u for _, u in lp_round_candidates(inst["u_rel"], sc, sysm, E2E_TH)]
         pr, nlp = price_seq(lp, sc, cands, t0)
         rec["lpround"] = dict(c=pr, n_lp=nlp, t_pre=t_rel)
+        t_lpr = pr[-1][3]
+        lpr_best = cands[int(np.argmin([x[0] for x in pr]))]
         # m1x ensemble end to end
         if m1x is not None:
             t0 = time.time()
@@ -157,6 +160,10 @@ def main():
         # rloop
         recs, bests = inf.rollout(inst, K, t_pre=t_rel, fmax=fmax)
         rec["rloop"] = [{kk: v for kk, v in r.items()} for r in recs]
+        # rloop seeded with the LP-rounding baseline's best schedule (its 5 LPs and repairs counted in the time)
+        if a.seeded:
+            r_s, _ = inf.rollout(inst, k_sel, t_pre=t_rel + t_lpr, fmax=fmax, start=lpr_best)
+            rec["rloop_seeded"] = r_s
         # safety net at k_sel
         rs = recs[min(k_sel, K) - 1]
         served = rs["best_shed"] < 1e-6 and rs["best_short"] < 1e-6

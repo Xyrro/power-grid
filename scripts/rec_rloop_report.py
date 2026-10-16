@@ -64,6 +64,10 @@ def methods(r, k_sel, thetas=(0.5, 1.0, 2.0, 4.0)):
         if K <= len(R):
             x = R[K - 1]
             out[f"rloop K={K}"] = (x["best"], x["best_shed"] < 1e-6 and x["best_short"] < 1e-6, x["time"])
+    if "rloop_seeded" in r:
+        x = r["rloop_seeded"][-1]
+        out[f"rloop seeded with LP rounding, K={len(r['rloop_seeded'])}"] = (
+            x["best"], x["best_shed"] < 1e-6 and x["best_short"] < 1e-6, x["time"])
     # halting head: stop at the first step whose halting probability exceeds 0.5 (at most 2 k_sel steps)
     kh = next((i + 1 for i, x in enumerate(R[:2 * k_sel]) if x["halt"] > 0.5), min(len(R), 2 * k_sel))
     x = R[kh - 1]

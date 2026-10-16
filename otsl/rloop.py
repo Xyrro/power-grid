@@ -843,7 +843,14 @@ def train_supervised(net, feats, sysm, train_insts, labels, best_known, cfg, poo
             tgt = targets_for(net, gi, sysm, labels[e.idx], r, u0_all[e.idx],
                               stacked_all[e.idx] if stacked_all is not None else None)
             tgt_t = torch.as_tensor(tgt, device=device)
-            loss = F.binary_cross_entropy_with_logits(logits, tgt_t)
+            w = None
+            if (cfg.get("w_wrong", 0.0) or cfg.get("w_grad", 0.0)) and e.fb is not None:
+                # cost-weighted deep supervision: decisions the priced schedule got wrong, weighted by the LP's
+                # sensitivity |d cost / d u| (signed log, feedback channel 6)
+                wrong = (e.fb[0][..., 0] != tgt_t).float()
+                w = 1.0 + wrong * (cfg.get("w_wrong", 0.0) + cfg.get("w_grad", 0.0) * e.fb[0][..., 6].abs())
+                w = w / w.mean()
+            loss = F.binary_cross_entropy_with_logits(logits, tgt_t, weight=w)
             hist[f"bce{e.k}"].append(loss.item())
             hist[f"err{e.k}"].append(float((r != tgt).sum((1, 2)).mean()))
             # the halting loss needs the LP cost of this step's schedule: the head (a probe on detached pooled
@@ -983,9 +990,12 @@ def train_reinforce(net, feats, sysm, train_insts, labels, best_known, cfg, pool
 
 # ============================================================================ inference
 @torch.no_grad()
-def rollout_batch(net, feats, sysm, insts, K, pool, device, keys, line_scale=1.0, fmax=None, mode="viterbi", bias=0.0):
+def rollout_batch(net, feats, sysm, insts, K, pool, device, keys, line_scale=1.0, fmax=None, mode="viterbi", bias=0.0,
+                  starts=None):
     """K outer steps on a batch of instances (validation, through the LP pool). Returns per step a list of per-instance
-    (cost, shed, short, halting probability). bias: logit shift before decoding (> 0 commits more)."""
+    (cost, shed, short, halting probability). bias: logit shift before decoding (> 0 commits more). starts: optional
+    starting schedules [B, T, G] (0/1), priced first; their LP feedback feeds step 0 and they count as candidates
+    (returned as step -1 first in the list)."""
     net.eval()
     b = Batch(feats, insts, device, fmax)
     xe = net.embed_static(b.ux)
@@ -993,6 +1003,11 @@ def rollout_batch(net, feats, sysm, insts, K, pool, device, keys, line_scale=1.0
     fb = empty_feedback(b)
     best = np.full(len(insts), np.inf)
     steps = []
+    if starts is not None:
+        res = pool.run([(key, inst, np.asarray(s0, np.int8), line_scale, "round") for key, inst, s0 in zip(keys, insts, starts)])
+        fb = stack_feedback(b, res, best, sysm.gbus)
+        steps.append([(x["cost"], x["shed"], x["short"], 0.0) for x in res])
+        best = np.minimum(best, [x["cost"] for x in res])
     for k in range(K):
         logits, hf, state = net.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, state)
         p = torch.sigmoid(logits + bias).cpu().numpy().astype(np.float16)
@@ -1015,7 +1030,7 @@ class Inference:
         self.gi = GroupInfo(sysm)
 
     @torch.no_grad()
-    def rollout(self, inst, K, t_pre=0.0, fmax=None):
+    def rollout(self, inst, K, t_pre=0.0, fmax=None, start=None):
         """record k: cost of step k's schedule, best so far, halting probability, cumulative time (t_pre, e.g. the LP
         relaxation, + featurisation + every network pass, decoding, LP and feedback build up to step k's LP)"""
         t0 = time.time()
@@ -1030,6 +1045,15 @@ class Inference:
         sc = scenario_of(inst)
         best, best_u, best_rec, seen, prev, best_p = np.inf, None, None, {}, None, None
         recs, bests = [], []
+        best_before = np.inf
+        if start is not None:            # an external starting schedule (already decoded / repaired): priced first
+            s0 = np.asarray(start, np.int8)
+            sol = lp.solve(sc, s0)
+            fu, fbb, fl, fh = feedback_arrays(sol, s0, s0, inst, self.s, fm)
+            prev = dict(s=s0, cost=sol["obj"], shed=float(sol["shed"].sum() + sol["spill"].sum()),
+                        short=float(sol["short"].sum()), fu=fu, fb=fbb, fl=fl, fh=fh)
+            seen[s0.tobytes()] = prev
+            best, best_u, best_rec, best_p = prev["cost"], s0, prev, s0.astype(float)
         for k in range(K):
             t1 = time.time()
             if prev is not None:

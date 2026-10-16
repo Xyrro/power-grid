@@ -41,15 +41,26 @@ def run_model(a):
     insts = C.insts_of(va, idx)
     pool = rloop.LPPool(workers=0)
     mode = a.decode or ck["cfg"].get("decode", "viterbi")
+    starts = None
+    if a.start == "lpround":        # the LP-rounding baseline's best schedule (5 LPs) as the starting point
+        B = dict(np.load(os.path.join(C.RES, "rloop_val_baselines.npz")))
+        jbest = B["lpround_c"].argmin(0)
+        starts = []
+        for i, inst in zip(idx, insts):
+            th = float(B["lpround_th"][jbest[i]])
+            starts.append(rloop.decode((inst["u_rel"] > th).astype(np.int8), inst, sysm, "round")[1])
+        starts = np.stack(starts)
     t0 = time.time()
     out = {k: [] for k in ("cost", "shed", "short", "halt")}
     for s in range(0, len(idx), 60):
         st = rloop.rollout_batch(net, feats, sysm, insts[s:s + 60], a.K, pool, "cpu",
-                                 [("va", i) for i in idx[s:s + 60]], mode=mode, bias=a.bias)
+                                 [("va", i) for i in idx[s:s + 60]], mode=mode, bias=a.bias,
+                                 starts=None if starts is None else starts[s:s + 60])
         for j, k in enumerate(("cost", "shed", "short", "halt")):
             out[k].append(np.array([[x[j] for x in step] for step in st]))
     res = {k: np.concatenate(v, 1) for k, v in out.items()}
-    tag = a.model + (f"_{a.decode}" if a.decode else "") + (f"_b{a.bias:g}" if a.bias else "")
+    tag = a.model + (f"_{a.decode}" if a.decode else "") + (f"_b{a.bias:g}" if a.bias else "") + \
+        (f"_start-{a.start}" if a.start else "")
     np.savez(os.path.join(C.RES, f"rloop_val_{tag}.npz"), db=va["db"][idx], c_rel=va["c_rel"][idx], **res)
     best = np.minimum.accumulate(res["cost"], 0)
     print(f"{tag}: {time.time() - t0:.0f}s, mean gap best-of-k:",
@@ -146,12 +157,14 @@ def report(a):
     for f in sorted(os.listdir(C.RES)):
         if f.startswith("rloop_val_") and f.endswith(".npz") and f != "rloop_val_baselines.npz":
             R = dict(np.load(os.path.join(C.RES, f)))
-            K = R["cost"].shape[0]
-            for k in sorted({1, 2, 3, 4, 6, 8, 12, 16, K} & set(range(1, K + 1))):
-                c = R["cost"][:k]
+            off = 1 if "start-" in f else 0              # seeded runs: row 0 is the starting schedule
+            K = R["cost"].shape[0] - off
+            for k in sorted({0, 1, 2, 3, 4, 6, 8, 12, 16, K} & set(range(1 - off, K + 1))):
+                c = R["cost"][:k + off]
                 j = c.argmin(0)
                 n = c.shape[1]
-                rows[f"{f[10:-4]} K={k}"] = summary(c.min(0), R["shed"][:k][j, range(n)], R["short"][:k][j, range(n)], R["db"])
+                rows[f"{f[10:-4]} K={k}"] = summary(c.min(0), R["shed"][:k + off][j, range(n)],
+                                                    R["short"][:k + off][j, range(n)], R["db"])
     json.dump(dict(rows=rows, m1x_thresholds=sel), open(os.path.join(C.RES, "rloop_val_summary.json"), "w"), indent=1)
     w = max(len(k) for k in rows) if rows else 10
     print(f"{'method':{w}s}  served  mean   median  max    n")
@@ -165,6 +178,7 @@ if __name__ == "__main__":
     ap.add_argument("--decode", default=None, choices=[None, "viterbi", "round"])
     ap.add_argument("--K", type=int, default=16)
     ap.add_argument("--bias", type=float, default=0.0, help="logit shift before decoding")
+    ap.add_argument("--start", default=None, choices=[None, "lpround"], help="seed the recursion with a schedule")
     ap.add_argument("--n", type=int, default=0)
     ap.add_argument("--baselines", action="store_true")
     ap.add_argument("--report", action="store_true")
