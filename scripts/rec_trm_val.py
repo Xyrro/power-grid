@@ -164,7 +164,12 @@ def main():
     ap.add_argument("--tag", required=True)
     ap.add_argument("--n", type=int, default=360)
     ap.add_argument("--threads", type=int, default=1)
+    ap.add_argument("--quick", action="store_true", help="ablation pass: viterbi 0.2 / 0.3 / 0.5 and blend0.5 only, no "
+                    "5-threshold screening (same metrics otherwise)")
     a = ap.parse_args()
+    global TH
+    if a.quick:
+        TH = {"viterbi": (0.2, 0.3, 0.5), "blend0.5": (0.3, 0.5)}
     os.chdir(os.path.dirname(HERE))
     torch.set_num_threads(a.threads)
     os.makedirs(os.path.join(OUT, "val"), exist_ok=True)
@@ -222,12 +227,13 @@ def main():
                 sel[kind][f"best_{hw}"] = dict(th=bt, **ev.rows[f"{hw}|{bt}|k{k_def}|{kind}"])
             # 5 thresholds of the selected decoder (greedy on validation, plain prices)
             hs = how if len(TH[how]) >= 5 else "viterbi"
-            names = [f"{hs}|{t}|k{k_def}" for t in TH[hs]]
-            C = np.stack([ev.store[f"{n}|plain"][:, 0] for n in names], 1)
-            ch = greedy_screen(C, 5)
-            sel[kind]["screen_dec"] = hs
-            sel[kind]["screen_th"] = [TH[hs][c] for c in ch]
-            sel[kind]["screen_th_metrics"] = ev.screen(f"th5_{kind}", [names[c] for c in ch], kind)
+            if len(TH.get(hs, ())) >= 5:
+                names = [f"{hs}|{t}|k{k_def}" for t in TH[hs]]
+                C = np.stack([ev.store[f"{n}|plain"][:, 0] for n in names], 1)
+                ch = greedy_screen(C, 5)
+                sel[kind]["screen_dec"] = hs
+                sel[kind]["screen_th"] = [TH[hs][c] for c in ch]
+                sel[kind]["screen_th_metrics"] = ev.screen(f"th5_{kind}", [names[c] for c in ch], kind)
         # mixed screening: the model's selected 1-LP schedule + 4 LP roundings (greedy on validation), <= 5 LPs
         lpr = os.path.join(OUT, "val", "lpround.npz")
         if os.path.exists(lpr):
@@ -255,7 +261,7 @@ def main():
                 ev.candidate(f"{how}|{th}|k{k}", dec(how, th, k))
             sel["curve"] = {k: dict(plain=ev.rows[f"{how}|{th}|k{k}|plain"], rep=ev.rows[f"{how}|{th}|k{k}|rep"])
                             for k in K_CURVE}
-            for kk in sorted({k_def, min(2 * k_def, K_MAX)}):
+            for kk in ([k_def] if a.quick else sorted({k_def, min(2 * k_def, K_MAX)})):
                 ks = list(range(max(1, kk - 4), kk + 1))
                 for k in ks:
                     ev.candidate(f"{how}|{th}|k{k}", dec(how, th, k))
@@ -265,7 +271,7 @@ def main():
             ev.candidate("halt_q", lambda i: trm.decode(P[i, kh[i] - 1], va, i, sysm, th, how, sgs[i]))
             sel["halt_q"] = dict(steps_mean=float(kh.mean()), steps_median=float(np.median(kh)),
                                  plain=ev.rows["halt_q|plain"], rep=ev.rows["halt_q|rep"])
-    info.update(selection=sel, rows=ev.rows, lps=price.n, lp_s=price.t, wall_s=time.time() - t0)
+    info.update(selection=sel, rows=ev.rows, lps=price.n, lp_s=price.t, wall_s=time.time() - t0, quick=a.quick)
     np.savez_compressed(os.path.join(OUT, "val", f"{a.tag}.npz"), **{k.replace("|", "__"): v for k, v in ev.store.items()})
     with open(os.path.join(RES, f"trm_val_{a.tag}.json"), "w") as f:
         json.dump(info, f, indent=1, default=float)

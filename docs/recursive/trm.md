@@ -15,12 +15,18 @@ from its checkpoint, a finished job is skipped because its result file exists).*
 - Queues (each pins its jobs to one core, single-threaded): `bash scripts/rec_trm_queue.sh <core> <job> ...` with jobs
   `train:<tag>:<flags>`, `val:<tag>`, `cmd:<shell>`; logs in `data/generated/recursive/logs/` (`train_<tag>.log`,
   `q_*.out`, `queue_core*.out`). Checkpoints: `data/generated/recursive/models/<tag>.pt`.
-- Done: `oneshot` (13 min), validation of `m1x`, `lpround`, `oneshot`; `main` (75 min).
-- Running (01:00): core 0 `val:main` → `main_rl` (REINFORCE, 150 steps) → `val:main_rl` → `nods` → `nolp` → `val:nods`
-  → `val:nolp`; core 1 `deep` (~3 h) → `oneshot_long` (18,000 steps).
-- Next (not yet queued): `n6T3`, `rank`, `costw`, `y0lp`, `oneshot_nolp`, `n2T1`, axial-attention variant, post-hoc
-  halting head (`scripts/rec_trm_halt.py`), selection (`scripts/rec_trm_select.py`), test (`scripts/rec_trm_eval.py`,
-  2 shards on cores 0 / 1), report (`scripts/rec_trm_report.py`).
+- Done: `oneshot` (13 min), `main` (73 min); validation of `lpround`, `m1x` (with blend decoder and mixed screening).
+- Running (01:50): core 0 `main_rl` (REINFORCE, 150 steps) → `val:main_rl` → `main_act` (ACT with halt_tol 8) →
+  `val:main_act`, then (`trm_q0e.sh`) `nods` → `nolp` → `y0lp` → quick validations; core 1 `deep` (~3 h) →
+  `oneshot_long` (18,000 steps), in parallel the revalidation of `oneshot` and `main`; then (`trm_q1e.sh`)
+  `oneshot_nolp`, `oneshot_rank`, `oneshot_costw`, `oneshot_attn`, `n2T1` → quick validations of all of them and of
+  `deep`, `oneshot_long`. The waiting queue scripts live in the scratchpad; to resume after a restart, rerun the
+  `scripts/rec_trm_queue.sh` lines of this list (finished trainings are skipped; validations are rerun only if their
+  `results/recursive/trm_val_<tag>.json` is missing or stale). Quick validation:
+  `python3 scripts/rec_trm_val.py --quick --tag <tag>`.
+- Next: post-hoc halting head (`scripts/rec_trm_halt.py --tag <final>`), selection (`scripts/rec_trm_select.py`), test
+  (`scripts/rec_trm_eval.py`, 2 shards on cores 0 / 1), report (`scripts/rec_trm_report.py`), stretch
+  (`scripts/rec_trm_stretch.py --bench uc24|hard`).
 
 ## Summary
 
