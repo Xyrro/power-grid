@@ -492,7 +492,7 @@ class RLoopNet(nn.Module):
     schedule and what the repair changed are kept). carry_z=False: z is re-initialised every outer step."""
 
     def __init__(self, sysm, dx, db, dl, hidden=64, n_latent=2, n_cycles=1, mp_layers=1, dilations=(1, 2, 4),
-                 recall=True, feedback=True, carry_z=True, counts=True, **_):
+                 recall=True, feedback=True, carry_z=True, counts=True, anchor=False, anchor_init=0.0, **_):
         super().__init__()
         H = hidden
         self.H, self.n_latent, self.n_cycles = H, n_latent, n_cycles
@@ -514,6 +514,8 @@ class RLoopNet(nn.Module):
         self.halt = nn.Sequential(nn.LayerNorm(2 * H), _mlp(2 * H, H, 1))
         self.y0 = nn.Parameter(torch.zeros(H))
         self.z0 = nn.Parameter(torch.zeros(H))
+        if anchor:      # skip connection to the priced schedule: logit += a (2 s - 1) when feedback is present
+            self.anchor = nn.Parameter(torch.full((1,), float(anchor_init)))
 
     def embed_static(self, ux):
         return self.ex(ux)
@@ -562,7 +564,10 @@ class RLoopNet(nn.Module):
                     z = self.core(z + stat + fe + self.ey(y), be, le, gate)
                 y = y + self.yupd(torch.cat([y, z], -1))
         hf = torch.cat([y.mean((1, 2)), y.amax((1, 2))], -1)              # halting features [B, 2H]
-        return self.logits(y, pos), hf, (y, z)
+        lg = self.logits(y, pos)
+        if hasattr(self, "anchor"):
+            lg = lg + self.anchor * (2 * fbu[..., 0] - 1) * fbu[..., -1]
+        return lg, hf, (y, z)
 
     def halt_logit(self, hf):
         return self.halt(hf).squeeze(-1)
@@ -931,21 +936,34 @@ def train_reinforce(net, feats, sysm, train_insts, labels, best_known, cfg, pool
         c_rel = np.array([float(x["c_rel"]) for x in insts])
         u0 = np.stack([x["u0"] for x in insts])
         stk = np.stack([gi.stacked(labels[i], u0[j]) for j, i in enumerate(idx)]) if net.counts else None
+        seeded = rng.random() < cfg.get("p_seed", 0.0)
+        if seeded:      # start from the LP-rounding baseline's best schedule (5 thresholds, priced): refinement
+            ths = (0.001, 0.05, 0.2, 0.5, 0.8)
+            jobs = [(("tr", int(i)), insts[j], (insts[j]["u_rel"] > th).astype(np.int8), ls, "round")
+                    for th in ths for j, i in enumerate(idx)]
+            rs = pool.run(jobs)
+            c5 = np.array([x["cost"] for x in rs]).reshape(len(ths), B)
+            jb = c5.argmin(0)
+            start = [rs[jb[j] * B + j] for j in range(B)]
+            fb = stack_feedback(b, start, best, sysm.gbus)
+            best = c5.min(0)
+            hist["seed_gap"].append(float(np.mean(np.log(best / c_rel)) * 100))
         for k in range(K):
             xe = net.embed_static(b.ux)
             if state is None:
                 state = net.init_state(xe)
             logits, hf, st = net.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, state)
             hlog = net.halt_logit(hf.detach())
+            tau = cfg.get("rl_temp", 1.0)                       # sampling temperature (< 1: samples nearer greedy)
             p = torch.sigmoid(logits.detach()).cpu()
-            smp = (torch.rand((S,) + p.shape, generator=gen) < p)                # [S, B, T, G]
+            smp = (torch.rand((S,) + p.shape, generator=gen) < torch.sigmoid(logits.detach().cpu() / tau))
             pn = p.numpy().astype(np.float16)
             jobs = [(("tr", int(i)), insts[j], pn[j], ls, mode) for j, i in enumerate(idx)]
             jobs += [(("tr", int(idx[j])), insts[j], smp[s_, j].numpy().astype(np.int8), ls, mode)
                      for s_ in range(S) for j in range(B)]
             res = pool.run(jobs)
             c = np.array([x["cost"] for x in res[B:]]).reshape(S, B)
-            improve = cfg.get("reward", "improve") == "improve" and k > 0
+            improve = cfg.get("reward", "improve") == "improve" and (k > 0 or seeded)
             rew = np.log((best if improve else c_rel)[None] / c)
             if improve:
                 rew = np.maximum(rew, -cfg.get("clip", 0.05))
@@ -953,7 +971,7 @@ def train_reinforce(net, feats, sysm, train_insts, labels, best_known, cfg, pool
             adv = rw - (rw.sum(0, keepdim=True) - rw) / (S - 1)
             adv = adv / (adv.std() + 1e-8)
             sm = smp.to(device)
-            lg = logits.unsqueeze(0)
+            lg = logits.unsqueeze(0) / tau
             logp = (sm * F.logsigmoid(lg) + (~sm) * F.logsigmoid(-lg)).sum((-1, -2))   # [S, B]
             pg = -(adv.to(device) * logp).mean() / (b.T * b.G)
             r = (logits.detach() > 0).cpu().numpy().astype(np.int8)
@@ -976,7 +994,7 @@ def train_reinforce(net, feats, sysm, train_insts, labels, best_known, cfg, pool
             best = np.minimum(best, gc)
             hist["bce"].append(sup.item())
             hist["halt"].append(hl.item())
-        hist["best"].append(float(np.mean(np.log(best / c_rel)) * 100))
+        hist["best_seeded" if seeded else "best"].append(float(np.mean(np.log(best / c_rel)) * 100))
         if (upd + 1) % cfg.get("rl_log", 10) == 0:
             msg = " ".join(f"{kk} {np.mean(v):.3f}" for kk, v in sorted(hist.items()))
             log(f"[rloop-rl] upd {upd + 1} {msg} | LPs {pool.n_lp} hits {pool.n_hit} ({time.time() - t0:.0f}s)")

@@ -47,9 +47,10 @@ def parse():
     ap.add_argument("--val_n", type=int, default=60)
     ap.add_argument("--seed", type=int, default=0)
     for k in ("hidden", "n_latent", "n_cycles", "mp_layers", "k_train", "epochs", "batch", "k_eval", "rl_updates",
-              "rl_batch", "rl_samples", "rl_k"):
+              "rl_batch", "rl_samples", "rl_k", "rl_log", "rl_ckpt"):
         ap.add_argument(f"--{k}", type=int, default=None)
-    for k in ("lr", "ema", "p_ext", "rl_lr", "bce_w", "halt_w", "clip", "wd"):
+    for k in ("lr", "ema", "p_ext", "rl_lr", "bce_w", "halt_w", "clip", "wd", "p_seed", "w_wrong", "w_grad", "rl_temp",
+              "anchor_init"):
         ap.add_argument(f"--{k}", type=float, default=None)
     ap.add_argument("--decode", default=None, choices=["viterbi", "round"])
     ap.add_argument("--reward", default=None, choices=["improve", "abs"])
@@ -58,6 +59,7 @@ def parse():
     ap.add_argument("--no_deep_sup", action="store_true")
     ap.add_argument("--no_counts", action="store_true")
     ap.add_argument("--no_carry_z", action="store_true")
+    ap.add_argument("--anchor", action="store_true", help="skip connection from the priced schedule to the logits")
     return ap.parse_args()
 
 
@@ -66,9 +68,10 @@ def main():
     torch.set_num_threads(a.threads)
     os.chdir(C.ROOT)
     over = {k: getattr(a, k) for k in ("hidden", "n_latent", "n_cycles", "mp_layers", "k_train", "epochs", "batch",
-                                        "k_eval", "rl_updates", "rl_batch", "rl_samples", "rl_k", "lr", "ema", "p_ext",
+                                        "k_eval", "rl_updates", "rl_batch", "rl_samples", "rl_k", "rl_log", "rl_ckpt",
+                                        "lr", "ema", "p_ext",
                                         "rl_lr", "bce_w", "halt_w", "clip", "wd", "decode", "reward", "lp_workers",
-                                        "inflight")}
+                                        "inflight", "p_seed", "w_wrong", "w_grad", "rl_temp", "anchor_init")}
     ckpt_path = os.path.join(C.OUT, f"{a.tag}.pt")
     hist_path = os.path.join(C.RES, f"rloop_train_{a.tag}.json")
     init = None
@@ -77,10 +80,12 @@ def main():
         init = torch.load(src, map_location="cpu", weights_only=False)
         cfg = dict(init["cfg"])
         cfg.update({k: v for k, v in over.items() if v is not None})
+        if a.anchor:
+            cfg["anchor"] = True
     else:
         cfg = C.model_cfg(a.preset, **over)
         cfg.update(feedback=not a.no_feedback, recall=not a.no_recall, deep_sup=not a.no_deep_sup,
-                   counts=not a.no_counts, carry_z=not a.no_carry_z, sym_rank=a.no_counts)
+                   counts=not a.no_counts, carry_z=not a.no_carry_z, sym_rank=a.no_counts, anchor=a.anchor)
     cfg.update(device=a.device, preset=a.preset, seed=a.seed, n_train=a.n_train, line_scale=1.0)
     log_f = open(os.path.join(C.OUT, f"{a.tag}.log"), "a")
 
@@ -108,17 +113,30 @@ def main():
     n_par = sum(p.numel() for p in net.parameters())
     log(f"[{a.tag}] stage {a.stage} params {n_par} cfg {json.dumps(cfg, default=str)}")
 
+    starts = None
+    if cfg.get("p_seed", 0.0) > 0:             # monitor the seeded mode too (LP-rounding best of 5 on validation)
+        lpr = [min((rloop.decode((x["u_rel"] > th).astype(np.int8), x, sysm, "round")[1] for th in
+                    (0.001, 0.05, 0.2, 0.5, 0.8)), key=lambda s_: pool.run([(("va", i), x, s_, 1.0, "round")])[0]["cost"])
+               for i, x in zip(vidx, vinsts)]
+        starts = np.stack(lpr)
+
     def val_fn(model):
+        out = val_one(model, None)
+        if starts is not None:
+            out["seeded"] = val_one(model, starts)
+        return out
+
+    def val_one(model, st0):
         t0 = time.time()
         K = cfg["k_eval"]
         steps = rloop.rollout_batch(model, feats, sysm, vinsts, K, pool, device, [("va", i) for i in vidx],
-                                    mode=cfg.get("decode", "viterbi"))
-        cost = np.array([[x[0] for x in st] for st in steps])          # [K, n]
+                                    mode=cfg.get("decode", "viterbi"), starts=st0)
+        cost = np.array([[x[0] for x in st] for st in steps])          # [K(+1), n]
         served = np.array([[x[1] < 1e-6 and x[2] < 1e-6 for x in st] for st in steps])
         best = np.minimum.accumulate(cost, 0)
         g = lambda c: (c - db) / c * 100
         out = dict(gap_k0=float(g(cost[0]).mean()), gap_best=float(g(best[-1]).mean()),
-                   gap_best_k=[round(float(g(best[k]).mean()), 4) for k in range(K)],
+                   gap_best_k=[round(float(g(best[k]).mean()), 4) for k in range(len(cost))],
                    served_k0=float(served[0].mean() * 100),
                    served_best=float(np.mean([served[np.argmin(cost[:, i]), i] for i in range(len(vidx))]) * 100),
                    med_best=float(np.median(g(best[-1]))), s=round(time.time() - t0, 1))
@@ -142,7 +160,8 @@ def main():
             start = ck["extra"]["it"] + 1
             log(f"[{a.tag}] resuming {a.stage} at {start}")
     elif init is not None:
-        net.load_state_dict(init["ema"])                    # fine-tuning starts from the EMA weights
+        missing, unexpected = net.load_state_dict(init["ema"], strict=False)   # fine-tuning starts from the EMA
+        assert not unexpected and set(missing) <= {"anchor"}, (missing, unexpected)
         log(f"[{a.tag}] initialised from {a.init}: {init['rec'].get('val')}")
     t0 = time.time()
     if a.stage == "sup":
@@ -152,7 +171,7 @@ def main():
     else:
         if start < cfg["rl_updates"]:
             if start == 0 and init is not None:
-                ema_state = init["ema"]
+                ema_state = dict(net.state_dict())
             rloop.train_reinforce(net, feats, sysm, insts, y, c_lab, cfg, pool, device, log=log, val_fn=val_fn,
                                   ckpt=ckpt, start_update=start, opt_state=opt_state, ema_state=ema_state, seed=a.seed)
     log(f"[{a.tag}] done in {time.time() - t0:.0f}s; LPs {pool.n_lp}, hits {pool.n_hit}, LP seconds {pool.t_lp:.0f}")
