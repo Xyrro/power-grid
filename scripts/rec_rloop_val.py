@@ -77,6 +77,22 @@ def lpround_starts(va, insts, sysm, idx):
             B["lpround_short"][jb, r][idx])
 
 
+def union_starts(va, insts, sysm, idx):
+    """the best of the LP-rounding (5 LPs) and m1x (5 LPs, validation-selected thresholds) candidates"""
+    B = dict(np.load(os.path.join(C.RES, "rloop_val_baselines.npz")))
+    P = np.load(os.path.join(C.DM1X, "probs", "pol_n2000_gnnt_ens5_probs.npz"))["val"].astype(float)
+    sel = json.load(open(os.path.join(C.RES, "rloop_val_summary.json")))["m1x_thresholds"]["5"]["th"]
+    th = list(B["m1x_th"])
+    J = [th.index(t) for t in sel]
+    s0, c0, sh0, so0 = lpround_starts(va, insts, sysm, idx)
+    for j, i in enumerate(idx):
+        jm = J[int(np.argmin(B["m1x_c"][J, i]))]
+        if B["m1x_c"][jm, i] < c0[j]:
+            s0[j] = rloop.decode((P[i] > th[jm]).astype(np.int8), insts[j], sysm, "round")[1]
+            c0[j], sh0[j], so0[j] = B["m1x_c"][jm, i], B["m1x_shed"][jm, i], B["m1x_short"][jm, i]
+    return s0, c0, sh0, so0
+
+
 def run_guided(a):
     """LP-verified local search from the LP-rounding schedule (K LPs), moves ranked by the LP's first-order prediction
     minus lam x the log-odds of a prior: none (learning-free), the m1x ensemble (static), or a recursive model (re-run
@@ -86,11 +102,11 @@ def run_guided(a):
     n = len(va["load"])
     idx = list(range(a.n0, min(a.n1 or n, n)))
     insts = C.insts_of(va, idx)
-    starts, c0, sh0, so0 = lpround_starts(va, insts, sysm, idx)
+    starts, c0, sh0, so0 = (union_starts if a.seed == "union" else lpround_starts)(va, insts, sysm, idx)
     P = np.load(os.path.join(C.DM1X, "probs", "pol_n2000_gnnt_ens5_probs.npz"))["val"].astype(float) \
         if a.guide == "m1x" else None
     net = feats = None
-    if a.guide == "net":
+    if a.guide in ("net", "net_once"):
         net, ck, feats = C.load_model(os.path.join(C.OUT, f"{a.model}.pt"), sysm)
     lp = rloop.FastLP(sysm, 12)
     K = a.K
@@ -98,7 +114,7 @@ def run_guided(a):
     t0 = time.time()
     for j, i in enumerate(idx):
         recs, _, _ = rloop.guided_search(insts[j], starts[j], K, lp, sysm, a.lam, prior=P[i] if P is not None else None,
-                                      net=net, feats=feats, bias=a.bias)
+                                      net=net, feats=feats, bias=a.bias, net_once=a.guide == "net_once")
         out["cost"][0, j], out["shed"][0, j], out["short"][0, j] = c0[j], sh0[j], so0[j]
         for k in range(K):
             x = recs[min(k, len(recs) - 1)] if recs else None
@@ -107,8 +123,9 @@ def run_guided(a):
             else:
                 out["cost"][k + 1, j], out["shed"][k + 1, j], out["short"][k + 1, j] = x["best"], x["best_shed"], x["best_short"]
             out["time"][k + 1, j] = x["time"] if x else 0.0
-    tag = f"guided_{a.guide}" + (f"-{a.model}" if a.guide == "net" else "") + f"_lam{a.lam:g}" + \
-        (f"_b{a.bias:g}" if a.bias else "") + (f"_{a.n0}-{idx[-1] + 1}" if (a.n0 or a.n1) else "")
+    tag = f"guided_{a.guide}" + (f"-{a.model}" if a.guide in ("net", "net_once") else "") + f"_lam{a.lam:g}" + \
+        (f"_b{a.bias:g}" if a.bias else "") + ("_seed-union" if a.seed == "union" else "") + \
+        (f"_{a.n0}-{idx[-1] + 1}" if (a.n0 or a.n1) else "")
     np.savez(os.path.join(C.RES, f"rloop_val_{tag}.npz"), db=va["db"][idx], idx=np.array(idx), **out)
     db = va["db"][idx]
     print(f"{tag}: {time.time() - t0:.0f}s, mean gap by LPs:",
@@ -231,9 +248,10 @@ if __name__ == "__main__":
     ap.add_argument("--start", default=None, choices=[None, "lpround"], help="seed the recursion with a schedule")
     ap.add_argument("--n", type=int, default=0)
     ap.add_argument("--baselines", action="store_true")
-    ap.add_argument("--guide", default=None, choices=[None, "none", "m1x", "net"],
+    ap.add_argument("--guide", default=None, choices=[None, "none", "m1x", "net", "net_once"],
                     help="LP-verified local search from the LP-rounding schedule, guided by this prior")
     ap.add_argument("--lam", type=float, default=0.5)
+    ap.add_argument("--seed", default="lpround", choices=["lpround", "union"], help="starting schedule of the search")
     ap.add_argument("--n0", type=int, default=0)
     ap.add_argument("--n1", type=int, default=0)
     ap.add_argument("--report", action="store_true")

@@ -55,6 +55,8 @@ def main():
     lam = {}
     for f in sorted(glob.glob(os.path.join(C.RES, "rloop_val_guided_*_0-120.npz"))):
         name = os.path.basename(f)[len("rloop_val_guided_"):-len("_0-120.npz")]
+        if "seed-" in name or name.startswith("net_once"):
+            continue
         prior, lm = name.rsplit("_lam", 1)
         g = float(gap(np.load(f)["cost"][-1], np.load(f)["db"]).mean())
         if prior not in lam or g < lam[prior][1]:
@@ -68,7 +70,7 @@ def main():
         R = dict(np.load(f))
         full[name] = [float(gap(R["cost"][k], R["db"]).mean()) for k in range(R["cost"].shape[0])]
     out["guided_full"] = full
-    nets = {k: v for k, v in full.items() if k.startswith("net-")}
+    nets = {k: v for k, v in full.items() if k.startswith("net-") and "seed-" not in k}
     if nets:
         gname = min(nets, key=lambda k: nets[k][-1])
         gm = gname[len("net-"):].rsplit("_lam", 1)

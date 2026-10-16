@@ -1226,12 +1226,13 @@ def guided_moves(s, grad, logit, cost, sysm, lam):
 
 @torch.no_grad()
 def guided_search(inst, s0, K, lp: FastLP, sysm, lam, prior=None, net=None, feats=None, device="cpu", fmax=None,
-                  bias=0.0, max_tries=None, snap=None):
+                  bias=0.0, max_tries=None, snap=None, net_once=False):
     """LP-verified local search from s0 with K LPs after pricing s0. Move ranking: guided_moves with the log-odds of
     either a fixed prior (probabilities [T, G], e.g. the m1x ensemble) or the recursive network, which is run once per
     LP on the LP feedback of the current best schedule (recursion state carried). A move is applied, made min
     up/down-feasible (Hamming) and adequate (block repair), priced, and accepted if cheaper. lam = 0: the learning-free
-    LP-gradient search. Returns per-LP records (cost, best, ..., cumulative time), the best schedule and the last
+    LP-gradient search. net_once: the network is run once (on the starting schedule's feedback) and its log-odds kept
+    (control for the recursion). Returns per-LP records (cost, best, ..., cumulative time), the best schedule and the last
     log-odds used for ranking."""
     t0 = time.time()
     sc = scenario_of(inst)
@@ -1259,7 +1260,7 @@ def guided_search(inst, s0, K, lp: FastLP, sysm, lam, prior=None, net=None, feat
     need_rank = True
     while len(recs) < K and tried < (max_tries or 50 * K):
         if need_rank:
-            if net is not None:
+            if net is not None and not (net_once and len(recs) > 0):
                 fb = stack_feedback(b, [cur], np.array([np.inf]), sysm.gbus)
                 lg, _, state = net.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, state)
                 logit = lg[0].cpu().numpy().astype(float) + bias
