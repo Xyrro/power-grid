@@ -283,3 +283,20 @@ account, GPU type, module and environment names); check the PACE ICE documentati
    K from `results/recursive/rloop_select.json` or `MODEL=… K_SEL=…`. Then `python3 scripts/rec_rloop_report.py`.
 4. **Resume.** Training checkpoints every epoch (stage 1) and every 25 updates (stage 2); resubmitting the same job
    resumes. Evaluation skips finished instances.
+
+**What is worth scaling, and the cost (estimates, not measured on PACE).** On CPU one supervised epoch of the CPU
+preset (2,000 instances, 3 outer steps, batch 32) takes ~280 s on one core, of which ~75 s are LPs; one REINFORCE
+update (16 instances, 4 samples, 3 steps, 240 LPs) ~7 s. The GPU preset is ~6× the FLOPs per token pass (hidden 160
+vs 64), 3 passes per outer step instead of 2 (2 cycles, gradient through the last) and 6 outer steps instead of 3.
+
+| job | configuration | GPU-h | CPU core-h (LP workers) | memory |
+|---|---|---|---|---|
+| data (shared jobs) | 50k–100k polished labels (`trm_gen_data_array`) | – | 70–150 | 3 GB per task |
+| train A | preset `gpu`, 2,000 instances, 60 epochs + 1,500 RL updates | ~6 | ~120 (20 workers × 6 h) | GPU ~8 GB; host ~24 GB |
+| train B | as A on 50k instances, 20 epochs | ~25 | ~500 | GPU ~8 GB; host ~32 GB |
+| train C | as A without LP feedback (`EXTRA=--no_feedback`), the key ablation | ~6 | ~120 | as A |
+| evaluation | 4 benchmarks, paired, single-core tasks | – | ~6 per model | 4 GB per task |
+
+Per epoch the LPs (2,000 × 5 per epoch for K_train = 6, ~40 ms each with decoding) take ~400 core-s, i.e. ~20 s with
+20 workers, below the estimated ~150–250 s of GPU compute, so `LP_WORKERS` = 16–24 keeps the GPU busy; REINFORCE is
+LP-bound (32 × 9 × 6 = 1,728 LPs per update, ~3.5 s with 20 workers).
