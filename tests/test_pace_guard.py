@@ -70,8 +70,11 @@ def test_budget_respects_project_share_and_user_limit():
     assert g.check_budget(c, u, "gpu", 1, 6.0, 1, None) == []                    # 26 + 6 = 32: allowed
     bad = g.check_budget(c, u, "gpu", 1, 7.0, 1, None)                         # 33 > 32: would block others
     assert any("user limit" in b for b in bad)
-    bad = g.check_budget(c, g.Usage(10, 10, 2, 2, 0), "gpu", 1, 8.0, 1, None)  # project 18 > 16
+    # the project share now applies to RUNNING capacity: 10 running + 8 > 16
+    bad = g.check_budget(c, g.Usage(10, 10, 2, 2, 0, 10.0), "gpu", 1, 8.0, 1, None)
     assert any("project share" in b for b in bad)
+    # queued jobs of ours hold no running capacity, so a pipeline may be queued
+    assert g.check_budget(c, g.Usage(0, 30, 2, 2, 0, 0.0), "gpu", 1, 8.0, 1, None) == []
     assert any("MAX_WALLTIME" in b for b in g.check_budget(c, g.Usage(0, 0, 0, 0, 0), "gpu", 1, 9.0, 1, None))
     assert any("arrays" in b for b in g.check_budget(c, g.Usage(0, 0, 0, 0, 0), "gpu", 1, 1.0, 4, 2))
 

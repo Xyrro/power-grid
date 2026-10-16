@@ -269,8 +269,10 @@ def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_task
         if n_tasks != 1:
             bad.append("GPU jobs must not be arrays here; submit them one by one")
         new = gpus * hours
-        if u.gpu_hours_ours + new > float(cfg["SHARE_GPU_HOURS"]) + 1e-9:
-            bad.append(f"project share: {u.gpu_hours_ours:.1f} queued+running + {new:.1f} GPU-h > "
+        # Both caps apply to RUNNING capacity, which is what Slurm's MaxTRESRunMins limits; queued jobs hold nothing,
+        # so a pipeline may be queued and SHARE_GPU_JOBS bounds how deep that queue gets.
+        if u.gpu_hours_ours_running + new > float(cfg["SHARE_GPU_HOURS"]) + 1e-9:
+            bad.append(f"project share: {u.gpu_hours_ours_running:.1f} GPU-h running + {new:.1f} > "
                        f"SHARE_GPU_HOURS {cfg['SHARE_GPU_HOURS']}")
         # Slurm's MaxTRESRunMins counts RUNNING jobs; a pending job of ours does not block other projects.
         if u.gpu_hours_all + new > float(cfg["USER_GPU_HOURS_LIMIT"]) + 1e-9:
