@@ -144,7 +144,8 @@ def val_tables(lines, out):
               "1-LP pipelines with their selected decoder / threshold; 5 thresholds = greedy-selected screening; "
               "\"+ rep\" = with the LP-guided repair (selected separately).", "",
               "| model | mode | n | T | n_sup | LP feats | symmetry | params | BCE @k | wrong @k | 1 LP | 1 LP + rep | "
-              "5 thr. + rep | last 5 steps + rep |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+              "5 thr. + rep | last 5 steps + rep | + 4 LP roundings + rep |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
 
     def cell(r):
         return f"{r['gap_mean']:.2f} / {r['gap_median']:.2f} % ({r['served']:.0f} %)" if r else "–"
@@ -153,7 +154,7 @@ def val_tables(lines, out):
         s = v.get("selection", {})
         if tag == "lpround":
             lines.append(f"| LP rounding (no learning) | – | – | – | – | – | – | 0 | – | – | – | – | "
-                         f"{cell(s.get('screen5_rep'))} | – |")
+                         f"{cell(s.get('screen5_rep'))} | – | – |")
             out["val"][tag] = s
             continue
         c = v.get("cfg", {})
@@ -165,7 +166,7 @@ def val_tables(lines, out):
                      f"{pm.get('bce', float('nan')):.4f} | {pm.get('wrong', float('nan')):.1f} | "
                      f"{cell(s['plain']['one_lp'])} ({s['plain']['decoder'][:3]} {s['plain']['th']}) | "
                      f"{cell(s['rep']['one_lp'])} ({s['rep']['decoder'][:3]} {s['rep']['th']}) | "
-                     f"{cell(s['rep']['screen_th_metrics'])} | {cell(steps)} |")
+                     f"{cell(s['rep'].get('screen_th_metrics'))} | {cell(steps)} | {cell(s['rep'].get('mix_metrics'))} |")
         out["val"][tag] = dict(selection=s, cfg=c, prob=v.get("prob"), params=v.get("params"))
     lines += ["", "### Test-time compute on validation (1 LP + repair after k steps, selected decoder; mean gap (served))", "",
               "| model | " + " | ".join(f"k = {k}" for k in K_CURVE) + " | halting head (mean steps) |",
@@ -178,6 +179,16 @@ def val_tables(lines, out):
         lines.append(f"| {tag} | " + " | ".join(f"{cv[str(k)]['rep']['gap_mean']:.2f} % ({cv[str(k)]['rep']['served']:.0f} %)"
                                                  for k in K_CURVE)
                      + f" | {hq['rep']['gap_mean']:.2f} % ({hq['steps_mean']:.1f}) |")
+    for f in sorted(glob.glob(os.path.join(RES, "trm_halt_*.json"))):
+        h = json.load(open(f))
+        out.setdefault("halt_posthoc", {})[h["tag"]] = {k: v for k, v in h.items() if k != "w"}
+        fx = h["val_fixed_steps"]
+        lines.append(f"\nPost-hoc halting head of `{h['tag']}` (fitted on {h['n_fit']} training instances, target: within "
+                     f"{h['tol'] * 100:.1f} % of the best known cost; {h['good_rate_fit'] * 100:.0f} % of the fitted steps are "
+                     f"good): validation {h['val']['gap_mean']:.2f} % (median {h['val']['gap_median']:.2f} %, served "
+                     f"{h['val']['served']:.1f} %) at {h['val']['steps_mean']:.1f} steps on average, against "
+                     f"{fx['1']['gap_mean']:.2f} % at 1 step and {fx[str(h['K'])]['gap_mean']:.2f} % at {h['K']}; the best step "
+                     f"per instance in hindsight (oracle): {h['val_oracle_best_step_gap']:.2f} %.")
     lines += ["", "### Probability quality by supervision step (validation: BCE against the model's targets / wrong "
               "unit-hours per instance)", "", "| model | " + " | ".join(f"k = {k}" for k in K_CURVE) + " |",
               "|---|" + "---|" * len(K_CURVE)]
