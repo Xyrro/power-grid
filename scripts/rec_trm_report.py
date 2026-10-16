@@ -99,12 +99,39 @@ def test_tables(R, plan, lines, out):
     fin = plan["final"]
     ctrl = [t for t in plan["trm"] if t != fin]
     lines += ["", "### Paired differences (TRM − reference): Δ gap pp [95 % CI] / Δ log speed-up [CI] (> 0: TRM faster)", ""]
+    head = plan.get("headline", fin + "_1r")
+    hs = head[len(fin):]
+    lines += [f"**Headline pipeline {head}** (chosen on validation)", "", "| reference | Δ gap, pp | Δ log speed-up |",
+              "|---|---|---|"]
+    for r in ["lpround5r", "lpround5", "m1x_mix5r", "m1x_5r", "rl_lag7r", "milp05", "milp01"] + \
+            [c + sx for c in ctrl for sx in (hs, "_t5r")]:
+        if r in S and r != head:
+            dg, dl = paired(G[head], G[r]), paired(L[head], L[r])
+            out["paired"] = out.get("paired", {})
+            out["paired"][f"{head}|{r}"] = dict(gap=dg, logspeed=dl)
+            lines.append(f"| {r} | {dg['diff']:+.2f} [{dg['ci'][0]:+.2f}, {dg['ci'][1]:+.2f}] | "
+                         f"{dl['diff']:+.2f} [{dl['ci'][0]:+.2f}, {dl['ci'][1]:+.2f}] |")
+    lines += ["", "**Control models' pipelines against the no-learning baseline and the loosened MILP**", "",
+              "| pipeline | vs lpround5r: Δ gap / Δ log speed-up | vs milp05: Δ gap / Δ log speed-up |", "|---|---|---|"]
+    for c in [fin] + ctrl + ["m1x"]:
+        for sx in ("_1r", "_t5r", "_5r", "_mix5r", "_s5r", "_fb"):
+            k = c + sx
+            if k not in S:
+                continue
+            cells = []
+            for r in ("lpround5r", "milp05"):
+                dg, dl = paired(G[k], G[r]), paired(L[k], L[r])
+                out.setdefault("paired", {})[f"{k}|{r}"] = dict(gap=dg, logspeed=dl)
+                cells.append(f"{dg['diff']:+.2f} [{dg['ci'][0]:+.2f}, {dg['ci'][1]:+.2f}] / {dl['diff']:+.2f} "
+                             f"[{dl['ci'][0]:+.2f}, {dl['ci'][1]:+.2f}]")
+            lines.append(f"| {k} | " + " | ".join(cells) + " |")
+    lines.append("")
     comps = [("_1r", ["lpround5r", "m1x_1r", "m1x_5r", "rl_lag7r", "milp05"] + [c + "_1r" for c in ctrl]),
              ("_1", ["lpround5", "m1x_1", "m1x_5", "rl_lag7"] + [c + "_1" for c in ctrl]),
              ("_s5r", ["lpround5r", "m1x_5r", "rl_lag7r", "milp05", fin + "_1r"] + [c + "_t5r" for c in ctrl]),
              ("_t5r", ["lpround5r", "m1x_5r", "rl_lag7r", "milp05"] + [c + "_t5r" for c in ctrl]),
              ("_fb", ["lpround5r", "m1x_5r", "milp05", fin + "_1r"])]
-    out["paired"] = {}
+    out.setdefault("paired", {})
     for sfx, refs in comps:
         for tag in [fin] + ctrl:
             k = tag + sfx

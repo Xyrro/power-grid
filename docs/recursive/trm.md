@@ -174,6 +174,64 @@ repair": `main` 3.64 %, `main_rl` 3.99 %, `main_act` 4.08 %.)
   but once the LP repair is applied it changes little, except for the TRM's threshold screening (4.50 → 2.94 %).
 
 
+### Test (test_fresh, 120 instances, read once; paired timing)
+
+Gap (C − DB) / C to the dual bound of the full MILP at 0.1 % solved in the same process; speed-up T_MILP / T_method
+per instance. The full MILP took 22.7 s on average (median 19.5 s, 14 % at the 60 s limit); the re-solved LP
+relaxation (0.23 s) matched the stored one exactly. Repaired pipelines ("+ repair") unless marked; complete table with all
+plain and repaired variants in `results/recursive/trm_results.md`.
+
+| pipeline | served | gap mean [95 % CI] | median | max | time | speed-up mean (median) |
+|---|---|---|---|---|---|---|
+| full MILP, 0.1 % (reference) | 96.7 % | 0.20 % | 0.10 % | 3.9 % | 22.7 s | 1.0× |
+| full MILP, 0.5 % | 96.7 % | 0.23 % [0.18, 0.29] | 0.10 % | 2.1 % | 12.4 s | 3.9× (1.7×) |
+| LP rounding, 5 thresholds (no learning) | 98.3 % | 1.75 % [1.32, 2.26] | 0.91 % | 21.1 % | 0.52 s | 42.9× (33.4×) |
+| LP rounding, 5 thresholds + repair | 99.2 % | 1.71 % [1.30, 2.21] | 0.91 % | 21.1 % | 0.52 s | 42.7× (33.4×) |
+| m1x ensemble, 1 LP + repair | 95.8 % | 2.40 % [1.73, 3.23] | 1.15 % | 28.3 % | 0.35 s | 62.7× (55.1×) |
+| m1x ensemble, 5 thresholds + repair | 99.2 % | 1.45 % [1.04, 2.04] | 0.74 % | 28.2 % | 0.66 s | 34.0× (28.9×) |
+| REINFORCE end-to-end (Lagrangian + KL), 7 thresholds + repair | 95.8 % | 2.32 % [1.68, 3.08] | 1.12 % | 28.2 % | 0.75 s | 29.9× (24.2×) |
+| **TRM `main`, 1 LP** (as specified, no repair) | 87.5 % | 4.96 % [3.01, 7.46] | 1.19 % | 86.1 % | 0.91 s | 24.8× (20.9×) |
+| TRM `main`, 1 LP + repair | 98.3 % | 2.55 % [1.92, 3.27] | 1.30 % | 28.4 % | 0.92 s | 24.3× (20.8×) |
+| TRM `main`, last 5 steps screened + repair | 97.5 % | 2.25 % [1.71, 2.91] | 1.14 % | 28.4 % | 0.99 s | 22.7× (19.0×) |
+| TRM `main`, 5 thresholds + repair | 98.3 % | 1.71 % [1.22, 2.34] | 0.77 % | 28.4 % | 1.15 s | 19.7× (16.3×) |
+| **TRM `main` + 4 LP roundings + repair (headline, chosen on validation)** | 99.2 % | **1.48 % [1.10, 1.98]** | 0.68 % | 21.1 % | 1.18 s | 19.1× (15.3×) |
+| TRM `main`, 1 LP + repair + safety net (fires on 6.7 %) | 99.2 % | 1.70 % [1.44, 1.97] | 1.11 % | 6.9 % | 1.58 s | 22.0× (18.1×) |
+| TRM + REINFORCE (`main_rl`), + 4 LP roundings + repair | 100 % | 1.56 % [1.17, 2.06] | 0.83 % | 21.1 % | 1.17 s | 19.1× (15.9×) |
+| TRM + REINFORCE, 1 LP + repair + safety net (6.7 %) | 100 % | 1.55 % [1.31, 1.80] | 1.11 % | 6.2 % | 1.73 s | 21.8× (17.2×) |
+| one-shot (same net), 1 LP + repair | 97.5 % | 2.19 % [1.61, 2.92] | 1.17 % | 28.3 % | 0.34 s | 66.0× (56.3×) |
+| one-shot, 5 thresholds + repair | 98.3 % | **1.30 % [1.04, 1.59]** | 0.60 % | 10.2 % | 0.59 s | 36.5× (31.5×) |
+| one-shot, + 4 LP roundings + repair | 100 % | 1.60 % [1.20, 2.10] | 0.84 % | 21.1 % | 0.58 s | 38.8× (30.0×) |
+| one-shot, 1 LP + repair + safety net (12.5 %) | 100 % | 1.21 % [1.03, 1.40] | 0.91 % | 3.9 % | 1.74 s | 51.9× (35.0×) |
+| one-shot + REINFORCE, 1 LP + repair + safety net (15.8 %) | 100 % | **1.17 % [0.98, 1.37]** | 0.84 % | 4.7 % | 1.99 s | 47.8× (31.0×) |
+| deep non-recursive (1.3 M), 5 thresholds + repair | 100 % | 1.34 % [1.02, 1.74] | 0.63 % | 15.2 % | 0.66 s | 33.6× (28.6×) |
+| deep non-recursive, + 4 LP roundings + repair | 98.3 % | 1.45 % [1.07, 1.93] | 0.54 % | 21.1 % | 0.67 s | 33.4× (27.0×) |
+
+Paired differences (Δ gap in pp and Δ log speed-up, 95 % CI; > 0 in the second: the first method is faster):
+
+| comparison | Δ gap | Δ log speed-up |
+|---|---|---|
+| TRM headline − LP rounding + repair | **−0.23 [−0.37, −0.12]** | −0.83 [−0.85, −0.80] (2.3× slower) |
+| TRM headline − full MILP at 0.5 % | +1.25 [+0.90, +1.71] | +1.75 [+1.54, +1.96] (5.8× faster) |
+| TRM headline − one-shot + 4 LP roundings | −0.12 [−0.24, −0.02] | −0.71 [−0.73, −0.69] (2.0× slower) |
+| TRM headline − one-shot, 5 thresholds | +0.19 [−0.06, +0.51] | −0.70 [−0.72, −0.67] |
+| TRM headline − deep non-recursive + 4 LP roundings | +0.03 [−0.06, +0.14] | −0.57 [−0.59, −0.56] |
+| TRM headline − m1x + 4 LP roundings | −0.20 [−0.32, −0.10] | −0.76 [−0.78, −0.73] |
+| TRM headline − REINFORCE end-to-end (Lagrangian + KL) | −0.84 [−1.46, −0.33] | −0.48 [−0.52, −0.44] |
+| TRM, 1 LP + repair − LP rounding + repair | +0.84 [+0.30, +1.49] | −0.58 [−0.62, −0.55] |
+| TRM, 1 LP + repair − one-shot, 1 LP + repair | +0.37 [−0.15, +0.84] | −1.02 [−1.04, −0.99] |
+| one-shot, 5 thresholds + repair − LP rounding + repair | **−0.42 [−0.74, −0.15]** | −0.13 [−0.17, −0.10] |
+| one-shot + safety net − LP rounding + repair | −0.50 [−1.00, −0.10] | +0.05 [−0.17, +0.23] |
+
+**Test-time compute on test** (TRM `main`, 1 LP + repair after k steps; mean gap, time): k = 1 2.80 % (0.40 s), 2
+2.57 %, 4 2.33 % (0.63 s), 8 2.55 % (0.92 s), 16 2.50 % (1.51 s), 32 2.49 % (2.69 s); `main_rl` 2.03 % at k = 1 and
+2.13–2.16 % from k = 2 to 32. A little better after 2–4 steps than after one, then flat: more thinking neither helps
+nor hurts (no overthinking up to 32 steps, 4× the training horizon), but it costs time linearly.
+
+**Zero-shot 24 hours** (uc24 test, 40 instances, stored 300-s MILP as reference; no retraining, 12-hour validation
+choices): LP rounding + repair 1.78 % (median 1.02 %, 95 % served); TRM `main` + 4 LP roundings 1.59 % after 1 step,
+1.68–1.71 % after 4–48 steps; `main_rl` 1.55 % → 1.62 %; one-shot 1.67 %; the TRM's own 1-LP schedule 3.1–3.7 %
+(90–92.5 % served). More recursion steps on the longer horizon do not help (`results/recursive/trm_stretch_uc24.json`).
+
 ## Ablations
 
 **Which items of PLAN.md were tested, and how** (numbers below and in `results/recursive/trm_results.md`):
