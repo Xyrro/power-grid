@@ -56,6 +56,11 @@ def methods(r, k_sel, thetas=(0.5, 1.0, 2.0, 4.0)):
         if f"m1x_{kk}" in r:
             c, s, t = best_of(r[f"m1x_{kk}"]["c"])
             out[f"m1x ensemble + repair, {kk} LP{'s' if kk != '1' else ''}"] = (c, s, r[f"m1x_{kk}"]["t_pre"] + t)
+    if "m1x_5" in r:          # equal-compute screening: the union of both candidate sets (10 LPs)
+        c1, s1, t1 = best_of(r["lpround"]["c"])
+        c2, s2, t2 = best_of(r["m1x_5"]["c"])
+        tt = r["m1x_5"]["t_pre"] + t2 + t1                  # relaxation + m1x inference + both sets of repairs / LPs
+        out["LP rounding (5) + m1x (5), 10 LPs"] = (c1, s1, tt) if c1 <= c2 else (c2, s2, tt)
     if "m1x_vit" in r:
         c, s, t = best_of(r["m1x_vit"]["c"])
         out["m1x ensemble, Viterbi + repair, 1 LP"] = (c, s, r["m1x_vit"]["t_pre"] + t)

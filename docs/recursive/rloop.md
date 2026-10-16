@@ -16,6 +16,17 @@ Checkpoints and logs (git-ignored): `data/generated/recursive/rloop/`.*
 - 23:52 `main` (core 2) and 23:54 `nofb` (core 3) supervised training started, 10 epochs each (~5.3 min/epoch):
   `OTSL_THREADS=1 taskset -c 2 python3 scripts/rec_rloop_train.py --tag main --preset cpu`,
   `... -c 3 ... --tag nofb --preset cpu --no_feedback`; logs `data/generated/recursive/rloop/<tag>.{log,out}`.
+- 00:15 diagnosis: under imitation the per-step training errors are identical (≈ 9.6 wrong decisions per instance at
+  steps 0, 1, 2, with and without feedback); the model alone is worse than LP rounding on validation (epoch 4, 60
+  instances: 3.43 % vs 1.86 %), seeded with the LP-rounding schedule it improves it slightly (1.75 %). Added: seeded
+  refinement (inference `--start lpround`, RL `--p_seed`), an anchor skip from the priced schedule to the logits
+  (`--anchor`), a sampling temperature for RL (`--rl_temp`), cost-weighted deep supervision (`--w_wrong`, `--w_grad`).
+- 00:30 queues (scratchpad `rloop_q2b.sh`, `rloop_q3.sh`; each job resumes or no-ops if done):
+  core 2: main → `main_rl` (RL) → `main_rls` (RL with seeded batches, anchor 2, temperature 0.5) → `norecall`;
+  core 3: nofb → `nods` → `nofb_rl`. Commands: `python3 scripts/rec_rloop_train.py --tag main_rl --stage rl --init main`;
+  `... --tag main_rls --stage rl --init main --anchor --anchor_init 2.0 --rl_temp 0.5 --p_seed 0.5`;
+  `... --tag norecall --preset cpu --no_recall`; `... --tag nods --preset cpu --no_deep_sup`;
+  `... --tag nofb_rl --stage rl --init nofb`.
 
 ## Summary
 
