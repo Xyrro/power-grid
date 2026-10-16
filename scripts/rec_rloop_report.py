@@ -37,6 +37,11 @@ def load(bench):
     return out
 
 
+def ref_full(r):
+    """the reference full MILP (0.1 %; in smoke runs the first gap solved)"""
+    return r["full"].get("0.001") or next(iter(r["full"].values()))
+
+
 def best_of(c):
     """c: [[cost, shed, short, cum_time], ...] -> (cost, served, time of the last LP)"""
     j = int(np.argmin([x[0] for x in c]))
@@ -69,16 +74,19 @@ def methods(r, k_sel, thetas=(0.5, 1.0, 2.0, 4.0)):
         if K <= len(R):
             x = R[K - 1]
             out[f"rloop K={K}"] = (x["best"], x["best_shed"] < 1e-6 and x["best_short"] < 1e-6, x["time"])
-    if "lpls" in r:            # learning-free LP-gradient local search from the LP-rounding schedule
-        L = r["lpls"]
+    for key, name in (("lpls", "LP rounding + local search, LP-gradient ranking (no learning)"),
+                      ("m1x_guided", "LP rounding + local search guided by m1x (static)"),
+                      ("rloop_guided", "LP rounding + local search guided by rloop (recursive, LP feedback)")):
+        if key not in r:
+            continue
+        L = r[key]
         c1, s1, t1 = best_of(r["lpround"]["c"])
-        for K in (8, 16):
+        for K in (4, 8, 16):
             x = L["recs"][min(K, len(L["recs"])) - 1] if L["recs"] else None
             if x is None or x["best"] >= c1:
-                out[f"LP rounding + LP-gradient local search, {K} LPs"] = (c1, s1, L["t_pre"] + (x["time"] if x else 0))
+                out[f"{name}, +{K} LPs"] = (c1, s1, L["t_pre"] + (x["time"] if x else 0))
             else:
-                out[f"LP rounding + LP-gradient local search, {K} LPs"] = (
-                    x["best"], x["best_shed"] < 1e-6 and x["best_short"] < 1e-6, L["t_pre"] + x["time"])
+                out[f"{name}, +{K} LPs"] = (x["best"], x["best_shed"] < 1e-6 and x["best_short"] < 1e-6, L["t_pre"] + x["time"])
     if "rloop_seeded" in r:
         x = r["rloop_seeded"][-1]
         out[f"rloop seeded with LP rounding, K={len(r['rloop_seeded'])}"] = (
@@ -87,26 +95,31 @@ def methods(r, k_sel, thetas=(0.5, 1.0, 2.0, 4.0)):
     kh = next((i + 1 for i, x in enumerate(R[:2 * k_sel]) if x["halt"] > 0.5), min(len(R), 2 * k_sel))
     x = R[kh - 1]
     out["rloop, learned halting"] = (x["best"], x["best_shed"] < 1e-6 and x["best_short"] < 1e-6, x["time"])
-    # safety net at k_sel for each threshold theta (records hold the reduced MILP for every instance flagged at the
-    # smallest threshold; larger thresholds flag a subset)
-    x = R[k_sel - 1]
-    served = x["best_shed"] < 1e-6 and x["best_short"] < 1e-6
+    # safety net on the main pipeline for each threshold theta (records hold the reduced MILP for every instance
+    # flagged at the smallest threshold; larger thresholds flag a subset)
+    if r.get("main_pipe") == "rloop_guided":
+        base = out["LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs"]
+        mname = "rloop-guided search (+16 LPs)"
+    else:
+        x = R[k_sel - 1]
+        base = (x["best"], x["best_shed"] < 1e-6 and x["best_short"] < 1e-6, x["time"])
+        mname = f"rloop K={k_sel}"
     for th in thetas:
-        flag = (not served) or r["cert_gap"] > th
+        flag = (not base[1]) or r["cert_gap"] > th
         if flag and "safety" in r and r["safety"]["feasible"]:
             sf = r["safety"]
-            c = min(x["best"], sf["obj"])
-            s = (sf["shed"] < 1e-6 and sf["short"] < 1e-6) if sf["obj"] <= x["best"] else served
-            out[f"rloop K={k_sel} + safety net (theta {th:g} %)"] = (c, s, x["time"] + sf["t_fix"] + sf["time"], True)
+            c = min(base[0], sf["obj"])
+            s = (sf["shed"] < 1e-6 and sf["short"] < 1e-6) if sf["obj"] <= base[0] else base[1]
+            out[f"{mname} + safety net (theta {th:g} %)"] = (c, s, base[2] + sf["t_fix"] + sf["time"], True)
         else:
-            out[f"rloop K={k_sel} + safety net (theta {th:g} %)"] = (x["best"], served, x["time"], flag)
+            out[f"{mname} + safety net (theta {th:g} %)"] = (base[0], base[1], base[2], flag)
     return out
 
 
 def table(recs, k_sel):
     per = [methods(r, k_sel) for r in recs]
-    db = np.array([r["full"]["0.001"]["bound"] for r in recs])
-    tf = np.array([r["full"]["0.001"]["time"] for r in recs])
+    db = np.array([ref_full(r)["bound"] for r in recs])
+    tf = np.array([ref_full(r)["time"] for r in recs])
     names = list(per[0].keys())
     rows, raw = {}, {}
     for nm in names:
@@ -139,7 +152,7 @@ def paired_rows(raw, ref_names, main):
 
 def curves(recs):
     """mean gap of the best schedule against K, and against mean cumulative time"""
-    db = np.array([r["full"]["0.001"]["bound"] for r in recs])
+    db = np.array([ref_full(r)["bound"] for r in recs])
     K = min(len(r["rloop"]) for r in recs)
     out = []
     for k in range(K):
@@ -150,7 +163,7 @@ def curves(recs):
         nl = np.array([sum(x["new_lp"] for x in r["rloop"][:k + 1]) for r in recs])
         out.append(dict(K=k + 1, gap_mean=float(g.mean()), gap_median=float(np.median(g)), served=float(sv.mean() * 100),
                         time_mean=float(t.mean()), lps_mean=float(nl.mean()),
-                        speedup_mean=float(np.mean([r["full"]["0.001"]["time"] for r in recs] / t))))
+                        speedup_mean=float(np.mean([ref_full(r)["time"] for r in recs] / t))))
     return out
 
 
@@ -170,15 +183,17 @@ def main():
             continue
         k_sel = sel.get("K", {}).get(bench, 8)
         rows, raw = table(recs, k_sel)
-        main_nm = f"rloop K={k_sel}"
-        refs = [n for n in rows if n.startswith("LP rounding") or n.startswith("m1x") or n.startswith("full MILP 0.5")]
+        main_nm = f"rloop K={k_sel}" if sel.get("main", "rloop") == "rloop" else \
+            "LP rounding + local search guided by rloop (recursive, LP feedback), +16 LPs"
+        refs = [n for n in rows if (n.startswith("LP rounding") or n.startswith("m1x") or n.startswith("full MILP 0.5"))
+                and n != main_nm]
         pr = paired_rows(raw, refs, main_nm)
-        sn = f"rloop K={k_sel} + safety net (theta {sel.get('theta', 1.0):g} %)"
+        sn = next((n for n in rows if n.endswith(f"safety net (theta {sel.get('theta', 1.0):g} %)")), "")
         pr_s = paired_rows(raw, refs, sn) if sn in raw else {}
         cv = curves(recs)
         out[bench] = dict(n=len(recs), k_sel=k_sel, rows=rows, paired=pr, paired_safety=pr_s, curve=cv)
         md += [f"## {BENCH_NAMES[bench]}", "",
-               f"{len(recs)} instances; full MILP at 0.1 %: mean {np.mean([r['full']['0.001']['time'] for r in recs]):.1f} s "
+               f"{len(recs)} instances; full MILP at 0.1 %: mean {np.mean([ref_full(r)['time'] for r in recs]):.1f} s "
                f"(re-solved in the same process). K = {k_sel} chosen on validation.", "",
                "| method | served | gap mean [95 % CI] | median | max | time (s) | speed-up mean / median / geo |",
                "|---|---|---|---|---|---|---|"]

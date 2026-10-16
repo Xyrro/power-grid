@@ -67,6 +67,54 @@ def run_model(a):
           [round(float(gap(best[k], va["db"][idx]).mean()), 3) for k in range(a.K)], flush=True)
 
 
+def lpround_starts(va, insts, sysm, idx):
+    """the LP-rounding baseline's best schedule per validation instance (best of its 5 thresholds)"""
+    B = dict(np.load(os.path.join(C.RES, "rloop_val_baselines.npz")))
+    jb = B["lpround_c"].argmin(0)
+    r = range(len(jb))
+    return ([rloop.decode((insts[j]["u_rel"] > float(B["lpround_th"][jb[i]])).astype(np.int8), insts[j], sysm, "round")[1]
+             for j, i in enumerate(idx)], B["lpround_c"].min(0)[idx], B["lpround_shed"][jb, r][idx],
+            B["lpround_short"][jb, r][idx])
+
+
+def run_guided(a):
+    """LP-verified local search from the LP-rounding schedule (K LPs), moves ranked by the LP's first-order prediction
+    minus lam x the log-odds of a prior: none (learning-free), the m1x ensemble (static), or a recursive model (re-run
+    on the LP feedback of the current best)"""
+    sysm = C.system("uc12")
+    va = C.val_data()
+    n = len(va["load"])
+    idx = list(range(a.n0, min(a.n1 or n, n)))
+    insts = C.insts_of(va, idx)
+    starts, c0, sh0, so0 = lpround_starts(va, insts, sysm, idx)
+    P = np.load(os.path.join(C.DM1X, "probs", "pol_n2000_gnnt_ens5_probs.npz"))["val"].astype(float) \
+        if a.guide == "m1x" else None
+    net = feats = None
+    if a.guide == "net":
+        net, ck, feats = C.load_model(os.path.join(C.OUT, f"{a.model}.pt"), sysm)
+    lp = rloop.FastLP(sysm, 12)
+    K = a.K
+    out = {k: np.zeros((K + 1, len(idx))) for k in ("cost", "shed", "short", "time")}
+    t0 = time.time()
+    for j, i in enumerate(idx):
+        recs, _ = rloop.guided_search(insts[j], starts[j], K, lp, sysm, a.lam, prior=P[i] if P is not None else None,
+                                      net=net, feats=feats, bias=a.bias)
+        out["cost"][0, j], out["shed"][0, j], out["short"][0, j] = c0[j], sh0[j], so0[j]
+        for k in range(K):
+            x = recs[min(k, len(recs) - 1)] if recs else None
+            if x is None or x["best"] >= c0[j]:
+                out["cost"][k + 1, j], out["shed"][k + 1, j], out["short"][k + 1, j] = c0[j], sh0[j], so0[j]
+            else:
+                out["cost"][k + 1, j], out["shed"][k + 1, j], out["short"][k + 1, j] = x["best"], x["best_shed"], x["best_short"]
+            out["time"][k + 1, j] = x["time"] if x else 0.0
+    tag = f"guided_{a.guide}" + (f"-{a.model}" if a.guide == "net" else "") + f"_lam{a.lam:g}" + \
+        (f"_b{a.bias:g}" if a.bias else "") + (f"_{a.n0}-{idx[-1] + 1}" if (a.n0 or a.n1) else "")
+    np.savez(os.path.join(C.RES, f"rloop_val_{tag}.npz"), db=va["db"][idx], idx=np.array(idx), **out)
+    db = va["db"][idx]
+    print(f"{tag}: {time.time() - t0:.0f}s, mean gap by LPs:",
+          [round(float(gap(out["cost"][k], db).mean()), 3) for k in range(K + 1)], flush=True)
+
+
 def candidates(p, inst, sysm, ths, mode="round"):
     out = []
     for th in ths:
@@ -157,7 +205,9 @@ def report(a):
     for f in sorted(os.listdir(C.RES)):
         if f.startswith("rloop_val_") and f.endswith(".npz") and f != "rloop_val_baselines.npz":
             R = dict(np.load(os.path.join(C.RES, f)))
-            off = 1 if "start-" in f else 0              # seeded runs: row 0 is the starting schedule
+            if f.startswith("rloop_val_guided_") and "-" in f.split("_lam")[-1]:
+                continue                                 # shards: merged by --merge
+            off = 1 if ("start-" in f or f.startswith("rloop_val_guided_")) else 0   # row 0: the starting schedule
             K = R["cost"].shape[0] - off
             for k in sorted({0, 1, 2, 3, 4, 6, 8, 12, 16, K} & set(range(1 - off, K + 1))):
                 c = R["cost"][:k + off]
@@ -181,12 +231,19 @@ if __name__ == "__main__":
     ap.add_argument("--start", default=None, choices=[None, "lpround"], help="seed the recursion with a schedule")
     ap.add_argument("--n", type=int, default=0)
     ap.add_argument("--baselines", action="store_true")
+    ap.add_argument("--guide", default=None, choices=[None, "none", "m1x", "net"],
+                    help="LP-verified local search from the LP-rounding schedule, guided by this prior")
+    ap.add_argument("--lam", type=float, default=0.5)
+    ap.add_argument("--n0", type=int, default=0)
+    ap.add_argument("--n1", type=int, default=0)
     ap.add_argument("--report", action="store_true")
     a = ap.parse_args()
     torch.set_num_threads(1)
     os.chdir(C.ROOT)
     os.makedirs(C.RES, exist_ok=True)
-    if a.model:
+    if a.guide:
+        run_guided(a)
+    elif a.model:
         run_model(a)
     if a.baselines:
         run_baselines(a)

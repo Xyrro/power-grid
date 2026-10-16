@@ -83,6 +83,8 @@ def main():
     ap.add_argument("--K", type=int, default=None)
     ap.add_argument("--k_sel", type=int, default=None)
     ap.add_argument("--bias", type=float, default=None, help="decoding logit shift (default: selection file)")
+    ap.add_argument("--main", default=None, choices=[None, "rloop", "rloop_guided"])
+    ap.add_argument("--guide_model", default=None)
     ap.add_argument("--seeded", type=int, default=1, help="also run rloop seeded with the LP-rounding schedule")
     ap.add_argument("--theta_min", type=float, default=0.5, help="% certified gap that triggers the safety net")
     ap.add_argument("--gaps", default=None, help="full-MILP gaps, comma separated (default 0.001,0.005)")
@@ -109,6 +111,10 @@ def main():
     bias = a.bias if a.bias is not None else sel.get("bias", 0.0)
     inf = rloop.Inference(net, feats, sysm, rloop.FastLP(sysm, T), mode=ck["cfg"].get("decode", "viterbi"), bias=bias)
     m1x = M1X(sysm) if T == 12 else None
+    lam_m1x, lam_net = sel.get("lam_m1x", 0.5), sel.get("lam_net", 0.5)
+    main_pipe = a.main or sel.get("main", "rloop")
+    gtag = a.guide_model or sel.get("guide_model", tag)
+    gnet, _, gfeats = C.load_model(os.path.join(C.OUT, f"{gtag}.pt"), sysm) if gtag != tag else (net, ck, feats)
     fmax = sysm.fmax
     n = len(d["load"]) if a.n == 0 else min(a.n, len(d["load"]))
     out = a.out or os.path.join(C.RES, f"rloop_eval_{a.bench}_s{a.shard}.jsonl")
@@ -160,23 +166,42 @@ def main():
         # rloop
         recs, bests = inf.rollout(inst, K, t_pre=t_rel, fmax=fmax)
         rec["rloop"] = [{kk: v for kk, v in r.items()} for r in recs]
-        # learning-free refinement: LP-gradient local search from the LP-rounding schedule (16 more LPs)
-        ls, _ = rloop.lp_local_search(inst, lpr_best, 16, lp, sysm)
-        rec["lpls"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=min(x[0] for x in rec["lpround"]["c"]))
+        # LP-verified local search from the LP-rounding schedule (16 more LPs): learning-free (LP first-order move
+        # ranking), with the static m1x prior, and guided by the recursive network re-run on the LP feedback
+        c0 = min(x[0] for x in rec["lpround"]["c"])
+        ls, _ = rloop.guided_search(inst, lpr_best, 16, lp, sysm, 0.0)
+        rec["lpls"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0)
+        if m1x is not None:
+            ls, _ = rloop.guided_search(inst, lpr_best, 16, lp, sysm, lam_m1x, prior=p)
+            rec["m1x_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr + t_inf, c0=c0, lam=lam_m1x)
+        ls, g_best = rloop.guided_search(inst, lpr_best, 16, lp, sysm, lam_net, net=gnet, feats=gfeats, fmax=fmax)
+        rec["rloop_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0, lam=lam_net, model=gtag)
         # rloop seeded with the LP-rounding baseline's best schedule (its 5 LPs and repairs counted in the time)
         if a.seeded:
             r_s, _ = inf.rollout(inst, k_sel, t_pre=t_rel + t_lpr, fmax=fmax, start=lpr_best)
             rec["rloop_seeded"] = r_s
-        # safety net at k_sel
-        rs = recs[min(k_sel, K) - 1]
-        served = rs["best_shed"] < 1e-6 and rs["best_short"] < 1e-6
-        cert = (rs["best"] / inst["c_rel"] - 1) * 100
-        rec["cert_gap"] = cert
-        if (not served) or cert > a.theta_min:
-            bu, lp_ = bests[min(k_sel, K) - 1]      # best schedule within the first k_sel steps, its probabilities
+        # safety net on the selected main pipeline's best schedule: if it sheds / misses reserve, or its certified gap
+        # to the LP relaxation exceeds theta_min, a reduced MILP (0.5 %) that keeps the decisions where the schedule
+        # agrees with an integral LP-relaxation value (within 0.01) fixed (min up/down row release); larger
+        # thresholds are evaluated offline from the same records
+        if main_pipe == "rloop_guided":
+            L = rec["rloop_guided"]["recs"]
+            xb = L[-1] if L and L[-1]["best"] < c0 else None
+            b_cost = xb["best"] if xb else c0
+            b_served = (xb["best_shed"] < 1e-6 and xb["best_short"] < 1e-6) if xb else \
+                (lambda c: c[1] < 1e-6 and c[2] < 1e-6)(min(rec["lpround"]["c"], key=lambda c: c[0]))
+            bu = g_best if xb else lpr_best
+        else:
+            rs = recs[min(k_sel, K) - 1]
+            b_cost, b_served = rs["best"], rs["best_shed"] < 1e-6 and rs["best_short"] < 1e-6
+            bu = bests[min(k_sel, K) - 1][0]
+        cert = (b_cost / inst["c_rel"] - 1) * 100
+        rec.update(cert_gap=cert, main_pipe=main_pipe)
+        if (not b_served) or cert > a.theta_min:
             t0 = time.time()
-            fix = {(int(t), int(g)): int(bu[t, g]) for t, g in zip(*np.where((np.abs(lp_ - 0.5) >= 0.45) &
-                                                                          ((lp_ > 0.5) == (bu > 0))))}
+            ur = inst["u_rel"]
+            agree = (np.abs(ur - np.round(ur)) <= 0.01) & ((ur > 0.5) == (bu > 0))
+            fix = {(int(t), int(g)): int(bu[t, g]) for t, g in zip(*np.where(agree))}
             fix, nrel = release_conflicting_rows(fix, sysm, inst["u0"])
             t_fix = time.time() - t0
             r = solve_reduced(m, sc, fix, TL[a.bench], 0.005)
