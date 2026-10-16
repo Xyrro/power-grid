@@ -42,8 +42,16 @@ Checkpoints and logs (git-ignored): `data/generated/recursive/rloop/`.*
   trainings and their validation (`rloop_B.sh`: nods from epoch 7, nofb_rl, norecall from epoch 2, nocount, then
   whole-schedule and guided validation of each). Both scripts in the scratchpad `rloop/` folder; rerun to resume
   (training resumes from its checkpoint, finished validations are skipped).
-- Next: `python3 scripts/rec_rloop_val.py --report`, `python3 scripts/rec_rloop_select.py`, then the test
-  (`scripts/rec_rloop_eval.py --bench uc12|line_out|hard|uc24 --shard i --nshards 4`, one process per core).
+- 02:29 selection done (`results/recursive/rloop_select.json`, validation only): main learned pipeline = LP rounding
+  (5 LPs) + LP-verified local search guided by the recursive network `main_rl` (λ = 0.5, 16 LPs); best whole-schedule
+  recursion = `main_rl` with decoding bias +1, K = 16 (32 on 24 h); safety-net θ = 2 % (validation fallback 27 %;
+  at 1 %: 53 %). Added before the test: union-seeded variants (best of LP rounding and m1x as the start), 12 h only.
+- 02:30 test started: scratchpad `rloop_test_worker.sh <core> [pid]` pulls (bench, shard) jobs (uc12, line_out, hard,
+  uc24; 4 shards each) with lock dirs in `data/generated/recursive/rloop/test_locks/` (`.done` marker per finished
+  job); log `data/generated/recursive/rloop/test.log`, per-job logs `test_<bench>_s<i>.log`, records
+  `results/recursive/rloop_eval_<bench>_s<i>.jsonl`. Core 2 now; core 3 after `rloop_B.sh`. **Resume after a
+  restart:** delete lock dirs without `.done`, rerun both workers (one per core; the evaluation skips finished
+  instances), and rerun `rloop_B.sh` if it had not finished.
 
 ## Summary
 
@@ -166,7 +174,72 @@ below the optimum at the median and 0.58 % on average); the fallback rate is rep
 
 ## Ablations
 
-(to be written)
+All on the 360 validation instances (gap to the stored MILP dual bound, mean %; paired instance-bootstrap 95 % CIs,
+2,000 resamples; `results/recursive/rloop_val_summary.json`, `rloop_val_paired.json`). Two uses of the recursive
+network are ablated: **whole-schedule recursion** (each outer step decodes a complete schedule from the network and
+prices it; best of K) and **guided search** (the network, re-run on the LP feedback of the current best schedule,
+ranks block moves of an LP-verified local search started from the LP-rounding schedule; 16 LPs).
+
+**Whole-schedule recursion** (K = number of outer steps = network passes = LPs at most):
+
+| variant | K = 1 | K = 16 | median, K = 16 |
+|---|---|---|---|
+| main (LP feedback, recall, deep supervision, count heads, Viterbi) | 8.05 % | 6.17 % | 0.96 % |
+| no LP feedback | 7.63 % | 6.95 % | 0.98 % |
+| main + REINFORCE (`main_rl`) | 6.58 % | 4.79 % | 0.97 % |
+| main, decoding bias +1 | 4.66 % | 3.26 % | 1.00 % |
+| `main_rl`, decoding bias +1 (selected) | 4.53 % | 2.95 % | 1.05 % |
+ABL_ROWS
+| LP rounding + repair, 5 LPs (no learning, reference) | | 2.14 % | 1.00 % |
+
+* **LP feedback makes the extra steps useful.** With feedback, going from 1 to 16 outer steps lowers the mean gap by
+  1.88 pp [1.17, 2.68]; without it by 0.68 pp [0.35, 1.09]. At K = 16 feedback is better by 0.78 pp [0.07, 1.54]; at
+  K = 1 (no feedback yet) the two are level (+0.42 pp [−0.05, +0.98]). Under imitation the per-step training error
+  is identical across steps (≈ 9.6 wrong decisions per instance at steps 0, 1, 2, with or without feedback); the gain
+  appears only in what the later steps change on the instances whose schedule the LP shows to be bad (shedding,
+  reserve shortfall, high prices).
+* **Cost-aware fine-tuning helps** (REINFORCE on each step's improvement, LP critic): −1.38 pp [−2.36, −0.63] at K = 16.
+  Seeded RL batches with an anchor to the current schedule (`main_rls`) made the steps after the first repeat the same
+  schedule (validation 4.42 % at K = 8, no gain over K = 1); not pursued.
+* **The dominant error is under-commitment**: 17–20 % of validation instances end with shedding or reserve shortfall,
+  while the median gap (0.96 %) is level with LP rounding. A decoding bias of +1 logit (chosen on validation) halves the
+  mean gap. Even so the best whole-schedule variant (2.95 %) stays behind the learning-free LP rounding (2.14 %).
+* **Number of outer steps**: the mean gap falls monotonically up to K = 16 for every variant (curves in
+  `rloop_val_summary.json`); the K rule therefore selects K = 16 (32 on 24 h).
+* **Halting head** (trained to predict "within 0.5 % of the best known cost"): stopping at the first step with halting
+  probability > 0.5 uses 10.9 of 16 steps on average at +0.04 pp (main: 6.21 % vs 6.17 %).
+* **Decoding**: Viterbi on the probabilities vs rounding at 0.5 + Hamming repair: 3.43 % vs 3.38 % at K = 8 on the
+  first 60 validation instances (epoch-4 checkpoint), i.e. level; the Viterbi decoder is kept because it is feasible
+  by construction and never less likely than round-then-repair (unit test).
+
+**Guided search** (16 LPs after the 5 LPs of LP rounding; λ chosen on validation 0–119):
+
+| move ranking | 4 LPs | 16 LPs | median |
+|---|---|---|---|
+| LP first-order prediction only (no learning) | 1.84 % | 1.64 % | 0.86 % |
+| + static m1x ensemble prior (λ = 1) | 1.79 % | 1.56 % | 0.82 % |
+| + recursive network `main` (λ = 0.5) | 1.81 % | 1.57 % | 0.84 % |
+| + recursive network `main_rl` (λ = 0.5, selected) | 1.81 % | 1.56 % | 0.82 % |
+| + network without LP feedback (`nofb`) | 1.80 % | 1.59 % | 0.85 % |
+| + `main`, run once on the start (no recursion) | 1.81 % | 1.63 % | 0.84 % |
+GUIDED_ROWS
+| starting schedule only (LP rounding, 5 LPs) | | 2.14 % | 1.00 % |
+
+* **The LP-in-the-loop search does most of the work**: learning-free, it lowers LP rounding's gap by 0.50 pp [0.35,
+  0.66] with 16 LPs; a learned prior adds 0.08 pp [0.04, 0.12] (recursive network) or 0.08 pp [0.03, 0.14] (static
+  m1x ensemble).
+* **Recursion helps inside the search, the feedback signal less so**: re-running the network on the LP feedback of the
+  current best schedule beats running it once on the start, −0.05 pp [−0.08, −0.02]; but a network trained without
+  LP feedback is about as good a prior (−0.01 pp [−0.03, +0.01]), and the recursive network is level with the
+  one-shot ensemble (+0.00 pp [−0.03, +0.04]).
+* **A better start matters more than the prior**: seeding the search with the best of LP rounding and m1x (10 LPs)
+  instead of LP rounding alone gives 1.31 % (no learning), 1.25 % (recursive prior) and 1.23 % (m1x prior) on
+  validation 0–119, against 1.59 % / 1.51 % / 1.50 % with the LP-rounding start (same instances).
+
+**Not tested** (design choices kept fixed for lack of compute): PTDF encodings vs none, carrying z across outer steps
+vs re-initialising it, number of latent updates, the Lagrangian price-update variant (network predicts price
+corrections, unit DPs respond), set-valued targets and cost-weighted deep supervision (implemented, `--w_wrong`,
+`--w_grad`, not trained).
 
 ## Extrapolation
 
