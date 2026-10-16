@@ -205,5 +205,6 @@
    "gap_median": 0.09912863248152018,
    "gap_max": 0.7742075198083839
   }
- }
+ },
+ "timing_note": "gaps only: the MILP references are stored dataset runs (not re-timed) and these runs shared a core with training jobs, so no speed-up or inference time from them is reliable"
 }

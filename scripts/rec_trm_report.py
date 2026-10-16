@@ -227,6 +227,22 @@ def val_tables(lines, out):
     lines.append("")
 
 
+def stretch_tables(lines, out):
+    for b, title in (("uc24", "24-hour windows (uc24 test, 40)"), ("hard", "congested benchmark (line ratings x 0.6, 60)")):
+        f = os.path.join(RES, f"trm_stretch_{b}.json")
+        if not os.path.exists(f):
+            continue
+        d = json.load(open(f))
+        out.setdefault("stretch", {})[b] = d
+        lines += [f"## Zero-shot: {title}", "", "Models trained on 12-hour windows at the original ratings, 12-hour "
+                  "validation choices, nothing retrained; gap to the stored MILP's dual bound (gaps only, see the timing "
+                  "note in the json).", "", "| pipeline | gap mean | median | max | served | LPs |", "|---|---|---|---|---|---|"]
+        for k, v in d["methods"].items():
+            lines.append(f"| {k} | {v['gap_mean']:.2f} % | {v['gap_median']:.2f} % | {v['gap_max']:.1f} % | "
+                         f"{v.get('served', float('nan')):.1f} % | {v.get('lps', float('nan')):.1f} |")
+        lines.append("")
+
+
 def train_table(lines, out):
     tr = {}
     for f in sorted(glob.glob(os.path.join(RES, "trm_train_*.json"))):
@@ -254,6 +270,7 @@ def main():
     if R and os.path.exists(sp):
         test_tables(R, json.load(open(sp)), lines, out)
     val_tables(lines, out)
+    stretch_tables(lines, out)
     train_table(lines, out)
     with open(os.path.join(RES, "trm_results.md"), "w") as f:
         f.write("\n".join(lines) + "\n")

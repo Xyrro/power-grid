@@ -261,6 +261,16 @@ choices): LP rounding + repair 1.78 % (median 1.02 %, 95 % served); TRM `main` +
 1.68–1.71 % after 4–48 steps; `main_rl` 1.55 % → 1.62 %; one-shot 1.67 %; the TRM's own 1-LP schedule 3.1–3.7 %
 (90–92.5 % served). More recursion steps on the longer horizon do not help (`results/recursive/trm_stretch_uc24.json`).
 
+**Zero-shot congested benchmark** (RTS-GMLC 12 h, line ratings × 0.6, `docs/methods/hard.md`; 60 test instances, stored
+MILP as reference; models trained at the original ratings, nothing retrained): the models' own schedules collapse
+(1 LP + repair: TRM 20.6 % mean, 50 % served; `main_rl` 22.0 %; one-shot 23.6 %): they never saw congestion and their
+schedules shed load behind derated lines, which neither the per-hour adequacy check nor the LP repair (system-wide
+units) fixes. Screened with 4 LP roundings they are slightly better than LP rounding alone (TRM 2.10 % at 1 step,
+`main_rl` 2.04 %, one-shot 2.19 %, LP rounding 2.37 %; served 93–97 %), and more steps make the TRM slightly worse
+(2.21–2.22 % at 8–32 steps). The long-range message passing that recursion offers over the bus graph does not
+transfer to congestion without congested training data (`results/recursive/trm_stretch_hard.json`). Gaps only: both
+stretch runs shared a core with training jobs and use stored MILP references, so no timing from them is reported.
+
 ## Ablations
 
 **Which items of PLAN.md were tested, and how** (numbers below and in `results/recursive/trm_results.md`):
@@ -268,7 +278,7 @@ choices): LP rounding + repair 1.78 % (median 1.02 %, 95 % served); TRM `main` +
 | PLAN item | tested here | how |
 |---|---|---|
 | recursion vs one-shot at equal parameters | yes | `oneshot`: the same 2-layer net applied once, same data and steps; `oneshot_long`: same wall-clock as `main` |
-| recursion vs a deeper non-recursive net at matched compute | yes | `deep`: T(n + 1) = 10 unshared 2-layer nets applied once (one supervision step's compute, 1.24 M parameters) |
+| recursion vs a deeper non-recursive net at matched compute | yes | `deep`: T(n + 1) = 10 unshared 2-layer nets applied once (one supervision step's compute, 1.32 M parameters) |
 | deep supervision on / off | yes | `nods`: N_sup = 1 (one supervision step from the initial state), same steps |
 | n and T | partly | `n2T1` (3 net calls per step) vs `main` (n = 4, T = 2: 10 calls); TRM's n = 6, T = 3 (21 calls) not run (2.2× the cost of a run) |
 | test-time compute (1, 2, 4, 8, 16, 32 steps) | yes | every recursive model, validation and test |
@@ -311,9 +321,10 @@ choices): LP rounding + repair 1.78 % (median 1.02 %, 95 % served); TRM `main` +
   73 min the TRM saw 3 epochs against the one-shot's 24 in 13 min; halting earlier (ACT at ≤ 8 wrong unit-hours) kept
   ~4 steps per instance but did not improve the model. (2) *The LP relaxation already solves most of the problem*: what
   is left is ~12 economically subtle corrections per instance, where iterative refinement has little structure to
-  exploit and imitation does not see cost. (3) *The answer is a set of 876 near-independent binaries with many
-  near-equivalent optima*, not a puzzle with one consistent solution; the Sudoku-style benefit of revisiting
-  inconsistent cells is captured here by cheap exact tools (Viterbi for min up/down, the LP-guided adequacy repair).
+  exploit and imitation does not see cost. (3) *The answer has many near-equivalent optima and its hard couplings are
+  cheap to enforce exactly*: unlike a Sudoku with one consistent solution, the inconsistencies a recursion could repair
+  (min up/down, adequacy across hours) are handled here by exact tools (Viterbi for min up/down, the block adequacy and
+  LP-guided repairs), and what remains is economic, which imitation does not see.
 
 **PACE plan (what is worth scaling).** The CPU study cannot rule out that recursion needs more data and epochs: the TRM
 was trained for 3 epochs of 2,000 instances. One decisive experiment is worth GPU time; the rest is not, unless it
@@ -366,7 +377,8 @@ values in `scripts/pace/trm_*` (account, partitions, QOS, GPU type, module names
 marked `PLACEHOLDER`**: check the PACE ICE documentation and fill them in before the first submission. Nothing in this
 section was run on PACE.
 
-**Environment** (`scripts/pace/trm_env.sh`, sourced by every job): load the cluster's Python module (placeholder), create a
+**Environment** (`scripts/pace/trm_env.sh`, sourced by every job): load the cluster's Python module (export
+`PYTHON_MODULE` with its PACE ICE name, and `CUDA_MODULE` if the docs require one; the script stops if unset), create a
 virtual environment with `torch numpy scipy pandas highspy pytest` (the study used torch 2.14, scipy 1.17 with its
 bundled HiGHS, highspy 1.12), `cd` to the clone of this repository (branch `recursive-uc`), single-threaded HiGHS and
 BLAS. Submit from the repository root after `mkdir -p logs`; run `python3 -m pytest -q tests/test_trm.py` once (CPU,
@@ -393,12 +405,19 @@ mkdir -p logs
 sbatch scripts/pace/trm_gen_base.sbatch
 sbatch scripts/pace/trm_teachers.sbatch                         # after step 1
 N_TOTAL=100000 sbatch --array=0-399%100 scripts/pace/trm_gen_data_array.sbatch   # after step 2
-TAG=gpu_small PRESET=gpu_small N_TRAIN=50000 sbatch scripts/pace/trm_train_gpu.sbatch
-TAG=paper PRESET=paper N_TRAIN=100000 EXTRA="--batch 768 --micro_batch 128 --steps 20000" RL=1 \
-    sbatch scripts/pace/trm_train_gpu.sbatch
-TAGS="paper paper_rl" CONTROLS="gpu_small" sbatch scripts/pace/trm_eval_cpu.sbatch          # validation + selection
+# decisive comparison at equal epochs (PACE plan, step 2); with and without LP-relaxation inputs (EXTRA="--lp_feats 0 ...")
+TAG=gs_trm PRESET=gpu_small N_TRAIN=50000 EXTRA="--steps 30000 --halt_tol 8" sbatch scripts/pace/trm_train_gpu.sbatch
+TAG=gs_oneshot PRESET=gpu_small N_TRAIN=50000 EXTRA="--mode oneshot --steps 4000" sbatch scripts/pace/trm_train_gpu.sbatch
+TAG=gs_deep PRESET=gpu_small N_TRAIN=50000 EXTRA="--mode deep --steps 4000 --micro_batch 64" sbatch scripts/pace/trm_train_gpu.sbatch
+TAGS="gs_trm" CONTROLS="gs_oneshot gs_deep" sbatch scripts/pace/trm_eval_cpu.sbatch          # validation + selection
 sbatch --array=0-7 --export=ALL,STAGE=test scripts/pace/trm_eval_cpu.sbatch                  # paired test, 8 shards
 python3 scripts/rec_trm_report.py
+# only if the TRM wins at equal epochs (step 3): paper scale + REINFORCE, test with GPU inference
+TAG=paper PRESET=paper N_TRAIN=100000 EXTRA="--batch 768 --micro_batch 128 --steps 20000" RL=1 \
+    sbatch scripts/pace/trm_train_gpu.sbatch
+TAGS="paper paper_rl" CONTROLS="gs_oneshot" sbatch scripts/pace/trm_eval_cpu.sbatch
+sbatch -p <GPU_PARTITION> --gres=gpu:<GPU_TYPE>:1 --array=0-7 --export=ALL,STAGE=test,TRM_DEVICE=cuda \
+    scripts/pace/trm_eval_cpu.sbatch                                                          # PLACEHOLDERS
 ```
 
 Every knob of `otsl.trm.TRMConfig` is a flag of `scripts/rec_trm_train.py` (`--hidden --layers --n --T --n_sup --batch

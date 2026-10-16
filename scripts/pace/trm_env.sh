@@ -5,9 +5,10 @@
 # (software / modules pages) and replace them before the first run.
 set -euo pipefail
 module purge 2>/dev/null || true
-module load <PYTHON_OR_ANACONDA_MODULE>        # PLACEHOLDER: e.g. the cluster's anaconda/python module (check PACE ICE docs)
+# PLACEHOLDER: the cluster's Python / Anaconda module (check the PACE ICE docs), e.g. export PYTHON_MODULE=<name>
+module load "${PYTHON_MODULE:?PLACEHOLDER: set PYTHON_MODULE to the PACE ICE python module name (check the PACE ICE docs)}"
 # CUDA comes with the PyTorch wheel; load a CUDA module only if the PACE ICE docs require it for GPU jobs:
-# module load <CUDA_MODULE>                    # PLACEHOLDER (check PACE ICE docs)
+if [ -n "${CUDA_MODULE:-}" ]; then module load "$CUDA_MODULE"; fi   # PLACEHOLDER (check the PACE ICE docs)
 
 REPO=${REPO:-$HOME/power-grid}                 # clone of this repository (branch recursive-uc)
 ENV_DIR=${ENV_DIR:-$HOME/envs/power-grid}      # PLACEHOLDER: a location with enough quota (PACE ICE scratch/project space)

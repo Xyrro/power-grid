@@ -20,5 +20,8 @@ if [ "$STAGE" = "val" ]; then
   python3 scripts/rec_trm_select.py --final ${TAGS} --controls ${CONTROLS:-}
 else
   N=${SLURM_ARRAY_TASK_COUNT:-1}
-  python3 scripts/rec_trm_eval.py --split test_fresh --shard "${SLURM_ARRAY_TASK_ID:-0}" --nshards "$N"
+  # TRM_DEVICE=cuda runs the TRM forward passes on a GPU (submit to a GPU partition, see docs/recursive/trm.md);
+  # the LPs and MILPs of the paired timing always run on this job's single CPU core
+  python3 scripts/rec_trm_eval.py --split test_fresh --shard "${SLURM_ARRAY_TASK_ID:-0}" --nshards "$N" \
+    --trm_device "${TRM_DEVICE:-cpu}"
 fi
