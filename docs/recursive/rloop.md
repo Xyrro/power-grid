@@ -55,6 +55,8 @@ Checkpoints and logs (git-ignored): `data/generated/recursive/rloop/`.*
 - 04:03 uc12 test done (120); 04:20 line_out done (30); 04:33 `rloop_B.sh` done (ablation trainings `nods`, `nofb_rl`,
   `norecall`, `nocount` and their validation), core 3 joined the test (hard, then uc24). Results and Ablations
   sections written from the finished parts; `python3 scripts/rec_rloop_report.py` rebuilds every table.
+- 05:14 congested benchmark done (60); 06:04 uc24 done (40). **Study complete**: 250 test instances, report
+  `results/recursive/rloop_results.{md,json}` (+ `rloop_quality_time_<bench>.png`). Nothing runs.
 
 ## Summary
 
@@ -78,21 +80,28 @@ labels) with deep supervision on its own LP feedback, then REINFORCE on each ste
    (95.8 % served) at 33× — level with learning-free LP rounding + repair + 5 LPs (1.75 %; Δ +0.02 pp [−0.30, +0.34])
    and half as fast. Its failure mode is the imitation model's under-commitment (shedding / reserve shortfall).
    Recall, deep supervision and count heads made no significant difference.
-2. **Used as the move prior of an LP-verified local search, it beats every learning-free and one-shot baseline end
-   to end**: LP rounding + 16 guided LPs gives **1.14 % [0.93, 1.39]**, 99.2 % served, 1.09 s, 20.6× mean speed-up;
+2. **Used as the move prior of an LP-verified local search started from LP rounding, it beats LP rounding, the
+   one-shot ensemble and the same search without learning**: LP rounding + 16 guided LPs gives **1.14 % [0.93, 1.39]**, 99.2 % served, 1.09 s, 20.6× mean speed-up;
    −0.61 pp [−0.95, −0.33] against LP rounding, −0.87 pp against the one-shot m1x ensemble with the same repairs and
    5 LPs, −0.15 pp [−0.28, −0.03] against the same search without learning. But a **static** prior from the one-shot
    ensemble is as good (−0.02 pp [−0.06, +0.02]); re-running the network on the LP feedback beats running it once
    (validation −0.05 pp [−0.08, −0.02]), a small effect. Most of the gain is the LP-in-the-loop search itself.
 3. **Best end-to-end result without a MILP**: start from the best of LP rounding and m1x (10 LPs), then 16–32 guided
-   LPs: 0.90 % with 16 (rloop prior, 1.26 s, 17×), 0.83–0.84 % with 32 (rloop or m1x prior, 1.3–2.3 s). **With a safety net** (reduced MILP when the certified gap
-   to the LP relaxation exceeds θ = 2 %, 25 % of instances): **0.64 % [0.55, 0.74], 100 % served, 13.1× mean /
+   LPs: 0.90 % with 16 (rloop prior, 1.26 s, 17×), 0.83–0.84 % with 32 (rloop or m1x prior, 1.3–2.3 s); the same
+   search without learning from that start gives 1.03 % / 0.96 %. **With a safety net** (reduced MILP when the
+   certified gap to the LP relaxation exceeds θ = 2 %, 25 % of instances): **0.64 % [0.55, 0.74], 100 % served, 13.1× mean /
    8.5× geometric** — 0.41 pp [0.32, 0.51] less accurate than the full MILP at 0.5 % and 3.8× faster.
 4. **Success criterion of the plan (≥ 95 % served at ≤ 0.5 % mean gap in well under a second) is not met.** The minimum
    bar (beat LP rounding and the one-shot model) is met by the guided search (1.14 % vs 1.75 % / 2.00 %) but not by
-   the whole-schedule recursion (1.77 %). Only the safety net with θ = 1 % reaches 0.46 % (52 % fallback, 8.5×), which
-   is below the recommended MILP pipeline of the earlier study (0.30 % at 9.7×).
-5. **Extrapolation** (zero-shot): EXTRAP_SUMMARY
+   the whole-schedule recursion (1.77 %). Only the safety net with θ = 1 % gets under 0.5 % (0.46 %, 52 % fallback,
+   8.5×), which is less accurate and no faster than the recommended MILP pipeline of the earlier study (0.30 % at
+   9.7×, not re-run here).
+5. **Extrapolation** (zero-shot; the recursive model is length- and topology-agnostic): on line outages and congested
+   lines the whole-schedule recursion collapses like the one-shot ensemble (≈ 52 % served; LP feedback recovers part
+   of it over the steps), while the guided search stays robust: 0.84 % (outages), 1.06 % (congested), 1.13 % (24 h
+   with 2 × K steps) against 1.23 / 2.37 / 1.77 % for LP rounding; the recursive prior beats the learning-free search
+   significantly on outages (−0.11 pp) and 24 h (−0.15 pp), not on congestion (−0.01 pp). With the safety net:
+   0.47 / 0.51 / 0.67 % at 18 / 27 / 24× mean speed-up.
 
 ## Method
 
@@ -186,19 +195,20 @@ process; with `inflight` > 1, several batches are kept in flight so the network 
 another (the GPU configuration). On this container each training run is one single-threaded process on one core with
 the LPs in process.
 
-**Safety net.** If the best schedule after K steps sheds load or misses reserve, or its certified gap to the LP
-relaxation exceeds θ, a reduced MILP (0.5 % gap) around it is solved: the decisions whose last probabilities are within
-0.05 of 0 or 1, agree with the schedule and with an integral LP-relaxation value are fixed (min up/down row release
-as in the hybrid pipeline), and the
-cheaper of the two schedules is kept. θ is chosen on validation (the smallest of 1, 2, 4 % whose validation fallback
+**Safety net.** If the selected pipeline's best schedule (after its LP budget) sheds load or misses reserve, or its
+certified gap to the LP relaxation exceeds θ, a reduced MILP (0.5 % gap) around it is solved: the decisions where the
+network's last prediction is confident (p ≥ 0.95 or ≤ 0.05) and agrees with the schedule and with an integral
+LP-relaxation value are fixed (min up/down row release as in the hybrid pipeline), and the cheaper of the two
+schedules is kept; if the reduced MILP is infeasible, the full MILP at 0.5 %. θ is chosen on validation (the smallest of 1, 2, 4 % whose validation fallback
 rate is ≤ 30 %; at 1 % half of the validation instances would fall back, because the LP relaxation itself is 0.24 %
 below the optimum at the median and 0.58 % on average); the fallback rate is reported.
 
 ## Setup
 
 * **Compute.** Cores 2 and 3 of a 4-core container (cores 0–1 belong to the parallel arm A), one single-threaded
-  process per core (torch 1 thread, HiGHS 1 thread), < 3.5 GB each. Training runs and evaluation shards are pinned with
-  `taskset`.
+  process per core (torch 1 thread, HiGHS 1 thread), < 3.5 GB each (the no-deep-supervision run needed batch 16 × 2
+  accumulation to stay under it). Training runs and evaluation shards are pinned with `taskset`. Before the 02:00
+  container restart two processes shared a core during training and validation (no timing was measured then).
 * **Data.** uc12 (RTS-GMLC, 73 units, 12 h, DC network). Training: `train.npz` (500, MILP labels) + `uc12_m1x`
   extra_0–5 with polish_0–5 (1,500, polished labels). Validation: val + val_extra + val_extra2 (360), gap to the stored
   MILP's dual bound. Test once: test_fresh (120).
@@ -210,8 +220,14 @@ below the optimum at the median and 0.58 % on average); the fallback rate is rep
   limit; 300 s on 24 h, 600 s on the congested benchmark, as in their studies) and at 0.5 %; the LP relaxation (its
   time is counted in every method); LP rounding + block repair + min up/down repair, best of 5 LPs (no learning, the
   thresholds of `otsl.base`); the m1x 5-member temporal-GNN ensemble (§7 Y3) rounded at the validation-selected
-  thresholds with the same repairs, 1 / 3 / 5 LPs, and decoded with Viterbi, 1 LP; rloop with K outer steps; the
-  safety net. All dispatch LPs through the same `FastLP` code (one solver object per method and instance).
+  thresholds with the same repairs, 1 / 3 / 5 LPs, and decoded with Viterbi, 1 LP; their union (10 LPs); rloop's
+  whole-schedule recursion with up to 2 × K outer steps (and seeded with the LP-rounding schedule); the LP-verified
+  local search from the LP-rounding schedule with 32 LPs, ranked without learning, with the m1x prior and with the
+  recursive network (records per LP, so 4 / 8 / 16 / 32 are read from one run); the same three searches from the best
+  of LP rounding and m1x (12 h sets); the safety net of the selected pipeline. All dispatch LPs through the same
+  `FastLP` code (one solver object per method and instance). On the extrapolation sets only the full MILP at 0.1 %
+  is solved (the speed-up reference). Shards of each benchmark were spread over cores 2 and 3, one process per
+  core, nothing else running on that core.
 * **Metrics.** Served share (no shedding, no reserve shortfall), gap (C − DB) / C to the dual bound of the full MILP
   solved in the same process (C = the schedule's dispatch-LP cost, penalties included), mean / median / max, wall time
   including every overhead, speed-up T_full(0.1 %) / T_method (mean, median, geometric mean), paired instance
@@ -348,6 +364,15 @@ ranks block moves of an LP-verified local search started from the LP-rounding sc
   instead of LP rounding alone gives 1.31 % (no learning), 1.25 % (recursive prior) and 1.23 % (m1x prior) on
   validation 0–119, against 1.59 % / 1.51 % / 1.50 % with the LP-rounding start (same instances).
 
+**PLAN risk items, status in this arm.** (1) Group counts for identical units: implemented (count heads + stacked
+assignment), tested — no significant effect vs per-unit heads with aligned labels. (2) Feasible-by-construction
+decoding: implemented (per-unit Viterbi + block adequacy + LP), tested — level with round-then-repair. (3) Lagrangian
+price updates: not implemented. (4) PTDF bus encodings, no unit-ID embeddings: implemented in every model, not
+ablated; the models transfer in shape to 24 h and to outaged topologies, but not in quality. (5) Rewards for
+improvement: implemented (REINFORCE on each step's improvement over the best so far) — −1.38 pp; halting head on
+"within 0.5 % of the best known cost": trained, ~30 % fewer steps at +0.04 pp. (6) Safety net with reported fallback
+rate: implemented, results above (fallback 20–33 % at θ = 2 %).
+
 **Not tested** (design choices kept fixed for lack of compute): PTDF encodings vs none, carrying z across outer steps
 vs re-initialising it, number of latent updates, the Lagrangian price-update variant (network predicts price
 corrections, unit DPs respond), set-valued targets and cost-weighted deep supervision (implemented, `--w_wrong`,
@@ -364,7 +389,7 @@ Full tables: [`results/recursive/rloop_results.md`](../../results/recursive/rloo
 | uc12 test (in distribution, reference) | 1.75 %, 62× | 2.00 %, 55× | 1.77 %, 33× | 1.14 %, 21× | 1.29 %, 28× | 0.64 %, 13× (25 %) |
 | line outages (30) | 1.23 %, 63× | 9.70 %, 59× | 6.87 %, 34× (53 % served) | 0.84 %, 21× | 0.95 %, 29× | 0.47 %, 18× (20 %) |
 | congested lines × 0.6 (60) | 2.37 %, 118× | 10.08 %, 109× (53 % served) | 8.24 %, 76× (52 % served) | 1.06 %, 48× | 1.08 %, 59× | 0.51 %, 27× (33 %) |
-UC24_ROW
+| uc24, 24 h (40) | 1.77 %, 105× | – (12 h model) | 3.18 % at K = 32, 48× (90 % served) | 1.13 %, 44× | 1.28 %, 56× | 0.67 %, 24× (25 %) |
 
 (mean gap to the full MILP's dual bound, mean speed-up.)
 
@@ -380,7 +405,17 @@ UC24_ROW
   safety net (θ = 2 %, 33 % fallback) 0.51 % [0.41, 0.64] at 27× mean / 15× geometric; θ = 1 %: 0.39 % at 18× / 8.5×
   (62 % fallback); for scale, the MILP-based learned pipeline of §8 Z3 gave 0.32 % at 11.0× and the full MILP at 0.5 %
   0.20 % at 3.2× (different runs).
-UC24_TEXT
+* **24 hours** (trained on 12 h; the length-agnostic temporal convolutions and horizon-edge features carry over).
+  Whole-schedule recursion with 2 × K = 32 steps: 3.18 % (90 % served), K curve 4.76 → 3.95 → 3.54 → 3.27 → 3.18 →
+  3.14 % at K = 1, 4, 8, 16, 32, 64 (8 distinct LPs at K = 32): more steps keep helping on the longer horizon, but the
+  model stays behind LP rounding (+1.41 pp [−0.34, +4.10]). The guided search gives 1.13 % [0.83, 1.50] at 44× mean,
+  −0.64 pp [−1.14, −0.26] against LP rounding and **−0.15 pp [−0.25, −0.06] against the learning-free search** — the
+  one extrapolation set where the recursive prior adds a significant gain (no m1x prior exists for 24 h). With the
+  safety net (θ = 2 %, 25 % fallback) 0.67 % [0.53, 0.82] at 24× mean / 15× geometric; full MILP 122 s on average.
+* **Summary across shifts.** What transfers is the LP in the loop: the LP-verified search improves the LP-rounding start
+  by 0.4–1.3 pp on every set, and the safety net brings every set to 0.47–0.67 % at 13–27× mean speed-up. What does
+  not transfer is the learned schedule itself: on line outages and congestion both the recursive and the one-shot
+  model shed load on about half the instances, and the LP feedback recovers only part of it over the steps.
 
 ## Verdict
 
@@ -417,6 +452,8 @@ UC24_TEXT
   (61.9× vs 27.6×), which uses scipy's LP and cold starts.
 * **CPU-scale study**: 166k parameters, 2,000 training instances, ~1 core-hour per run; TRM's results are at
   GPU-days scale. The halting head was trained but only evaluated offline (it saves ~30 % of steps at +0.04 pp).
+* The REINFORCE end-to-end pipeline of §6 and the recommended MILP pipeline (0.30 % at 9.7×) were not re-run here;
+  they are quoted from their studies for scale only.
 * The m1x baseline, like rloop, was trained on the original ratings and the intact network and is applied zero-shot
   on the congested and line-outage sets (its inputs carry the derated ratings and the LP relaxation of the outaged
   network, its message passing does not see the outage); it is not available for 24 h (its heads are 12-hour
