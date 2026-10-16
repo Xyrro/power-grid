@@ -27,6 +27,15 @@ Checkpoints and logs (git-ignored): `data/generated/recursive/rloop/`.*
   `... --tag main_rls --stage rl --init main --anchor --anchor_init 2.0 --rl_temp 0.5 --p_seed 0.5`;
   `... --tag norecall --preset cpu --no_recall`; `... --tag nods --preset cpu --no_deep_sup`;
   `... --tag nofb_rl --stage rl --init nofb`.
+- 00:55 `nods` (back-propagation through all 3 outer steps) reached 5.0 GB at batch 32: restarted from its epoch-2
+  checkpoint with batch 16 × gradient accumulation 2 (same effective batch; `--accum`), ~2.8 GB. Core-2 queue had
+  stalled (its wait pattern matched its own parent shell) and was restarted; `main_rl` ran 01:00–01:23.
+- 01:10 full validation (360): whole-schedule recursion, supervised: `main` 8.05 % (K = 1) → 6.17 % (K = 16), `nofb`
+  7.63 % → 6.95 %; seeded with LP rounding (2.14 %): `main` 1.87 %, `nofb` 1.88 %. Learning-free LP-gradient local
+  search from LP rounding: 1.64 % with 16 LPs. Added: model-guided LP-verified search (`rloop.guided_search`,
+  `rec_rloop_val.py --guide none|m1x|net --lam`), selection script `scripts/rec_rloop_select.py`.
+- 01:30 λ sweep of the guided search on validation 0–119 (scratchpad `rloop_sweep1.sh`), whole-schedule validation
+  of `main_rl`, `main_rls` and decoding biases (scratchpad `rloop_valq2.sh`).
 
 ## Summary
 
