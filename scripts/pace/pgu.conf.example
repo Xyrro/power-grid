@@ -5,9 +5,11 @@
 # Re-check them with `pgu_guard.py status` if the cluster changes.
 JOB_PREFIX=pgu-
 ACCOUNT=coc
-GPU_PARTITION=ice-gpu
+GPU_PARTITION=coe-gpu   # 18x8 h100 + 18x8 h200; ice-gpu is the fallback (6x8 each)
 CPU_PARTITION=ice-cpu
-QOS=coc-ice
+QOS=coc-ice             # fallback
+GPU_QOS=coe-ice         # coe-gpu needs coe-ice (shorter queue: ~13 h vs ~22 h on ice-gpu, Oct 2026)
+CPU_QOS=coc-ice
 GPU_GRES=gpu:h100       # or gpu:h200 / gpu:l40s / gpu:a100; plain `gpu` takes whatever is free
 PYTHON_MODULE=python/3.11.9
 CUDA_MODULE=            # not needed: the torch wheel ships its own CUDA runtime

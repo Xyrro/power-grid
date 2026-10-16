@@ -36,7 +36,9 @@ DEFAULTS = {
     "ACCOUNT": "",              # leave empty if ICE assigns it automatically
     "GPU_PARTITION": "",        # fill from `status` (sinfo) / the PACE ICE docs
     "CPU_PARTITION": "",
-    "QOS": "",
+    "QOS": "",                  # fallback when GPU_QOS / CPU_QOS are empty
+    "GPU_QOS": "",              # e.g. coe-ice for the coe-gpu partition
+    "CPU_QOS": "",
     "GPU_GRES": "gpu",          # e.g. gpu:H100 or gpu:H200 -- the exact type string from `sinfo` on ICE
     "USER_GPU_HOURS_LIMIT": "32",   # cluster per-user running-capacity limit (GPU x remaining walltime)
     "USER_GPU_JOBS_LIMIT": "50",    # cluster per-user limit on queued + running GPU jobs
@@ -306,12 +308,13 @@ def cmd_status(cfg: dict) -> None:
 def build_sbatch(cfg: dict, a) -> list[str]:
     cmd = ["sbatch", "--parsable", "-J", cfg["JOB_PREFIX"] + a.name, "--comment=power-grid-uc", "-t", a.time]
     part = cfg["GPU_PARTITION"] if a.kind == "gpu" else cfg["CPU_PARTITION"]
+    qos = (cfg.get("GPU_QOS") if a.kind == "gpu" else cfg.get("CPU_QOS")) or cfg["QOS"]
     if cfg["ACCOUNT"]:
         cmd += ["-A", cfg["ACCOUNT"]]
     if part:
         cmd += ["-p", part]
-    if cfg["QOS"]:
-        cmd += ["-q", cfg["QOS"]]
+    if qos:
+        cmd += ["-q", qos]
     if a.kind == "gpu":
         cmd += [f"--gres={cfg['GPU_GRES']}:{a.gpus}"]
     if a.cpus:
