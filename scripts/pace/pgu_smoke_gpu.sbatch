@@ -11,6 +11,7 @@
 #SBATCH -N 1 --ntasks=1
 source "${SLURM_SUBMIT_DIR:-$PWD}/scripts/pace/trm_env.sh"
 set +e                       # trm_env.sh sets -e; here we want every check to run
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True   # less fragmentation at large batch
 NCPU=${SLURM_CPUS_PER_TASK:-24}
 SM=data/generated/recursive/smoke
 rm -rf "$SM"; mkdir -p "$SM"
@@ -41,8 +42,11 @@ run "A1-train-gpu_small" python3 scripts/rec_trm_train.py --tag smoke_a --preset
     --threads 4 --n_train 500 --steps 40 --val_every 20 --log_every 10 --out_dir "$SM"
 run "A2-resume" python3 scripts/rec_trm_train.py --tag smoke_a --preset gpu_small --device cuda \
     --threads 4 --n_train 500 --steps 60 --val_every 30 --log_every 10 --out_dir "$SM"
-run "A3-paper-preset" python3 scripts/rec_trm_train.py --tag smoke_paper --preset paper --device cuda \
-    --threads 4 --n_train 500 --steps 12 --val_every 1000 --log_every 2 --out_dir "$SM"
+# the paper preset's batch of 768 does not fit on one GPU; micro_batch accumulates over slices (same result)
+for MB in 64 128; do
+  run "A3-paper-micro$MB" python3 scripts/rec_trm_train.py --tag "smoke_paper_mb$MB" --preset paper --device cuda \
+      --threads 4 --n_train 500 --steps 6 --val_every 1000 --log_every 1 --micro_batch $MB --out_dir "$SM"
+done
 run "A4-rl-stage" python3 scripts/rec_trm_train.py --tag smoke_a_rl --stage rl --base smoke_a --device cuda \
     --threads 2 --n_train 500 --rl_steps 3 --rl_bs 4 --rl_samples 4 --workers 8 --out_dir "$SM"
 run "B1-train-gpu+LP" python3 scripts/rec_rloop_train.py --tag smoke_b --preset gpu --device cuda --threads 4 \

@@ -24,6 +24,8 @@ from otsl.uc import load_rts_gmlc  # noqa: E402
 D12, DM1X = os.path.join(ROOT, "data/generated/uc12"), os.path.join(ROOT, "data/generated/uc12_m1x")
 OUT = os.path.join(ROOT, "data/generated/recursive/rloop")          # git-ignored: checkpoints, caches
 RES = os.path.join(ROOT, "results/recursive")
+for _d in (OUT, RES):                 # a fresh checkout has neither; every entry point writes into them
+    os.makedirs(_d, exist_ok=True)
 KEYS = ("load", "avail", "u0", "sr", "u_rel", "lmp_rel", "flow_rel", "c_rel")
 VAL_SETS = ("val", "val_extra", "val_extra2")
 LINE_SCALE = {"uc12": 1.0, "uc24": 1.0, "hard": 0.6, "line_out": 1.0}
