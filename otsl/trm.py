@@ -89,6 +89,7 @@ class TRMConfig:
     halt_weight: float = 0.5
     # optimisation
     batch: int = 16
+    micro_batch: int = 0            # > 0: gradient accumulation over slices of the batch (memory), same result
     steps: int = 4000
     lr: float = 1e-3
     weight_decay: float = 0.1
@@ -937,27 +938,36 @@ def train(cfg: TRMConfig, sysm, tr, va, ckpt, device="cpu", log_every=50, val_ev
         for gparam in opt.param_groups:
             gparam["lr"] = lr_at(cfg, step)
         model.train()
-        idx = torch.as_tensor(carry.idx, device=device)
-        with autocast(cfg, device):
-            x, bus = model.inputs(xt[idx], xb[idx])
-            y, z, logit, q = model.step(x, bus, carry.y, carry.z, grad=True)
-        target = tgt[idx]
-        l_ans = bce_loss(logit, target, None if W is None else W[idx])
-        with torch.no_grad():
-            wrong = wrong_count(logit.detach(), target, None if S_tr is None else S_tr[idx])
-            halt_t = (wrong <= cfg.halt_tol).float()
-        l_q = F.binary_cross_entropy_with_logits(q, halt_t, reduction="none")
-        loss = (l_ans + cfg.halt_weight * l_q).mean() if cfg.mode == "trm" else l_ans.mean()
+        idx_all = torch.as_tensor(carry.idx, device=device)
+        B = len(idx_all)
+        mb = cfg.micro_batch if cfg.micro_batch and cfg.micro_batch < B else B
         opt.zero_grad(set_to_none=True)
-        loss.backward()
+        outs = []
+        for s0 in range(0, B, mb):
+            sl = slice(s0, min(B, s0 + mb))
+            idx = idx_all[sl]
+            with autocast(cfg, device):
+                x, bus = model.inputs(xt[idx], xb[idx])
+                y_, z_, logit_, q_ = model.step(x, bus, carry.y[sl], carry.z[sl], grad=True)
+            target = tgt[idx]
+            l_ans_ = bce_loss(logit_, target, None if W is None else W[idx])
+            with torch.no_grad():
+                wrong_ = wrong_count(logit_.detach(), target, None if S_tr is None else S_tr[idx])
+                halt_t_ = (wrong_ <= cfg.halt_tol).float()
+            l_q_ = F.binary_cross_entropy_with_logits(q_, halt_t_, reduction="none")
+            loss = (l_ans_ + cfg.halt_weight * l_q_).sum() if cfg.mode == "trm" else l_ans_.sum()
+            (loss / B).backward()
+            outs.append((y_, z_, l_ans_.detach(), wrong_, halt_t_, q_.detach()))
+        y, z = torch.cat([o[0] for o in outs]), torch.cat([o[1] for o in outs])
+        l_ans, wrong, halt_t, q = (torch.cat([o[k] for o in outs]) for k in (2, 3, 4, 5))
         if cfg.clip:
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.clip)
         opt.step()
         ema.update(model)
-        acc.append((float(l_ans.detach().mean()), float(wrong.float().mean()), float(halt_t.mean()),
+        acc.append((float(l_ans.mean()), float(wrong.float().mean()), float(halt_t.mean()),
                     float(((q > 0).float() == halt_t).float().mean()), float(carry.steps.mean() + 1)))
         carry.y, carry.z = y.float(), z.float()
-        carry.advance(model, q.detach().float().cpu().numpy(), xt)
+        carry.advance(model, q.float().cpu().numpy(), xt)
         step += 1
         if step % log_every == 0 or step == cfg.steps:
             a = np.array(acc)

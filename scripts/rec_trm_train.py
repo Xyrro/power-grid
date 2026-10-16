@@ -63,7 +63,7 @@ def main():
     for f, typ in [("hidden", int), ("layers", int), ("expansion", float), ("unit_mix", str), ("time_mix", str),
                    ("heads", int), ("time_kernel", int), ("hops", int), ("sym", str), ("y0", str),
                    ("cost_weight", float), ("mode", str), ("n", int), ("T", int), ("n_sup", int), ("halt_tol", int),
-                   ("halt_explore", float), ("halt_weight", float), ("batch", int), ("steps", int), ("lr", float),
+                   ("halt_explore", float), ("halt_weight", float), ("batch", int), ("micro_batch", int), ("steps", int), ("lr", float),
                    ("weight_decay", float), ("warmup", int), ("lr_min_frac", float), ("ema", float), ("clip", float),
                    ("amp", str), ("seed", int)]:
         ap.add_argument(f"--{f}", type=typ, default=None)

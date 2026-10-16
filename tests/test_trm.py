@@ -133,3 +133,18 @@ def test_lp_init_and_cost_weights(rts, small):
     g = np.random.default_rng(0).normal(size=small["y"].shape) * 1e3
     w = trm.cost_weights(g, small["y"], small["c_rel"], 1.0)
     assert (w >= 1).all() and w.shape == small["y"].shape
+
+
+def test_micro_batch_matches_full_batch(rts, small, tmp_path):
+    """gradient accumulation over slices of the carry batch gives the same parameters as the full batch"""
+    d = dict(small)
+    va = dict(small, u=small["y"])
+    states = []
+    for mb in (0, 1):
+        cfg = trm.TRMConfig(hidden=16, n=2, T=2, n_sup=2, batch=3, steps=2, warmup=1, amp="none", micro_batch=mb,
+                            ema=0.5)
+        model, ema, feats, log = trm.train(cfg, rts, d, va, str(tmp_path / f"mb{mb}.pt"), log_every=1, val_every=100,
+                                           logf=lambda *_: None)
+        states.append({k: v.clone() for k, v in model.state_dict().items()})
+    for k in states[0]:
+        assert torch.allclose(states[0][k], states[1][k], atol=1e-5), k
