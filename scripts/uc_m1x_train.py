@@ -15,6 +15,8 @@ Output: data/generated/uc12_m1x/models/<tag>.pt, data/generated/uc12_m1x/probs/<
 va 60 + vx 120 + vx2 180, in that order), results/uc12/m1x_train.json (per tag: data, time, validation metrics).
 """
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import sys
@@ -41,11 +43,32 @@ REF_MODELS = {"ref_bce_s0": ["uc_model1_4.pt"], "ref_bce_s1": ["hybrid_bce_s1.pt
               "ref_bce_ens3": ["uc_model1_4.pt", "hybrid_bce_s1.pt", "hybrid_bce_s2.pt"]}
 
 
+@contextlib.contextmanager
+def _locked(path):
+    """Exclusive lock + atomic replace, so parallel seed trainings cannot clobber a shared JSON file."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path + ".lock", "a+") as lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        try:
+            d = {}
+            if os.path.exists(path):
+                try:
+                    d = json.load(open(path))
+                except json.JSONDecodeError:            # a previous unlocked run left it half-written
+                    d = {}
+            yield d
+            tmp = f"{path}.tmp.{os.getpid()}"
+            with open(tmp, "w") as f:
+                json.dump(d, f, indent=1, default=float)
+            os.replace(tmp, path)
+        finally:
+            fcntl.flock(lk, fcntl.LOCK_UN)
+
+
 def register(name, members):
     """probability source -> list of (model path, kind); the eval recomputes (and times) every member"""
-    reg = json.load(open(REG)) if os.path.exists(REG) else {}
-    reg[name] = members
-    json.dump(reg, open(REG, "w"), indent=1)
+    with _locked(REG) as reg:
+        reg[name] = members
 
 
 def train_set(sysm, n, label):
@@ -95,11 +118,10 @@ def val_metrics(sysm, p, va, std=None):
 
 
 def update_log(tag, rec):
-    log = json.load(open(LOG)) if os.path.exists(LOG) else {}
-    if rec.get("train_s", 0) is None and log.get(tag, {}).get("train_s"):    # re-evaluated checkpoint: keep its time
-        rec["train_s"] = log[tag]["train_s"]
-    log[tag] = rec
-    json.dump(log, open(LOG, "w"), indent=1, default=float)
+    with _locked(LOG) as log:
+        if rec.get("train_s", 0) is None and log.get(tag, {}).get("train_s"):  # re-evaluated checkpoint: keep its time
+            rec["train_s"] = log[tag]["train_s"]
+        log[tag] = rec
 
 
 if __name__ == "__main__":
