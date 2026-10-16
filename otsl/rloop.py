@@ -1231,7 +1231,8 @@ def guided_search(inst, s0, K, lp: FastLP, sysm, lam, prior=None, net=None, feat
     either a fixed prior (probabilities [T, G], e.g. the m1x ensemble) or the recursive network, which is run once per
     LP on the LP feedback of the current best schedule (recursion state carried). A move is applied, made min
     up/down-feasible (Hamming) and adequate (block repair), priced, and accepted if cheaper. lam = 0: the learning-free
-    LP-gradient search. Returns per-LP records (cost, best, ..., cumulative time) and the best schedule."""
+    LP-gradient search. Returns per-LP records (cost, best, ..., cumulative time), the best schedule and the last
+    log-odds used for ranking."""
     t0 = time.time()
     sc = scenario_of(inst)
     lp.reset()
@@ -1246,6 +1247,7 @@ def guided_search(inst, s0, K, lp: FastLP, sysm, lam, prior=None, net=None, feat
                     short=float(sol["short"].sum()), grad=sol["grad"], fu=fu, fb=fbb, fl=fl, fh=fh)
 
     cur = price(s0, s0)
+    logit = np.zeros(s0.shape)
     if net is not None:
         net.eval()
         b = Batch(feats, [inst], device, fmax)
@@ -1288,4 +1290,4 @@ def guided_search(inst, s0, K, lp: FastLP, sysm, lam, prior=None, net=None, feat
             need_rank = True             # let the recursion see the current best again every few rejected moves
         recs.append(dict(cost=new["cost"], shed=new["shed"], short=new["short"], best=cur["cost"],
                          best_shed=cur["shed"], best_short=cur["short"], time=time.time() - t0))
-    return recs, cur["s"]
+    return recs, cur["s"], logit

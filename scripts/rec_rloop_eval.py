@@ -169,21 +169,22 @@ def main():
         # LP-verified local search from the LP-rounding schedule (16 more LPs): learning-free (LP first-order move
         # ranking), with the static m1x prior, and guided by the recursive network re-run on the LP feedback
         c0 = min(x[0] for x in rec["lpround"]["c"])
-        ls, _ = rloop.guided_search(inst, lpr_best, 16, lp, sysm, 0.0)
+        ls, _, _ = rloop.guided_search(inst, lpr_best, 16, lp, sysm, 0.0)
         rec["lpls"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0)
         if m1x is not None:
-            ls, _ = rloop.guided_search(inst, lpr_best, 16, lp, sysm, lam_m1x, prior=p)
+            ls, _, _ = rloop.guided_search(inst, lpr_best, 16, lp, sysm, lam_m1x, prior=p)
             rec["m1x_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr + t_inf, c0=c0, lam=lam_m1x)
-        ls, g_best = rloop.guided_search(inst, lpr_best, 16, lp, sysm, lam_net, net=gnet, feats=gfeats, fmax=fmax)
+        ls, g_best, g_logit = rloop.guided_search(inst, lpr_best, 16, lp, sysm, lam_net, net=gnet, feats=gfeats,
+                                                  fmax=fmax)
         rec["rloop_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0, lam=lam_net, model=gtag)
         # rloop seeded with the LP-rounding baseline's best schedule (its 5 LPs and repairs counted in the time)
         if a.seeded:
             r_s, _ = inf.rollout(inst, k_sel, t_pre=t_rel + t_lpr, fmax=fmax, start=lpr_best)
             rec["rloop_seeded"] = r_s
         # safety net on the selected main pipeline's best schedule: if it sheds / misses reserve, or its certified gap
-        # to the LP relaxation exceeds theta_min, a reduced MILP (0.5 %) that keeps the decisions where the schedule
-        # agrees with an integral LP-relaxation value (within 0.01) fixed (min up/down row release); larger
-        # thresholds are evaluated offline from the same records
+        # to the LP relaxation exceeds theta_min, a reduced MILP (0.5 %) that keeps fixed the decisions where the
+        # schedule, an integral LP-relaxation value (within 0.01) and a confident network prediction (p >= 0.95 or
+        # <= 0.05) agree (min up/down row release); larger thresholds are evaluated offline from the same records
         if main_pipe == "rloop_guided":
             L = rec["rloop_guided"]["recs"]
             xb = L[-1] if L and L[-1]["best"] < c0 else None
@@ -191,16 +192,19 @@ def main():
             b_served = (xb["best_shed"] < 1e-6 and xb["best_short"] < 1e-6) if xb else \
                 (lambda c: c[1] < 1e-6 and c[2] < 1e-6)(min(rec["lpround"]["c"], key=lambda c: c[0]))
             bu = g_best if xb else lpr_best
+            conf = np.abs(g_logit) >= np.log(19.0)                   # p >= 0.95 or <= 0.05
+            want = g_logit > 0
         else:
             rs = recs[min(k_sel, K) - 1]
             b_cost, b_served = rs["best"], rs["best_shed"] < 1e-6 and rs["best_short"] < 1e-6
-            bu = bests[min(k_sel, K) - 1][0]
+            bu, pb = bests[min(k_sel, K) - 1]
+            conf, want = np.abs(pb - 0.5) >= 0.45, pb > 0.5
         cert = (b_cost / inst["c_rel"] - 1) * 100
         rec.update(cert_gap=cert, main_pipe=main_pipe)
         if (not b_served) or cert > a.theta_min:
             t0 = time.time()
             ur = inst["u_rel"]
-            agree = (np.abs(ur - np.round(ur)) <= 0.01) & ((ur > 0.5) == (bu > 0))
+            agree = (np.abs(ur - np.round(ur)) <= 0.01) & ((ur > 0.5) == (bu > 0)) & conf & (want == (bu > 0))
             fix = {(int(t), int(g)): int(bu[t, g]) for t, g in zip(*np.where(agree))}
             fix, nrel = release_conflicting_rows(fix, sysm, inst["u0"])
             t_fix = time.time() - t0

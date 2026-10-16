@@ -97,7 +97,7 @@ def run_guided(a):
     out = {k: np.zeros((K + 1, len(idx))) for k in ("cost", "shed", "short", "time")}
     t0 = time.time()
     for j, i in enumerate(idx):
-        recs, _ = rloop.guided_search(insts[j], starts[j], K, lp, sysm, a.lam, prior=P[i] if P is not None else None,
+        recs, _, _ = rloop.guided_search(insts[j], starts[j], K, lp, sysm, a.lam, prior=P[i] if P is not None else None,
                                       net=net, feats=feats, bias=a.bias)
         out["cost"][0, j], out["shed"][0, j], out["short"][0, j] = c0[j], sh0[j], so0[j]
         for k in range(K):
