@@ -134,4 +134,51 @@ is reported.
 
 ## Running on PACE ICE
 
-(pending)
+The CPU runs here are a feasibility study; this section is the recipe for scaling on a GPU cluster. Cluster-specific
+values in `scripts/pace/trm_*` (account, partitions, QOS, GPU type, module names, storage paths) are **placeholders
+marked `PLACEHOLDER`**: check the PACE ICE documentation and fill them in before the first submission. Nothing in this
+section was run on PACE.
+
+**Environment** (`scripts/pace/trm_env.sh`, sourced by every job): load the cluster's Python module (placeholder), create a
+virtual environment with `torch numpy scipy pandas highspy pytest` (the study used torch 2.14, scipy 1.17 with its
+bundled HiGHS, highspy 1.12), `cd` to the clone of this repository (branch `recursive-uc`), single-threaded HiGHS and
+BLAS. Submit from the repository root after `mkdir -p logs`; run `python3 -m pytest -q tests/test_trm.py` once (CPU,
+~30 s).
+
+**Data regeneration order** (the datasets are git-ignored and must be rebuilt from scratch; all CPU):
+
+1. `sbatch scripts/pace/trm_gen_base.sbatch`: the uc12 splits with full MILPs: train 500 (seed 11), val 60 (12),
+   val_extra 120 (31), val_extra2 180 (41), test_fresh 120 (23); ~980 MILPs ≈ 8 core-hours (1 node × 8 cores, ~1 h).
+2. `sbatch scripts/pace/trm_teachers.sbatch`: the label teacher (3 MILP-label BCE GNNs, `scripts/uc_hybrid_train.py`),
+   the m1x extra scenarios and 1,500 polished labels (`scripts/uc_m1x_data.py`, seed 111) and the 5-member m1x
+   temporal-GNN ensemble (the baseline); ≈ 4–5 core-hours, 6 cores.
+3. `sbatch --array=0-399%100 scripts/pace/trm_gen_data_array.sbatch` (`N_TOTAL=100000`): 100,000 more scenarios with
+   teacher-polished labels, one chunk of 250 per task (`scripts/rec_trm_data.py`, seed 211, the m1x polishing setting);
+   ≈ 5.5 s per instance → ≈ 150 core-hours, 3 GB per task, ~25 min per task.
+4. Training on GPU (`scripts/pace/trm_train_gpu.sbatch`), then the CPU evaluation (`scripts/pace/trm_eval_cpu.sbatch`:
+   validation passes and selection as one job, the paired test evaluation as an array of single-core shards), then
+   `python3 scripts/rec_trm_report.py`.
+
+**Commands.**
+
+```bash
+mkdir -p logs
+sbatch scripts/pace/trm_gen_base.sbatch
+sbatch scripts/pace/trm_teachers.sbatch                         # after step 1
+N_TOTAL=100000 sbatch --array=0-399%100 scripts/pace/trm_gen_data_array.sbatch   # after step 2
+TAG=gpu_small PRESET=gpu_small N_TRAIN=50000 sbatch scripts/pace/trm_train_gpu.sbatch
+TAG=paper PRESET=paper N_TRAIN=100000 EXTRA="--batch 768 --micro_batch 128 --steps 20000" RL=1 \
+    sbatch scripts/pace/trm_train_gpu.sbatch
+TAGS="paper paper_rl" CONTROLS="gpu_small" sbatch scripts/pace/trm_eval_cpu.sbatch          # validation + selection
+sbatch --array=0-7 --export=ALL,STAGE=test scripts/pace/trm_eval_cpu.sbatch                  # paired test, 8 shards
+python3 scripts/rec_trm_report.py
+```
+
+Every knob of `otsl.trm.TRMConfig` is a flag of `scripts/rec_trm_train.py` (`--hidden --layers --n --T --n_sup --batch
+--micro_batch --ema --lr --weight_decay --warmup --beta1 --beta2 --unit_mix --time_mix --heads ...`); `--device cuda`
+selects the GPU. Presets: `cpu` (this study), `gpu_small` (hidden 128, attention mixers, batch 256), `paper` (TRM's
+scale: hidden 512, 2 layers, n = 6, T = 3, N_sup = 16, batch 768, EMA 0.999, AdamW β = (0.9, 0.95), lr 1e-4, weight
+decay 1.0, 2,000 warm-up steps, attention mixers). Jobs resume from their checkpoint when resubmitted with the same tag.
+
+(Which configurations are worth running at scale, and the resource estimates, are in the Verdict and in the PACE plan
+below once the CPU study is complete.)

@@ -125,26 +125,36 @@ def prob_pipelines(ctx, inst, name, p_fn, t_base, sel, sg=None):
 
 
 class TRMRunner:
-    def __init__(self, tag, sel, sysm):
-        self.tag, self.sel, self.s = tag, sel, sysm
-        self.model, self.feats, self.cfg, _ = trm.load_model(os.path.join(OUT, "models", f"{sel['ckpt']}.pt"), sysm)
+    def __init__(self, tag, sel, sysm, device="cpu"):
+        self.tag, self.sel, self.s, self.dev = tag, sel, sysm, device
+        self.model, self.feats, self.cfg, _ = trm.load_model(os.path.join(OUT, "models", f"{sel['ckpt']}.pt"), sysm,
+                                                             device)
         self.kmax = max(K_CURVE) if self.cfg.mode == "trm" else 1
+
+    def _sync(self):
+        if self.dev != "cpu":
+            torch.cuda.synchronize()
 
     @torch.inference_mode()
     def infer(self, d1):
-        """per-step probabilities and cumulative inference times (single instance, as deployed)"""
-        (xt, xb), t_feat = timed(self.feats, d1)
+        """per-step probabilities and cumulative inference times (single instance, as deployed; on a GPU the times
+        include the transfers and are synchronised)"""
+        t0 = time.time()
+        xt, xb = self.feats(d1, self.dev)
+        self._sync()
+        t_feat = time.time() - t0
         m = self.model
         T, G = xt.shape[1], xt.shape[2]
         P, Q, tk = [], [], []
         t0 = time.time()
-        with trm.autocast(self.cfg, "cpu"):
+        with trm.autocast(self.cfg, self.dev):
             x, bus = m.inputs(xt, xb)
             y, z = m.init_state(1, T, G, xt)
             for k in range(self.kmax):
                 y, z, logit, q = m.step(x, bus, y, z, grad=False)
-                P.append(torch.sigmoid(logit[0]).float().numpy().astype(np.float64))
+                P.append(torch.sigmoid(logit[0]).float().cpu().numpy().astype(np.float64))
                 Q.append(float(q[0]))
+                self._sync()
                 tk.append(time.time() - t0)
         return P, Q, tk, t_feat
 
@@ -215,6 +225,7 @@ def main():
     ap.add_argument("--plan", default=os.path.join(RES, "trm_select.json"))
     ap.add_argument("--no_milp", action="store_true", help="skip the full MILPs (dry runs only)")
     ap.add_argument("--out", default=None)
+    ap.add_argument("--trm_device", default="cpu", help="device of the TRM forward passes (LPs / MILPs stay on the CPU)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     torch.set_num_threads(1)
@@ -239,7 +250,7 @@ def main():
         gnnt.append(m1)
     lag = load_model1(os.path.join(R12, "constrained_lag_D.pt"), sysm, strip(tr), 12)
     rl = load_model1(os.path.join(R12, "constrained_rl_lf.pt"), sysm, strip(tr), 12)
-    runners = [TRMRunner(tag, sel, sysm) for tag, sel in plan["trm"].items()]
+    runners = [TRMRunner(tag, sel, sysm, a.trm_device) for tag, sel in plan["trm"].items()]
     # warm-up (first-call overheads), not recorded
     sc0 = UCScenario(load=d["load"][0], avail=d["avail"][0], u0=d["u0"][0], sr=d["sr"][0])
     w = Inst(d, 0, m.solve_dispatch(sc0, None, relax=True))
