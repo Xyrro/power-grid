@@ -1188,3 +1188,104 @@ def lp_local_search(inst, s0, K, lp: FastLP, sysm, t_budget=None):
                          best_shed=float(best_sol["shed"].sum() + best_sol["spill"].sum()),
                          best_short=float(best_sol["short"].sum()), time=time.time() - t0))
     return recs, best_s
+
+
+# ============================================================================ model-guided LP search
+def guided_moves(s, grad, logit, cost, sysm, lam):
+    """block moves of lp_gradient_moves (all units) plus, per unit, every maximal block where the model's rounding
+    disagrees with s set to the model's value; each scored by the LP's first-order prediction (in % of the current
+    cost) minus lam x the model's mean log-odds in favour of the new values on the changed cells. Best first."""
+    T, G = s.shape
+    moves = {}
+    for d, u in lp_gradient_moves(s, grad, None, sysm, top=10 ** 6):
+        moves[u.tobytes()] = u
+    want = (logit > 0).astype(np.int8)
+    for g in range(G):
+        diff = want[:, g] != s[:, g]
+        t = 0
+        while t < T:
+            if diff[t]:
+                a = t
+                while t < T and diff[t]:
+                    t += 1
+                u = s.copy()
+                u[a:t, g] = want[a:t, g]
+                moves[u.tobytes()] = u
+            else:
+                t += 1
+    out = []
+    for u in moves.values():
+        ch = u != s
+        new = u[ch].astype(float)
+        pred = float((grad[ch] * (2 * new - 1)).sum()) / cost * 100
+        conf = float((logit[ch] * (2 * new - 1)).mean())
+        out.append((pred - lam * conf, u))
+    out.sort(key=lambda m: m[0])
+    return out
+
+
+@torch.no_grad()
+def guided_search(inst, s0, K, lp: FastLP, sysm, lam, prior=None, net=None, feats=None, device="cpu", fmax=None,
+                  bias=0.0, max_tries=None):
+    """LP-verified local search from s0 with K LPs after pricing s0. Move ranking: guided_moves with the log-odds of
+    either a fixed prior (probabilities [T, G], e.g. the m1x ensemble) or the recursive network, which is run once per
+    LP on the LP feedback of the current best schedule (recursion state carried). A move is applied, made min
+    up/down-feasible (Hamming) and adequate (block repair), priced, and accepted if cheaper. lam = 0: the learning-free
+    LP-gradient search. Returns per-LP records (cost, best, ..., cumulative time) and the best schedule."""
+    t0 = time.time()
+    sc = scenario_of(inst)
+    lp.reset()
+    s0 = np.asarray(s0, np.int8)
+    fm = (sysm.fmax if fmax is None else fmax).copy()
+    fm[outs(inst, "l_out")] = 0
+
+    def price(s, r):
+        sol = lp.solve(sc, s)
+        fu, fbb, fl, fh = feedback_arrays(sol, s, r, inst, sysm, fm)
+        return dict(s=s, cost=sol["obj"], shed=float(sol["shed"].sum() + sol["spill"].sum()),
+                    short=float(sol["short"].sum()), grad=sol["grad"], fu=fu, fb=fbb, fl=fl, fh=fh)
+
+    cur = price(s0, s0)
+    if net is not None:
+        net.eval()
+        b = Batch(feats, [inst], device, fmax)
+        xe = net.embed_static(b.ux)
+        state = net.init_state(xe)
+    seen = {s0.tobytes()}
+    recs = []
+    tried = 0
+    need_rank = True
+    while len(recs) < K and tried < (max_tries or 50 * K):
+        if need_rank:
+            if net is not None:
+                fb = stack_feedback(b, [cur], np.array([np.inf]), sysm.gbus)
+                lg, _, state = net.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, state)
+                logit = lg[0].cpu().numpy().astype(float) + bias
+            elif prior is not None:
+                p = np.clip(np.asarray(prior, float), 1e-4, 1 - 1e-4)
+                logit = np.log(p / (1 - p))
+            else:
+                logit = np.zeros(s0.shape)
+            cand = guided_moves(cur["s"], cur["grad"], logit, cur["cost"], sysm, lam)
+            need_rank = False
+        if not cand:
+            break
+        score, u = cand.pop(0)
+        tried += 1
+        if lam == 0 and score >= 0:
+            break
+        v = repair_min_updown(u, inst["u0"], sysm.min_up, sysm.min_dn)
+        v = adequacy_repair_blocks(v, inst["u0"], inst["load"], inst["avail"], inst["sr"], sysm)
+        v = repair_min_updown(v, inst["u0"], sysm.min_up, sysm.min_dn).astype(np.int8)
+        if v.tobytes() in seen:
+            continue
+        seen.add(v.tobytes())
+        new = price(v, u)
+        if new["cost"] < cur["cost"] - 1e-9:
+            cur = new
+            need_rank = True
+        elif net is not None and len(recs) % 4 == 3:
+            need_rank = True             # let the recursion see the current best again every few rejected moves
+        recs.append(dict(cost=new["cost"], shed=new["shed"], short=new["short"], best=cur["cost"],
+                         best_shed=cur["shed"], best_short=cur["short"], time=time.time() - t0))
+    return recs, cur["s"]
