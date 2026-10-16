@@ -203,20 +203,23 @@ def is_ours(job: Job, reg: dict, prefix: str) -> bool:
 # ----------------------------------------------------------------------------------------------- accounting
 @dataclass
 class Usage:
-    gpu_hours_all: float
-    gpu_hours_ours: float
+    gpu_hours_all: float        # RUNNING jobs only: this is what Slurm's MaxTRESRunMins actually limits
+    gpu_hours_ours: float       # this project, running + pending (so we never queue more than our share)
     gpu_jobs_all: int
     gpu_jobs_ours: int
     cpu_tasks_ours: int
+    gpu_hours_ours_running: float = 0.0
 
 
 def usage(jobs: list[Job], reg: dict, prefix: str) -> Usage:
-    active = list(jobs)                 # squeue lists only unfinished jobs; count every one (conservative)
+    active = list(jobs)                 # squeue lists only unfinished jobs
     g_all = [j for j in active if j.gpus > 0]
+    g_run = [j for j in g_all if j.state.startswith("R")]
     g_our = [j for j in g_all if is_ours(j, reg, prefix)]
     c_our = [j for j in active if j.gpus == 0 and is_ours(j, reg, prefix)]
-    return Usage(sum(j.gpu_hours_committed for j in g_all), sum(j.gpu_hours_committed for j in g_our),
-                 len(g_all), len(g_our), len(c_our))
+    return Usage(sum(j.gpu_hours_committed for j in g_run), sum(j.gpu_hours_committed for j in g_our),
+                 len(g_all), len(g_our), len(c_our),
+                 sum(j.gpu_hours_committed for j in g_our if j.state.startswith("R")))
 
 
 def array_size(spec: str | None) -> tuple[int, int | None]:
@@ -254,10 +257,13 @@ def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_task
             bad.append("GPU jobs must not be arrays here; submit them one by one")
         new = gpus * hours
         if u.gpu_hours_ours + new > float(cfg["SHARE_GPU_HOURS"]) + 1e-9:
-            bad.append(f"project share: {u.gpu_hours_ours:.1f} + {new:.1f} GPU-h > SHARE_GPU_HOURS {cfg['SHARE_GPU_HOURS']}")
+            bad.append(f"project share: {u.gpu_hours_ours:.1f} queued+running + {new:.1f} GPU-h > "
+                       f"SHARE_GPU_HOURS {cfg['SHARE_GPU_HOURS']}")
+        # Slurm's MaxTRESRunMins counts RUNNING jobs; a pending job of ours does not block other projects.
         if u.gpu_hours_all + new > float(cfg["USER_GPU_HOURS_LIMIT"]) + 1e-9:
-            bad.append(f"user limit: all your jobs commit {u.gpu_hours_all:.1f} GPU-h; + {new:.1f} > "
-                       f"USER_GPU_HOURS_LIMIT {cfg['USER_GPU_HOURS_LIMIT']} (would block your other projects)")
+            bad.append(f"user limit: your running jobs hold {u.gpu_hours_all:.1f} GPU-h; + {new:.1f} > "
+                       f"USER_GPU_HOURS_LIMIT {cfg['USER_GPU_HOURS_LIMIT']} (it would simply stay queued; "
+                       f"submit a shorter job or wait)")
         if u.gpu_jobs_ours + 1 > int(cfg["SHARE_GPU_JOBS"]):
             bad.append(f"project share: {u.gpu_jobs_ours} GPU jobs already, SHARE_GPU_JOBS {cfg['SHARE_GPU_JOBS']}")
         if u.gpu_jobs_all + 1 > int(cfg["USER_GPU_JOBS_LIMIT"]):
@@ -294,8 +300,9 @@ def cmd_status(cfg: dict) -> None:
     for j in jobs:
         mark = "*" if is_ours(j, reg, cfg["JOB_PREFIX"]) else " "
         print(f" {mark} {j.jobid:>14} {j.state:<10} gpus={j.gpus} left={j.hours_left:.2f}h  {j.name}")
-    print(f"\nGPU-h committed: all {u.gpu_hours_all:.1f} / {cfg['USER_GPU_HOURS_LIMIT']}, "
-          f"this project {u.gpu_hours_ours:.1f} / {cfg['SHARE_GPU_HOURS']}")
+    print(f"\nGPU-h running (Slurm's cap): all {u.gpu_hours_all:.1f} / {cfg['USER_GPU_HOURS_LIMIT']}, "
+          f"this project {u.gpu_hours_ours_running:.1f}")
+    print(f"GPU-h queued+running, this project: {u.gpu_hours_ours:.1f} / {cfg['SHARE_GPU_HOURS']}")
     print(f"GPU jobs: all {u.gpu_jobs_all} / {cfg['USER_GPU_JOBS_LIMIT']}, this project {u.gpu_jobs_ours} / {cfg['SHARE_GPU_JOBS']}")
     print(f"CPU jobs/tasks of this project: {u.cpu_tasks_ours} / {cfg['SHARE_CPU_TASKS']}")
     print("\n== storage")

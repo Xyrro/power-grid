@@ -49,10 +49,19 @@ def test_usage_separates_projects():
     jobs = g.parse_squeue_lines(SQUEUE)
     reg = {"2001": [], "2002": []}            # 3001 has the prefix but is not in the registry: not ours
     u = g.usage(jobs, reg, "pgu-")
-    assert u.gpu_hours_all == pytest.approx(5 + 16 + 2 + 7)   # running: GPUs x time left; pending: GPUs x limit
-    assert u.gpu_hours_ours == pytest.approx(2)
+    # Slurm's MaxTRESRunMins counts RUNNING jobs only (1001: 5, 2001: 2, 3001: 7); the pending 1002 does not count
+    assert u.gpu_hours_all == pytest.approx(5 + 2 + 7)
+    assert u.gpu_hours_ours == pytest.approx(2)          # ours, queued + running
+    assert u.gpu_hours_ours_running == pytest.approx(2)
     assert u.gpu_jobs_all == 4 and u.gpu_jobs_ours == 1
     assert u.cpu_tasks_ours == 2
+
+
+def test_pending_job_of_ours_counts_against_our_share_only():
+    jobs = g.parse_squeue_lines(SQUEUE + "2003|pgu-pending|PENDING|1|gres:gpu:H100:1|8:00:00|8:00:00\n")
+    u = g.usage(jobs, {"2001": [], "2002": [], "2003": []}, "pgu-")
+    assert u.gpu_hours_all == pytest.approx(5 + 2 + 7)   # unchanged: pending holds no running capacity
+    assert u.gpu_hours_ours == pytest.approx(2 + 8)      # but it does count against our own share
 
 
 def test_budget_respects_project_share_and_user_limit():
@@ -109,20 +118,25 @@ def test_cli_submit_and_cancel_only_own_jobs(tmp_path, monkeypatch, capsys):
     script = root / "repo" / "scripts" / "job.sbatch"
     script.write_text("#!/bin/sh\n")
     (root / "jobs.tsv").write_text("#header\n")
+    cfgfile = root / "pgu.conf"
+    cfgfile.write_text("MAX_WALLTIME=20:00:00\nSHARE_GPU_HOURS=32\nUSER_GPU_HOURS_LIMIT=32\nPGU_ROOT=%s\n" % root)
     bin_dir = _fake_slurm(tmp_path, SQUEUE)
     monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
     monkeypatch.setenv("PGU_ROOT", str(root))
     monkeypatch.setenv("USER", "someone")
     monkeypatch.chdir(root / "repo")
     # dry run: accounting printed, nothing submitted
-    g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "02:00:00", "--dry-run", str(script)])
+    g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "02:00:00", "--dry-run",
+            "--config", str(cfgfile), str(script)])
     assert "dry run" in capsys.readouterr().out and not (tmp_path / "sbatch_calls.txt").exists()
-    # the user's jobs already commit 30 GPU-h (other projects included): a 3 h GPU job would exceed 32 -> refused
+    # running jobs hold 14 GPU-h (1001:5 + 2001:2 + 3001:7); a 19 h job would exceed 32 -> refused
     with pytest.raises(SystemExit):
-        g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "03:00:00", str(script)])
+        g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "19:00:00",
+                "--config", str(cfgfile), str(script)])
     assert not (tmp_path / "sbatch_calls.txt").exists()
-    # a 2 h job fits (30 + 2 = 32): submitted and recorded
-    g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "02:00:00", str(script)])
+    # a 2 h job fits: submitted and recorded
+    g.main(["submit", "--kind", "gpu", "--name", "trm", "--gpus", "1", "--time", "02:00:00",
+            "--config", str(cfgfile), str(script)])
     call = (tmp_path / "sbatch_calls.txt").read_text()
     assert "-J pgu-trm" in call and "--comment=power-grid-uc" in call and f"PGU_ROOT={root}" in call
     assert "4242" in (root / "jobs.tsv").read_text()
