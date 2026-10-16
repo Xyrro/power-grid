@@ -47,6 +47,7 @@ Everything runs on CPU or CUDA (`device`); the LPs always run on CPU (in the poo
 from __future__ import annotations
 
 import collections
+import contextlib
 import copy
 import math
 import multiprocessing as mp
@@ -554,7 +555,8 @@ class RLoopNet(nn.Module):
         le = self.el(torch.cat([lx, fbl], -1))
         stat = xe if self.recall else 0.0
         for c in range(self.n_cycles):
-            ctx = torch.enable_grad() if c >= self.n_cycles - grad_cycles else torch.no_grad()
+            # the last grad_cycles cycles keep the caller's grad mode (no_grad at inference), earlier ones never track
+            ctx = contextlib.nullcontext() if c >= self.n_cycles - grad_cycles else torch.no_grad()
             with ctx:
                 for _ in range(self.n_latent):
                     z = self.core(z + stat + fe + self.ey(y), be, le, gate)
