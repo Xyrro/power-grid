@@ -132,6 +132,18 @@ probabilities are decoded and priced; reward = log(c_best_before / c_sample), th
 schedule so far, which is exactly what keep-best inference gains (clipped below at −5 %; step 0: −log(c / c_relax));
 leave-one-out baseline; plus 0.5 × the supervised loss as an anchor; halting loss on the greedy schedule's cost.
 
+**Second use of the same network: guided LP-verified search.** Added after the first validation results (see Status):
+start from the LP-rounding baseline's best schedule (5 LPs), then repeat for a budget of LPs: rank block moves on the
+current best schedule — switch an off unit on for a block of its minimum up time from any hour, switch off a whole
+on-block, trim one hour from either end of an on-block, and set every maximal block where the network's rounding
+disagrees with the schedule to the network's value — by the LP's first-order cost prediction (Σ d cost/d u × change,
+from the exact bound duals, in % of the current cost) minus λ × the network's mean log-odds in favour of the new
+values; apply the best untried move, make it min up/down-feasible (Hamming) and adequate (block repair), price it with
+the LP, keep it if it is cheaper. The recursive network is re-run on the LP feedback of the current best schedule after
+every accepted move and after every 4 rejected ones (its (y, z) state carried), so its prior follows what the LP says.
+λ = 0 is a learning-free LP-gradient local search; with a fixed probability map as prior (the m1x ensemble) it is a
+non-recursive learned search. λ is chosen on validation instances 0–119 (net 0.5, m1x 1).
+
 **LP budget and parallelism.** LPs (decoding + repair + LP + feedback) run in a pool of CPU worker processes or in
 process; with `inflight` > 1, several batches are kept in flight so the network trains on one while the workers price
 another (the GPU configuration). On this container each training run is one single-threaded process on one core with
