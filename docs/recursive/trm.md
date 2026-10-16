@@ -140,7 +140,30 @@ is reported.
 
 ## Ablations
 
-(pending)
+**Which items of PLAN.md were tested, and how** (numbers below and in `results/recursive/trm_results.md`):
+
+| PLAN item | tested here | how |
+|---|---|---|
+| recursion vs one-shot at equal parameters | yes | `oneshot`: the same 2-layer net applied once, same data and steps; `oneshot_long`: same wall-clock as `main` |
+| recursion vs a deeper non-recursive net at matched compute | yes | `deep`: T(n + 1) = 10 unshared 2-layer nets applied once (one supervision step's compute, 1.24 M parameters) |
+| deep supervision on / off | yes | `nods`: N_sup = 1 (one supervision step from the initial state), same steps |
+| n and T | partly | `n2T1` (3 net calls per step) vs `main` (n = 4, T = 2: 10 calls); TRM's n = 6, T = 3 (21 calls) not run (2.2× the cost of a run) |
+| test-time compute (1, 2, 4, 8, 16, 32 steps) | yes | every recursive model, validation and test |
+| LP-relaxation features on / off | yes | `nolp` (TRM) and `oneshot_nolp` |
+| group counts for identical units + DP assignment (risk 1) | yes | count targets + water-filling + Viterbi in every model; `oneshot_rank`: the earlier rank feature + canonical labels |
+| feasible-by-construction decoding (risk 3) | yes | per-unit Viterbi DP vs threshold decoder, chosen per model on validation |
+| graph-to-token transformer (tokenization section) | partly | factorized form (pools / convolution / bus graph with an electrical-distance kernel, PTDF encodings, no unit IDs) in `main`; axial attention with an electrical-distance bias over units and a relative hour bias in `oneshot_attn`; a full typed-token transformer (bus, line, hour tokens) was not built |
+| cost-weighted deep supervision (risk 2) | yes | `oneshot_costw`: BCE weighted by the dispatch-LP sensitivity at the label (first-order cost of flipping each decision) |
+| reward each step's improvement (risk 2) | yes | `main_rl`: REINFORCE at a random supervision step with the exact LP as critic |
+| halting on "within 0.5 % of the best known cost" (risk 2) | yes | post-hoc halting head fitted on LP-priced steps of training instances (`scripts/rec_trm_halt.py`) |
+| use the steps as candidates (risk 2) | yes | screening the last 5 steps' schedules |
+| start from a good answer (risk 4) | partly | `y0lp`: y initialised from the LP-relaxation commitment; from the one-shot ensemble: not tested |
+| safety net (risk 3) | yes | reduced-MILP fallback on the repaired 1-LP pipeline, test only |
+| more data, recall / progressive loss, 24 h, congested benchmark | partly | input re-injected at every z update (recall) as in TRM; no progressive loss; zero-shot 24 h and congested runs (stretch) |
+| ACT for data coverage (not in PLAN; found necessary) | yes | `main_act`: halting target ≤ 8 wrong unit-hours instead of ≤ 2 |
+
+(results pending)
+
 
 ## Verdict
 
