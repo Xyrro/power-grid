@@ -28,10 +28,12 @@ BASE = [("milp01", "full MILP, 0.1 % (reference)"), ("milp05", "full MILP, 0.5 %
         ("lpround5r", "LP rounding, 5 thresholds + LP repair"),
         ("m1x_1", "m1x temporal-GNN ensemble, 1 LP"), ("m1x_1r", "m1x ensemble, 1 LP + LP repair"),
         ("m1x_5", "m1x ensemble, 5 thresholds"), ("m1x_5r", "m1x ensemble, 5 thresholds + LP repair"),
+        ("m1x_mix5", "m1x ensemble + 4 LP roundings"), ("m1x_mix5r", "m1x ensemble + 4 LP roundings + LP repair"),
         ("rl_rl1", "REINFORCE end-to-end (label-free + RL), 1 LP"), ("rl_rl1r", "REINFORCE (label-free + RL), 1 LP + LP repair"),
         ("rl_lag7", "REINFORCE end-to-end (Lagrangian + KL), 7 thresholds"),
         ("rl_lag7r", "REINFORCE (Lagrangian + KL), 7 thresholds + LP repair")]
 SUFFIX = [("_1", "1 LP"), ("_1r", "1 LP + LP repair"), ("_t5", "5 thresholds"), ("_t5r", "5 thresholds + LP repair"),
+          ("_mix5", "+ 4 LP roundings"), ("_mix5r", "+ 4 LP roundings + LP repair"),
           ("_s5", "last 5 steps screened"), ("_s5r", "last 5 steps + LP repair"), ("_halt", "halting head, 1 LP"),
           ("_haltr", "halting head + LP repair"), ("_halt2r", "cost-based halting head + LP repair"),
           ("_fb", "1 LP + LP repair + safety-net reduced MILP")]

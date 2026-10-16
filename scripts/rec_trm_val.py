@@ -37,7 +37,9 @@ OUT = os.path.join("data", "generated", "recursive")
 RES = os.path.join("results", "recursive")
 K_MAX = 32
 K_CURVE = (1, 2, 4, 8, 16, 32)
-TH = {"viterbi": (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8), "threshold": (0.3, 0.4, 0.5, 0.6, 0.7)}
+TH = {"viterbi": (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8), "threshold": (0.3, 0.4, 0.5, 0.6, 0.7),
+      "blend0.3": (0.3, 0.5), "blend0.5": (0.3, 0.5), "blend0.7": (0.3, 0.5)}
+LPR = (0.001, 0.05, 0.2, 0.5, 0.8)        # LP-rounding thresholds (otsl.base.E2E_TH)
 
 
 class Pricer:
@@ -219,11 +221,34 @@ def main():
                 bt = min(TH[hw], key=lambda t: ev.rows[f"{hw}|{t}|k{k_def}|{kind}"]["gap_mean"])
                 sel[kind][f"best_{hw}"] = dict(th=bt, **ev.rows[f"{hw}|{bt}|k{k_def}|{kind}"])
             # 5 thresholds of the selected decoder (greedy on validation, plain prices)
-            names = [f"{how}|{t}|k{k_def}" for t in TH[how]]
+            hs = how if len(TH[how]) >= 5 else "viterbi"
+            names = [f"{hs}|{t}|k{k_def}" for t in TH[hs]]
             C = np.stack([ev.store[f"{n}|plain"][:, 0] for n in names], 1)
             ch = greedy_screen(C, 5)
-            sel[kind]["screen_th"] = [TH[how][c] for c in ch]
+            sel[kind]["screen_dec"] = hs
+            sel[kind]["screen_th"] = [TH[hs][c] for c in ch]
             sel[kind]["screen_th_metrics"] = ev.screen(f"th5_{kind}", [names[c] for c in ch], kind)
+        # mixed screening: the model's selected 1-LP schedule + 4 LP roundings (greedy on validation), <= 5 LPs
+        lpr = os.path.join(OUT, "val", "lpround.npz")
+        if os.path.exists(lpr):
+            def sc(i):
+                return UCScenario(load=va["load"][i], avail=va["avail"][i], u0=va["u0"][i], sr=va["sr"][i])
+            rc = {i: lp_round_candidates(va["u_rel"][i], sc(i), sysm) for i in idx}
+            for j, t in enumerate(LPR):
+                ev.candidate(f"round|{t}", lambda i, j=j: rc[i][j][1])
+            for kind in ("plain", "rep"):
+                h1, t1 = sel[kind]["decoder"], sel[kind]["th"]
+                own = f"{h1}|{t1}|k{k_def}"
+                C = np.stack([np.minimum(ev.store[f"{own}|plain"][:, 0], ev.store[f"round|{t}|plain"][:, 0]) for t in LPR], 1)
+                chosen = []
+                best = ev.store[f"{own}|plain"][:, 0].copy()
+                for _ in range(4):
+                    j = int(np.argmin([np.mean(np.minimum(best, ev.store[f"round|{t}|plain"][:, 0])) if t not in chosen
+                                       else np.inf for t in LPR]))
+                    chosen.append(LPR[j])
+                    best = np.minimum(best, ev.store[f"round|{LPR[j]}|plain"][:, 0])
+                sel[kind]["mix_th"] = chosen
+                sel[kind]["mix_metrics"] = ev.screen(f"mix5_{kind}", [own] + [f"round|{t}" for t in chosen], kind)
         how, th = sel["rep"]["decoder"], sel["rep"]["th"]
         if recursive:
             for k in K_CURVE:
@@ -254,6 +279,9 @@ def main():
     for k, v in sel.items():
         if isinstance(v, dict) and "screen_th_metrics" in v:
             print(k, "5 thresholds", v["screen_th"], round(v["screen_th_metrics"]["gap_mean"], 3), round(v["screen_th_metrics"]["served"], 1))
+        if isinstance(v, dict) and "mix_metrics" in v:
+            print(k, "mix5", v["mix_th"], round(v["mix_metrics"]["gap_mean"], 3), round(v["mix_metrics"]["gap_median"], 3),
+                  round(v["mix_metrics"]["served"], 1))
 
 
 if __name__ == "__main__":

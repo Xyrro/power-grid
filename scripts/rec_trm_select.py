@@ -39,8 +39,9 @@ def main():
     one = {}
 
     def pick(s):
-        return dict(decoder=s["decoder"], th=s["th"], screen_th=s["screen_th"], val_one_lp=s["one_lp"],
-                    val_screen=s["screen_th_metrics"])
+        return dict(decoder=s["decoder"], th=s["th"], screen_dec=s.get("screen_dec", s["decoder"]),
+                    screen_th=s["screen_th"], mix_th=s.get("mix_th"), val_one_lp=s["one_lp"],
+                    val_screen=s["screen_th_metrics"], val_mix=s.get("mix_metrics"))
 
     for tag in a.final + a.controls:
         v = json.load(open(os.path.join(RES, f"trm_val_{tag}.json")))

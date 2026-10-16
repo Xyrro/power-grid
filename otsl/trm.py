@@ -705,6 +705,13 @@ def allocate(p, sg):
     return q
 
 
+def blend(p, prior, alpha, eps=0.02):
+    """logit-space blend of model probabilities with a prior (the LP-relaxation commitment): alpha = 1 is the model"""
+    lp = np.log(np.clip(p, 1e-6, 1 - 1e-6) / np.clip(1 - p, 1e-6, 1))
+    lq = np.log(np.clip(prior, eps, 1 - eps) / np.clip(1 - prior, eps, 1))
+    return 1.0 / (1.0 + np.exp(-(alpha * lp + (1 - alpha) * lq)))
+
+
 def decode(p, d, i, sysm, th=0.5, how="viterbi", sg=None):
     """schedule of instance i from probabilities p [T, G]; first, if sg (subgroups of the instance) is given, water-filling
     over identical copies (models with symmetric outputs), then
@@ -712,6 +719,13 @@ def decode(p, d, i, sysm, th=0.5, how="viterbi", sg=None):
                   min up/down repair (a no-op here)
        threshold: p > th -> block adequacy repair -> min up/down repair (otsl.combo.block_decode)"""
     u0 = d["u0"][i]
+    if how.startswith("blend"):              # blend<alpha>: model + LP relaxation (copies averaged), then Viterbi
+        prior = d["u_rel"][i]
+        if sg:
+            prior = np.array(prior, float, copy=True)
+            for mem in sg:
+                prior[:, mem] = prior[:, mem].mean(1, keepdims=True)
+        p, how = blend(np.asarray(p, float), prior, float(how[5:])), "viterbi"
     q = allocate(p, sg) if sg else np.asarray(p, float)
     if how == "viterbi":
         q = np.clip(q, 1e-4, 1 - 1e-4)

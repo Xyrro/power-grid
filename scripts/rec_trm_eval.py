@@ -16,6 +16,8 @@ Time = every overhead: LP relaxation where used, features, network passes, decod
                                choices): Lagrangian + KL model screened over 7 thresholds; label-free + REINFORCE, 1 LP
   <tag>_1[r]                   a TRM model, 1 LP at its training step count
   <tag>_s5[r], <tag>_t5[r]     screening the last 5 steps' schedules / 5 thresholds
+  <tag>_mix5[r], m1x_mix5[r]   mixed screening: the model's 1-LP schedule + LP roundings at 4 validation-chosen
+                               thresholds (<= 5 LPs)
   <tag>_k<k>[r]                1 LP after k supervision steps (test-time compute curve)
   <tag>_halt[r]                stop at the first step whose halting logit is > 0
   <tag>_fb                     <tag>_1r + safety net: if it still sheds / misses reserve or its bound gap
@@ -107,20 +109,23 @@ def fallback_fix(q, u, sc, sysm, ratio=0.9):
     return fix
 
 
-def prob_pipelines(ctx, inst, name, p_fn, t_base, sel, sg=None):
-    """1-LP and 5-threshold pipelines of a one-pass probability model (plain and r)"""
+def prob_pipelines(ctx, inst, name, p_fn, t_base, sel, rounds, t_rounds, sg=None):
+    """1-LP, 5-threshold and mixed (model + 4 LP roundings) pipelines of a one-pass probability model (plain and r)"""
     rec = {}
     p, t_p = timed(p_fn)
     for kind, sfx in (("plain", ""), ("rep", "r")):
         s = sel[kind]
-        u, t_d = timed(trm.decode, p, inst.d1, 0, ctx.s, s["th"], s["decoder"], sg)
-        rec[f"{name}_1{sfx}"], _ = ctx.finish(inst, [u], t_base + t_p + t_d, kind == "rep")
+        u1, t_d1 = timed(trm.decode, p, inst.d1, 0, ctx.s, s["th"], s["decoder"], sg)
+        rec[f"{name}_1{sfx}"], _ = ctx.finish(inst, [u1], t_base + t_p + t_d1, kind == "rep")
         us, t_ds = [], 0.0
         for th in s["screen_th"]:
-            u, t_d = timed(trm.decode, p, inst.d1, 0, ctx.s, th, s["decoder"], sg)
+            u, t_d = timed(trm.decode, p, inst.d1, 0, ctx.s, th, s.get("screen_dec", s["decoder"]), sg)
             us.append(u)
             t_ds += t_d
         rec[f"{name}_5{sfx}"], _ = ctx.finish(inst, us, t_base + t_p + t_ds, kind == "rep")
+        if s.get("mix_th"):
+            rec[f"{name}_mix5{sfx}"], _ = ctx.finish(inst, [u1] + [rounds[t] for t in s["mix_th"]],
+                                                     t_base + t_p + t_d1 + t_rounds, kind == "rep")
     return rec
 
 
@@ -160,7 +165,7 @@ class TRMRunner:
         self.H = H
         return P, Q, tk, t_feat
 
-    def run(self, ctx, inst, t_rel, rec, gstar):
+    def run(self, ctx, inst, t_rel, rec, gstar, rounds=None, t_rounds=0.0):
         s, tag, kd = self.s, self.tag, self.sel["k_def"]
         P, Q, tk, t_feat = self.infer(inst.d1)
         t_base = (t_rel if self.cfg.lp_feats else 0.0) + t_feat
@@ -169,7 +174,8 @@ class TRMRunner:
 
         def dec(k, kind, th=None):
             sl = self.sel[kind]
-            return timed(trm.decode, P[min(k, K) - 1], inst.d1, 0, s, sl["th"] if th is None else th, sl["decoder"], sg)
+            how = sl["decoder"] if th is None else sl.get("screen_dec", sl["decoder"])
+            return timed(trm.decode, P[min(k, K) - 1], inst.d1, 0, s, sl["th"] if th is None else th, how, sg)
 
         def ti(k):
             return tk[min(k, K) - 1]
@@ -179,6 +185,9 @@ class TRMRunner:
             u, t_d = dec(kd, kind)
             rec[f"{tag}_1{sfx}"], u_fin = ctx.finish(inst, [u], t_base + ti(kd) + t_d, rep)
             rec[f"{tag}_1{sfx}"]["k"] = kd
+            if self.sel[kind].get("mix_th") and rounds is not None:
+                rec[f"{tag}_mix5{sfx}"], _ = ctx.finish(inst, [u] + [rounds[t] for t in self.sel[kind]["mix_th"]],
+                                                        t_base + ti(kd) + t_d + t_rounds, rep)
             if rep:
                 u1r = u_fin
             us, t_ds = [], 0.0
@@ -283,11 +292,12 @@ def main():
         rec["relax"] = dict(cost=float(rel.obj), time=t_rel, urel_diff_stored=float(np.abs(rel.u - d["u_rel"][i]).max()))
         # LP rounding + repair + 5 LPs (no learning)
         cands, t_c = timed(lp_round_candidates, rel.u, sc, sysm, LPROUND_TH)
+        rounds = {float(t): u for t, u in cands}
         for sfx, rep in (("", False), ("r", True)):
             rec[f"lpround5{sfx}"], _ = ctx.finish(inst, [u for _, u in cands], t_rel + t_c, rep)
         # m1x ensemble
         rec.update(prob_pipelines(ctx, inst, "m1x", lambda: np.mean([m1.predict(inst.d1)[0].astype(np.float64)
-                                                                     for m1 in gnnt], 0), t_rel, plan["m1x"]))
+                                                                     for m1 in gnnt], 0), t_rel, plan["m1x"], rounds, t_c))
         # REINFORCE end-to-end pipelines (combo study, seed 0, its own validation-calibrated choices)
         p, t_p = timed(lambda: lag.predict(inst.d1).astype(np.float64))
         us, t_ds = [], 0.0
@@ -301,7 +311,7 @@ def main():
             rec[f"rl_lag7{sfx}"], _ = ctx.finish(inst, us, t_rel + t_p + t_ds, rep)
             rec[f"rl_rl1{sfx}"], _ = ctx.finish(inst, [u2[0]], t_rel + t_p2 + t_d2, rep)
         for rn in runners:
-            rn.run(ctx, inst, t_rel, rec, plan.get("gstar", {}).get(rn.tag))
+            rn.run(ctx, inst, t_rel, rec, plan.get("gstar", {}).get(rn.tag), rounds, t_c)
         with open(out, "a") as f:
             f.write(json.dumps(rec, default=float) + "\n")
         ms = rec.get("milp01", {})

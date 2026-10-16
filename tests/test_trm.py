@@ -148,3 +148,35 @@ def test_micro_batch_matches_full_batch(rts, small, tmp_path):
         states.append({k: v.clone() for k, v in model.state_dict().items()})
     for k in states[0]:
         assert torch.allclose(states[0][k], states[1][k], atol=1e-5), k
+
+
+def test_blend_limits_and_decoder(rts, small):
+    p = np.random.default_rng(0).uniform(0.05, 0.95, size=(12, rts.G))
+    prior = small["u_rel"][0]
+    assert np.allclose(trm.blend(p, prior, 1.0), p, atol=1e-9)
+    b0 = trm.blend(p, prior, 0.0)
+    assert np.allclose(b0, trm.blend(1 - p, prior, 0.0)) and np.allclose(b0, np.clip(prior, 0.02, 0.98), atol=1e-3)
+    sg = trm.subgroups(rts, small["u0"])[0]
+    u = trm.decode(p, small, 0, rts, 0.5, "blend0.5", sg)
+    assert violates_min_updown(u, small["u0"][0], rts.min_up, rts.min_dn) == 0
+
+
+def test_lp_repair_never_worse(rts, uc12, small):
+    """the LP-guided repair keeps a served schedule and never returns a costlier one"""
+    from otsl.uc import UCScenario
+    m, _ = uc12
+    i = 0
+    sc = UCScenario(load=small["load"][i], avail=small["avail"][i], u0=small["u0"][i], sr=small["sr"][i])
+    u = trm.decode(small["u_rel"][i], small, i, rts, 0.5, "viterbi")
+    u_bad = u.copy()
+    u_bad[:, np.argsort(-rts.pmax)[:6]] = 0                     # drop the six largest units: shortfall
+    from otsl.uc import repair_min_updown
+    u_bad = repair_min_updown(u_bad, sc.u0, rts.min_up, rts.min_dn)
+    s0 = m.solve_dispatch(sc, u_bad)
+    u2, s2, n, _ = trm.lp_repair(m, sc, u_bad, rts, s0)
+    assert s2.obj <= s0.obj + 1e-6
+    assert violates_min_updown(u2, sc.u0, rts.min_up, rts.min_dn) == 0
+    ok = m.solve_dispatch(sc, u)
+    if ok.shed < 1e-6 and ok.short < 1e-6:
+        u3, s3, n3, _ = trm.lp_repair(m, sc, u, rts, ok)
+        assert n3 == 0 and np.array_equal(u3, u)
