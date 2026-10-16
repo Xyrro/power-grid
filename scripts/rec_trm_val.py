@@ -5,15 +5,17 @@
     python3 scripts/rec_trm_val.py --tag lpround       # baseline: LP rounding + repair + 5 LPs (no learning)
 
 360 instances (val + val_extra + val_extra2), gap to the stored validation MILP objective C* (60 s, 0.1 %).
+Every candidate schedule is priced plainly (1 LP) and with the LP-guided adequacy repair (otsl.trm.lp_repair: only
+when the LP sheds or misses reserve, <= 2 extra LPs): pipelines "plain" and "rep".
 For a model, with the probabilities after supervision steps 1..K_MAX (non-recursive models: one pass):
-  phase 1  decoder (viterbi | threshold) x threshold grid at the training step count k_def = n_sup -> 1-LP selection:
-           lowest mean gap (ties within 0.01 pp: viterbi at 0.5);
-  phase 2  test-time compute: the selected decoder and threshold after k = 1, 2, 4, 8, 16, 32 steps;
-  phase 3  screening with <= 5 LPs: (a) the schedules of the last 5 supervision steps up to k_def, (b) 5 thresholds
-           of the selected decoder at k_def, chosen by greedy forward selection on validation;
+  phase 1  decoder (viterbi | threshold) x threshold grid at the training step count k_def = n_sup; for each pipeline
+           (plain, rep) the lowest mean gap (ties within 0.01 pp: viterbi at 0.5);
+  phase 2  test-time compute: the selected decoder and threshold (rep) after k = 1, 2, 4, 8, 16, 32 steps;
+  phase 3  screening with <= 5 LPs (+ repair of the cheapest if it fails): (a) the schedules of the last 5 supervision
+           steps up to k_def, (b) 5 thresholds of the selected decoder at k_def by greedy forward selection;
   halting  the learned halting head: stop at the first step with q > 0 (cap K_MAX).
-Probability metrics against the targets of the model's symmetry handling (BCE, wrong unit-hours) at every step.
-Outputs: data/generated/recursive/val/<tag>.npz (per-candidate cost / shed / short, probabilities summary),
+Probability metrics against the model's targets (BCE, wrong unit-hours) at every step.
+Outputs: data/generated/recursive/val/<tag>.npz (per-candidate cost / shed / short / extra LPs),
 results/recursive/trm_val_<tag>.json (metrics and the selection).
 """
 import argparse
@@ -28,7 +30,7 @@ import torch
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from otsl import trm  # noqa: E402
-from otsl.base import lp_round_screen  # noqa: E402
+from otsl.base import lp_round_candidates  # noqa: E402
 from otsl.uc import UCModel, UCScenario, load_rts_gmlc  # noqa: E402
 
 OUT = os.path.join("data", "generated", "recursive")
@@ -39,48 +41,57 @@ TH = {"viterbi": (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8), "threshold": (0.3, 0.4, 0.
 
 
 class Pricer:
-    """dispatch LPs of (instance, schedule), memoised"""
+    """dispatch LPs of (instance, schedule), memoised; LP-guided repair of failing schedules, memoised"""
 
     def __init__(self, sysm, d):
+        self.s = sysm
         self.m = UCModel(sysm, T=d["load"].shape[1])
-        self.d, self.cache, self.n, self.t = d, {}, 0, 0.0
+        self.d, self.cache, self.rcache, self.n, self.t = d, {}, {}, 0, 0.0
+
+    def sc(self, i):
+        d = self.d
+        return UCScenario(load=d["load"][i], avail=d["avail"][i], u0=d["u0"][i], sr=d["sr"][i])
 
     def __call__(self, i, u):
         key = (int(i), np.asarray(u, np.int8).tobytes())
         if key not in self.cache:
-            d = self.d
             t0 = time.time()
-            sol = self.m.solve_dispatch(UCScenario(load=d["load"][i], avail=d["avail"][i], u0=d["u0"][i], sr=d["sr"][i]), u)
+            sol = self.m.solve_dispatch(self.sc(i), u)
             self.t += time.time() - t0
             self.n += 1
-            self.cache[key] = (float(sol.obj), float(sol.shed), float(sol.short))
-        return self.cache[key]
+            self.cache[key] = (float(sol.obj), float(sol.shed), float(sol.short), sol)
+        return self.cache[key][:3]
+
+    def repaired(self, i, u):
+        """(cost, shed, short, extra LPs) after the LP-guided repair (no-op when the schedule is served)"""
+        key = (int(i), np.asarray(u, np.int8).tobytes())
+        c, sh, so = self(i, u)
+        if sh < 1e-6 and so < 1e-6:
+            return c, sh, so, 0
+        if key not in self.rcache:
+            _, s2, n, t = trm.lp_repair(self.m, self.sc(i), np.asarray(u, np.int8), self.s, self.cache[key][3])
+            self.n += n
+            self.t += t
+            self.rcache[key] = (float(s2.obj), float(s2.shed), float(s2.short), n)
+        return self.rcache[key]
 
 
-def metrics(c, sh, so, ref):
-    gap = (np.asarray(c) - ref) / ref * 100
-    served = (np.asarray(sh) < 1e-6) & (np.asarray(so) < 1e-6)
-    return dict(gap_mean=float(gap.mean()), gap_median=float(np.median(gap)), gap_max=float(gap.max()),
-                gap_p90=float(np.percentile(gap, 90)), served=float(served.mean() * 100),
-                gap_mean_served=float(gap[served].mean()) if served.any() else float("nan"),
-                n_gt1=int((gap > 1).sum()))
-
-
-def run_candidates(name, sched_fn, idx, price, store, rows, ref):
-    """price schedule sched_fn(i) for every instance; store arrays and metrics under name"""
-    if name in store:
-        return store[name]
-    out = np.array([price(i, sched_fn(i)) for i in idx])
-    store[name] = out
-    rows[name] = metrics(out[:, 0], out[:, 1], out[:, 2], ref[idx])
+def metrics(arr, ref):
+    c, sh, so = arr[:, 0], arr[:, 1], arr[:, 2]
+    gap = (c - ref) / ref * 100
+    served = (sh < 1e-6) & (so < 1e-6)
+    out = dict(gap_mean=float(gap.mean()), gap_median=float(np.median(gap)), gap_max=float(gap.max()),
+               gap_p90=float(np.percentile(gap, 90)), served=float(served.mean() * 100),
+               gap_mean_served=float(gap[served].mean()) if served.any() else float("nan"), n_gt1=int((gap > 1).sum()))
+    if arr.shape[1] > 3:
+        out["extra_lps"] = float(arr[:, 3].mean())
     return out
 
 
 def greedy_screen(costs, k=5):
     """greedy forward selection of k candidates (columns of costs [N, C]) minimising the mean of the row-wise min"""
-    chosen = []
-    best = np.full(costs.shape[0], np.inf)
-    for _ in range(k):
+    chosen, best = [], np.full(costs.shape[0], np.inf)
+    for _ in range(min(k, costs.shape[1])):
         j = int(np.argmin([np.mean(np.minimum(best, costs[:, c])) if c not in chosen else np.inf
                            for c in range(costs.shape[1])]))
         chosen.append(j)
@@ -98,23 +109,52 @@ def prob_metrics(P, tgt, S):
     return out
 
 
-def evaluate_model(tag, sysm, va, price, threads):
-    path = os.path.join(OUT, "models", f"{tag}.pt")
-    model, feats, cfg, ck = trm.load_model(path, sysm, "cpu", which="ema")
-    xt, xb = feats(va)
-    t0 = time.time()
-    K = K_MAX if cfg.mode == "trm" else 1
-    P, Q = trm.run_steps(model, xt, xb, K, bs=40)
-    t_inf = time.time() - t0
-    if K == 1:
-        P = np.repeat(P, K_MAX, 1)
-    sgs = trm.subgroups(sysm, va["u0"]) if cfg.sym == "count" else [None] * len(va["load"])
-    S = trm.subgroup_mean_matrix(sysm, va["u0"]) if cfg.sym == "count" else None
-    tgt = trm.targets(sysm, va, va["u"], cfg.sym)
-    info = dict(tag=tag, cfg=cfg.to_json(), params=trm.n_params(model), infer_s_batched=t_inf,
-                prob=prob_metrics(P, tgt, S), halt_q=Q.tolist() if cfg.mode == "trm" else None)
-    k_def = cfg.n_sup if cfg.mode == "trm" else 1
-    return P, Q, sgs, info, k_def
+class Evaluator:
+    def __init__(self, va, sysm, price, idx):
+        self.va, self.s, self.price, self.idx = va, sysm, price, idx
+        self.store, self.rows, self.sched = {}, {}, {}
+
+    def candidate(self, name, fn):
+        """schedule fn(i) for every instance -> plain and repaired arrays under name|plain, name|rep"""
+        if name + "|plain" in self.store:
+            return
+        us = [fn(i) for i in self.idx]
+        self.sched[name] = us
+        plain = np.array([self.price(i, u) for i, u in zip(self.idx, us)])
+        rep = np.array([self.price.repaired(i, u) for i, u in zip(self.idx, us)])
+        ref = self.va["obj"][self.idx]
+        for kind, arr in (("plain", plain), ("rep", rep)):
+            self.store[f"{name}|{kind}"] = arr
+            self.rows[f"{name}|{kind}"] = metrics(arr, ref)
+
+    def screen(self, name, names, kind):
+        """cheapest of the candidates `names` (plain prices), then the repair of that schedule if it fails"""
+        ref = self.va["obj"][self.idx]
+        C = np.stack([self.store[f"{n}|plain"][:, 0] for n in names], 1)
+        j = C.argmin(1)
+        out, nlp = [], []
+        for r, i in enumerate(self.idx):
+            u = self.sched[names[j[r]]][r]
+            distinct = len({self.sched[n][r].tobytes() for n in names})
+            if kind == "rep":
+                c, sh, so, n = self.price.repaired(i, u)
+                out.append((c, sh, so, distinct + n))
+            else:
+                c, sh, so = self.price(i, u)
+                out.append((c, sh, so, distinct))
+        arr = np.array(out)
+        self.store[f"{name}|{kind}"] = arr
+        self.rows[f"{name}|{kind}"] = dict(metrics(arr[:, :3], ref), lps=float(arr[:, 3].mean()))
+        return self.rows[f"{name}|{kind}"]
+
+
+def select(rows, k_def, kind):
+    cands = [(how, th) for how, ths in TH.items() for th in ths]
+    gaps = {c: rows[f"{c[0]}|{c[1]}|k{k_def}|{kind}"]["gap_mean"] for c in cands}
+    best = min(cands, key=lambda c: gaps[c])
+    if gaps[best] > gaps[("viterbi", 0.5)] - 0.01:
+        best = ("viterbi", 0.5)
+    return best
 
 
 def main():
@@ -128,94 +168,92 @@ def main():
     os.makedirs(os.path.join(OUT, "val"), exist_ok=True)
     sysm = load_rts_gmlc()
     va = trm.subset(trm.val_data(), np.arange(a.n))
-    ref = va["obj"]
     idx = np.arange(a.n)
     price = Pricer(sysm, va)
-    store, rows, t0 = {}, {}, time.time()
-    sel = {}
+    ev = Evaluator(va, sysm, price, idx)
+    t0 = time.time()
+    sel, info = {}, dict(tag=a.tag)
     if a.tag == "lpround":
-        m = price.m
-        out, out1 = [], []
-        for i in idx:
-            sc = UCScenario(load=va["load"][i], avail=va["avail"][i], u0=va["u0"][i], sr=va["sr"][i])
-            b = lp_round_screen(m, sysm, sc, va["u_rel"][i])
-            out.append((b["cost"], b["shed"], b["short"], b["n_lp"]))
-            u = trm.decode(va["u_rel"][i], va, i, sysm, 0.5, "threshold")
-            out1.append(price(i, u))
-        out, out1 = np.array(out), np.array(out1)
-        store["screen5"], store["th0.5"] = out[:, :3], out1
-        rows["screen5"] = dict(metrics(out[:, 0], out[:, 1], out[:, 2], ref), lps=float(out[:, 3].mean()))
-        rows["th0.5"] = metrics(out1[:, 0], out1[:, 1], out1[:, 2], ref)
-        info = dict(tag="lpround")
+        def sc(i):
+            return UCScenario(load=va["load"][i], avail=va["avail"][i], u0=va["u0"][i], sr=va["sr"][i])
+        cands = {i: lp_round_candidates(va["u_rel"][i], sc(i), sysm) for i in idx}
+        names = []
+        for j, th in enumerate((0.001, 0.05, 0.2, 0.5, 0.8)):
+            ev.candidate(f"round|{th}", lambda i, j=j: cands[i][j][1])
+            names.append(f"round|{th}")
+        for kind in ("plain", "rep"):
+            sel[f"screen5_{kind}"] = ev.screen("screen5", names, kind)
     else:
         if a.tag == "m1x":
             P1 = np.load(os.path.join("data", "generated", "uc12_m1x", "probs", "pol_n2000_gnnt_ens5_probs.npz"))["val"]
             P = np.repeat(P1[:a.n, None].astype(np.float64), K_MAX, 1)
-            sgs = [None] * a.n
-            info, k_def = dict(tag="m1x", source="pol_n2000_gnnt_ens5 (5 x CommitGNNT, 500 MILP + 1,500 polished)"), 1
+            sgs, k_def, recursive = [None] * a.n, 1, False
+            info.update(source="pol_n2000_gnnt_ens5 (5 x CommitGNNT, 500 MILP + 1,500 polished)")
         else:
-            P, Q, sgs, info, k_def = evaluate_model(a.tag, sysm, va, price, a.threads)
-        recursive = a.tag not in ("m1x",) and info.get("cfg", {}).get("mode") == "trm"
-        # phase 1: decoder x threshold at k_def
+            model, feats, cfg, _ = trm.load_model(os.path.join(OUT, "models", f"{a.tag}.pt"), sysm, "cpu", which="ema")
+            xt, xb = feats(va)
+            recursive = cfg.mode == "trm"
+            ti = time.time()
+            P, Q = trm.run_steps(model, xt, xb, K_MAX if recursive else 1, bs=40)
+            info["infer_s_batched"] = time.time() - ti
+            if not recursive:
+                P = np.repeat(P, K_MAX, 1)
+            sgs = trm.subgroups(sysm, va["u0"]) if cfg.sym == "count" else [None] * a.n
+            S = trm.subgroup_mean_matrix(sysm, va["u0"]) if cfg.sym == "count" else None
+            info.update(cfg=cfg.to_json(), params=trm.n_params(model),
+                        prob=prob_metrics(P, trm.targets(sysm, va, va["u"], cfg.sym), S))
+            k_def = cfg.n_sup if recursive else 1
+            if recursive:
+                info["halt_q"] = Q.tolist()
+
+        def dec(how, th, k):
+            return lambda i: trm.decode(P[i, k - 1], va, i, sysm, th, how, sgs[i])
+
         for how, ths in TH.items():
             for th in ths:
-                run_candidates(f"{how}|{th}|k{k_def}", lambda i: trm.decode(P[i, k_def - 1], va, i, sysm, th, how, sgs[i]),
-                               idx, price, store, rows, ref)
-        cands = [(how, th) for how, ths in TH.items() for th in ths]
-        gaps = {c: rows[f"{c[0]}|{c[1]}|k{k_def}"]["gap_mean"] for c in cands}
-        g0 = gaps[("viterbi", 0.5)]
-        best = min(cands, key=lambda c: gaps[c])
-        if gaps[best] > g0 - 0.01:
-            best = ("viterbi", 0.5)
-        how, th = best
-        sel.update(decoder=how, th=th, k_def=k_def, one_lp=rows[f"{how}|{th}|k{k_def}"])
-        # phase 2: test-time compute curve
+                ev.candidate(f"{how}|{th}|k{k_def}", dec(how, th, k_def))
+        for kind in ("plain", "rep"):
+            how, th = select(ev.rows, k_def, kind)
+            sel[kind] = dict(decoder=how, th=th, k_def=k_def, one_lp=ev.rows[f"{how}|{th}|k{k_def}|{kind}"])
+            for hw in TH:
+                bt = min(TH[hw], key=lambda t: ev.rows[f"{hw}|{t}|k{k_def}|{kind}"]["gap_mean"])
+                sel[kind][f"best_{hw}"] = dict(th=bt, **ev.rows[f"{hw}|{bt}|k{k_def}|{kind}"])
+            # 5 thresholds of the selected decoder (greedy on validation, plain prices)
+            names = [f"{how}|{t}|k{k_def}" for t in TH[how]]
+            C = np.stack([ev.store[f"{n}|plain"][:, 0] for n in names], 1)
+            ch = greedy_screen(C, 5)
+            sel[kind]["screen_th"] = [TH[how][c] for c in ch]
+            sel[kind]["screen_th_metrics"] = ev.screen(f"th5_{kind}", [names[c] for c in ch], kind)
+        how, th = sel["rep"]["decoder"], sel["rep"]["th"]
         if recursive:
             for k in K_CURVE:
-                run_candidates(f"{how}|{th}|k{k}", lambda i: trm.decode(P[i, k - 1], va, i, sysm, th, how, sgs[i]),
-                               idx, price, store, rows, ref)
-            sel["curve"] = {k: rows[f"{how}|{th}|k{k}"] for k in K_CURVE}
-            # phase 3a: last 5 steps up to k_def (and up to 2 k_def)
+                ev.candidate(f"{how}|{th}|k{k}", dec(how, th, k))
+            sel["curve"] = {k: dict(plain=ev.rows[f"{how}|{th}|k{k}|plain"], rep=ev.rows[f"{how}|{th}|k{k}|rep"])
+                            for k in K_CURVE}
             for kk in sorted({k_def, min(2 * k_def, K_MAX)}):
                 ks = list(range(max(1, kk - 4), kk + 1))
-                pick, nlp = [], []
-                for i in idx:
-                    us = {trm.decode(P[i, k - 1], va, i, sysm, th, how, sgs[i]).tobytes(): k for k in ks}
-                    res = [price(i, np.frombuffer(b, np.int8).reshape(P.shape[2:])) for b in us]
-                    pick.append(min(res, key=lambda r: r[0]))
-                    nlp.append(len(us))
-                pick = np.array(pick)
-                rows[f"steps5|k{kk}"] = dict(metrics(pick[:, 0], pick[:, 1], pick[:, 2], ref), lps=float(np.mean(nlp)))
-                store[f"steps5|k{kk}"] = pick
-            sel["screen_steps"] = rows[f"steps5|k{k_def}"]
-            # halting head: first step with q > 0
-            kh = np.array([int(np.argmax(Q[i] > 0)) + 1 if (Q[i] > 0).any() else K_MAX for i in idx])
-            hh = np.array([price(i, trm.decode(P[i, kh[i] - 1], va, i, sysm, th, how, sgs[i])) for i in idx])
-            rows["halt_q"] = dict(metrics(hh[:, 0], hh[:, 1], hh[:, 2], ref), steps_mean=float(kh.mean()),
-                                  steps_median=float(np.median(kh)))
-            store["halt_q"] = hh
-        # phase 3b: 5 thresholds of the selected decoder, greedy on validation
-        names = [f"{how}|{t}|k{k_def}" for t in TH[how]]
-        C = np.stack([store[nm][:, 0] for nm in names], 1)
-        ch = greedy_screen(C, 5)
-        pick_names = [names[c] for c in ch]
-        allc = np.stack([store[nm] for nm in pick_names], 1)
-        j = allc[:, :, 0].argmin(1)
-        pick = allc[np.arange(len(allc)), j]
-        rows["th5"] = metrics(pick[:, 0], pick[:, 1], pick[:, 2], ref)
-        store["th5"] = pick
-        sel.update(screen_th=[TH[how][c] for c in ch], screen_th_metrics=rows["th5"])
-        # the alternative decoder at its own best threshold (for the decoder comparison)
-        for hw in TH:
-            bt = min(TH[hw], key=lambda t: rows[f"{hw}|{t}|k{k_def}"]["gap_mean"])
-            sel[f"best_{hw}"] = dict(th=bt, **rows[f"{hw}|{bt}|k{k_def}"])
-    info.update(selection=sel, rows=rows, lps=price.n, lp_s=price.t, wall_s=time.time() - t0)
-    np.savez_compressed(os.path.join(OUT, "val", f"{a.tag}.npz"), **{k.replace("|", "__"): v for k, v in store.items()})
+                for k in ks:
+                    ev.candidate(f"{how}|{th}|k{k}", dec(how, th, k))
+                for kind in ("plain", "rep"):
+                    sel[f"screen_steps_k{kk}_{kind}"] = ev.screen(f"steps5_k{kk}_{kind}", [f"{how}|{th}|k{k}" for k in ks], kind)
+            kh = np.array([int(np.argmax(np.array(Q[i]) > 0)) + 1 if (np.array(Q[i]) > 0).any() else K_MAX for i in idx])
+            ev.candidate("halt_q", lambda i: trm.decode(P[i, kh[i] - 1], va, i, sysm, th, how, sgs[i]))
+            sel["halt_q"] = dict(steps_mean=float(kh.mean()), steps_median=float(np.median(kh)),
+                                 plain=ev.rows["halt_q|plain"], rep=ev.rows["halt_q|rep"])
+    info.update(selection=sel, rows=ev.rows, lps=price.n, lp_s=price.t, wall_s=time.time() - t0)
+    np.savez_compressed(os.path.join(OUT, "val", f"{a.tag}.npz"), **{k.replace("|", "__"): v for k, v in ev.store.items()})
     with open(os.path.join(RES, f"trm_val_{a.tag}.json"), "w") as f:
         json.dump(info, f, indent=1, default=float)
-    print(json.dumps(dict(tag=a.tag, selection={k: v for k, v in sel.items() if k != "curve"}), default=float), flush=True)
+    short = {k: (v.get("decoder"), v.get("th"), round(v.get("one_lp", v).get("gap_mean", np.nan), 3),
+                 round(v.get("one_lp", v).get("served", np.nan), 1)) if isinstance(v, dict) and ("one_lp" in v or "gap_mean" in v)
+             else None for k, v in sel.items() if k != "curve"}
+    print(json.dumps(dict(tag=a.tag, selection=short), default=float), flush=True)
     if "curve" in sel:
-        print("curve", json.dumps({k: (round(v["gap_mean"], 3), round(v["served"], 1)) for k, v in sel["curve"].items()}))
+        print("curve (rep)", json.dumps({k: (round(v["rep"]["gap_mean"], 3), round(v["rep"]["served"], 1))
+                                          for k, v in sel["curve"].items()}))
+    for k, v in sel.items():
+        if isinstance(v, dict) and "screen_th_metrics" in v:
+            print(k, "5 thresholds", v["screen_th"], round(v["screen_th_metrics"]["gap_mean"], 3), round(v["screen_th_metrics"]["served"], 1))
 
 
 if __name__ == "__main__":
