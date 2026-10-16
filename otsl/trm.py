@@ -862,6 +862,7 @@ def wrong_count(logit, target, S=None):
     matrices [B, G, G]), per singleton |round(p) - y|"""
     if S is None:
         return ((logit > 0) != (target > 0.5)).sum((1, 2))
+    S = S.to(logit.device)          # val_loss builds logit/target on the CPU from numpy; S is on the training device
     p = torch.sigmoid(logit)
     size = 1.0 / torch.diagonal(S, dim1=1, dim2=2)                       # [B, G]
     cnt = torch.einsum("bgh,bth->btg", S, p) * size[:, None]
