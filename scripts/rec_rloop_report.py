@@ -272,8 +272,12 @@ def main():
         pr = paired_rows(raw, refs, main_nm)
         sn = next((n for n in rows if n.endswith(f"safety net (theta {sel.get('theta', 1.0):g} %)")), "")
         pr_s = paired_rows(raw, refs, sn) if sn in raw else {}
+        whole_nm = f"rloop K={k_sel}"
+        pr_w = paired_rows(raw, [n for n in refs if n != whole_nm] + ([main_nm] if main_nm != whole_nm else []),
+                           whole_nm) if whole_nm != main_nm else {}
         cv = curves(recs)
-        out[bench] = dict(n=len(recs), k_sel=k_sel, rows=rows, paired=pr, paired_safety=pr_s, curve=cv)
+        out[bench] = dict(n=len(recs), k_sel=k_sel, rows=rows, paired=pr, paired_safety=pr_s, paired_whole=pr_w,
+                          curve=cv)
         fig_path = os.path.join(C.RES, f"rloop_quality_time_{bench}.png")
         try:
             figure(bench, recs, rows, fig_path)
@@ -289,7 +293,7 @@ def main():
             md.append(f"| {nm}{fb} | {v['served']:.1f} % | {v['gap_mean']:.2f} % [{v['gap_ci'][0]:.2f}, {v['gap_ci'][1]:.2f}] | "
                       f"{v['gap_median']:.2f} % | {v['gap_max']:.2f} % | {v['time_mean']:.2f} | "
                       f"{v['speedup_mean']:.1f}× / {v['speedup_median']:.1f}× / {v['speedup_geo']:.1f}× |")
-        for title, P in ((main_nm, pr), (sn, pr_s)):
+        for title, P in ((main_nm, pr), (sn, pr_s), (whole_nm, pr_w)):
             if not P:
                 continue
             md += ["", f"Paired differences, **{title}** minus each reference (Δ gap < 0: {title} more accurate; "
