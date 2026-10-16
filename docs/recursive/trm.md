@@ -32,10 +32,12 @@ from its checkpoint, a finished job is skipped because its result file exists).*
   `oneshot`, `oneshot_rl`, `main`, `main_rl`, `main_act`, `deep`; selection (`results/recursive/trm_select.json`: final
   `main`, headline pipeline `main_mix5r`); post-hoc halting head of `main` (`results/recursive/trm_halt_main.json`);
   zero-shot 24 h for `main`, `main_rl`, `oneshot` (`results/recursive/trm_stretch_uc24.json`).
-- 04:18 test running: shard 0 on core 0, shard 1 on core 1 (`results/recursive/trm_eval_test_fresh_s{0,1}.jsonl`,
-  logs `data/generated/recursive/logs/eval_s{0,1}.out`); afterwards the remaining ablations start automatically.
-- After the queues: report (`python3 scripts/rec_trm_report.py`), congested stretch
-  (`python3 scripts/rec_trm_stretch.py --bench hard --tags main main_rl oneshot`).
+- 04:18–05:11 test (both shards, 120 instances: `results/recursive/trm_eval_test_fresh_s{0,1}.jsonl`); 05:11–09:00
+  ablation trainings (`nods`, `nolp`, `oneshot_long`, `oneshot_nolp`, `oneshot_rank`, `oneshot_costw`, `oneshot_attn`,
+  `n2T1`) and their quick validations; zero-shot congested stretch done (`results/recursive/trm_stretch_hard.json`).
+- 09:05 remaining: `y0lp` training (core 0) then `python3 scripts/rec_trm_val.py --quick --tag y0lp`; quick validations of
+  `nods`, `nolp` on core 1 (`<scratchpad>/trm_q1h.sh`, `trm_q0h.sh`). Then `python3 scripts/rec_trm_report.py` and
+  `python3 scripts/rec_trm_ablate.py` (tables `results/recursive/trm_results.md`, `trm_ablations.md`).
 
 ## Summary
 
