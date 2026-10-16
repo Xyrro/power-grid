@@ -175,8 +175,12 @@ Everything that is cluster-specific is a marked placeholder in `scripts/pace/rlo
 account, GPU type, module and environment names); check the PACE ICE documentation and fill them in, or pass them to
 `sbatch` on the command line. Nothing about PACE ICE was verified from this container.
 
-1. **Data.** The datasets are git-ignored and are regenerated on the cluster by the shared data job of the recursive
-   study (see `scripts/pace/` for the job the other arm provides). rloop needs `data/generated/uc12` (train, val,
+1. **Data.** The datasets are git-ignored and are regenerated on the cluster by the shared jobs of the recursive study:
+   `scripts/pace/trm_gen_base.sbatch` (uc12 splits with full MILPs), `trm_teachers.sbatch` (uc12_m1x extra scenarios,
+   polished labels and the m1x ensemble), `trm_gen_data_array.sbatch` (more polished chunks in
+   `data/generated/recursive/pace`, same format), plus `scripts/pace/rloop_data_extrap.sbatch` for the zero-shot test
+   sets (uc24, congested, line outages; the original studies' commands). All use the shared environment script
+   `scripts/pace/trm_env.sh` (module and venv names there are placeholders). rloop needs `data/generated/uc12` (train, val,
    val_extra, val_extra2, test_fresh), `data/generated/uc12_m1x` (extra_0–5 + polish_0–5) and, for the extrapolation
    tests, `data/generated/{uc24,hard,uc12_ood}`. More training data: polished-label chunks in the uc12_m1x format
    (`extra_<k>.npz` with the LP-relaxation fields, `polish_<k>.npz` with the label `y`) in any directory, passed with

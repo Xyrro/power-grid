@@ -23,7 +23,7 @@
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$PWD}"
 mkdir -p logs
-# module load PLACEHOLDER_PYTHON_MODULE ; source PLACEHOLDER_ENV/bin/activate     # PLACEHOLDER
+source scripts/pace/trm_env.sh          # shared environment (module / venv placeholders inside)
 export OTSL_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 BENCH=${BENCH:-uc12}
 NSH=${SLURM_ARRAY_TASK_COUNT:-8}

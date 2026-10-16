@@ -27,14 +27,13 @@ set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$PWD}"
 mkdir -p logs
 
-# PLACEHOLDER: load Python / CUDA the PACE ICE way (module names differ per cluster), then activate an environment with
-# torch (CUDA build), numpy, scipy, pandas, highspy (see requirements of this repository).
-# module load PLACEHOLDER_PYTHON_MODULE PLACEHOLDER_CUDA_MODULE
-# source PLACEHOLDER_ENV/bin/activate
+# environment: the shared script of the recursive study (module / venv names inside are PLACEHOLDERS to check)
+source scripts/pace/trm_env.sh
 
-# Data: datasets are git-ignored and must be regenerated on the cluster first (shared data job of the recursive study,
-# see scripts/pace/README.md). Needed: data/generated/uc12 (train/val/val_extra/val_extra2/test_fresh) and
-# data/generated/uc12_m1x (extra_k + polish_k); optional extra polished chunks for --data_dir.
+# Data: datasets are git-ignored and must be regenerated on the cluster first with the shared jobs
+# scripts/pace/trm_gen_base.sbatch (uc12 splits) and trm_teachers.sbatch (uc12_m1x extra + polished labels, m1x
+# ensemble); optional: trm_gen_data_array.sbatch for more polished chunks, then EXTRA="--data_dir
+# data/generated/recursive/pace" N_TRAIN=<n>. Extrapolation test sets: rloop_data_extrap.sbatch.
 
 export OTSL_THREADS=1                    # torch intra-op threads in the LP workers (HiGHS is single-threaded anyway)
 NCPU=${SLURM_CPUS_PER_TASK:-24}
