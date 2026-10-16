@@ -76,11 +76,19 @@ def methods(r, k_sel, thetas=(1.0, 2.0, 4.0)):
             out[f"rloop K={K}"] = (x["best"], x["best_shed"] < 1e-6 and x["best_short"] < 1e-6, x["time"])
     for key, name in (("lpls", "LP rounding + local search, LP-gradient ranking (no learning)"),
                       ("m1x_guided", "LP rounding + local search guided by m1x (static)"),
-                      ("rloop_guided", "LP rounding + local search guided by rloop (recursive, LP feedback)")):
+                      ("rloop_guided", "LP rounding + local search guided by rloop (recursive, LP feedback)"),
+                      ("union_lpls", "LP rounding ∪ m1x + local search, LP-gradient ranking"),
+                      ("union_m1x_guided", "LP rounding ∪ m1x + local search guided by m1x"),
+                      ("union_rloop_guided", "LP rounding ∪ m1x + local search guided by rloop")):
         if key not in r:
             continue
         L = r[key]
-        c1, s1, t1 = best_of(r["lpround"]["c"])
+        if key.startswith("union"):
+            u1 = best_of(r["lpround"]["c"])
+            u2 = best_of(r["m1x_5"]["c"])
+            c1, s1 = (u1[0], u1[1]) if u1[0] <= u2[0] else (u2[0], u2[1])
+        else:
+            c1, s1, t1 = best_of(r["lpround"]["c"])
         for K in (4, 8, 16, 32):
             x = L["recs"][min(K, len(L["recs"])) - 1] if L["recs"] else None
             if x is None or x["best"] >= c1:

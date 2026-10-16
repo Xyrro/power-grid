@@ -178,6 +178,20 @@ def main():
         ls, _, _, (g_best, g_logit) = rloop.guided_search(inst, lpr_best, KG, lp, sysm, lam_net, net=gnet, feats=gfeats,
                                                           fmax=fmax, snap=16)    # best schedule after 16 LPs
         rec["rloop_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0, lam=lam_net, model=gtag)
+        if m1x is not None:      # 12 h only: seed = the best of LP rounding (5 LPs) and m1x (5 LPs)
+            pm = rec["m1x_5"]["c"]
+            jm = int(np.argmin([x[0] for x in pm]))
+            if pm[jm][0] < c0:
+                u_seed = rloop.decode((p > m1x_ths["5"][jm]).astype(np.int8), inst, sysm, "round")[1]
+                cu = pm[jm][0]
+            else:
+                u_seed, cu = lpr_best, c0
+            t_seed = t_rel + t_lpr + t_inf + rec["m1x_5"]["c"][-1][3]
+            for key, kw in (("union_lpls", dict(lam=0.0)), ("union_m1x_guided", dict(lam=lam_m1x, prior=p)),
+                            ("union_rloop_guided", dict(lam=lam_net, net=gnet, feats=gfeats, fmax=fmax))):
+                lam_ = kw.pop("lam")
+                ls, _, _ = rloop.guided_search(inst, u_seed, KG, lp, sysm, lam_, **kw)
+                rec[key] = dict(recs=ls, t_pre=t_seed, c0=cu, lam=lam_)
         # rloop seeded with the LP-rounding baseline's best schedule (its 5 LPs and repairs counted in the time)
         if a.seeded:
             r_s, _ = inf.rollout(inst, k_sel, t_pre=t_rel + t_lpr, fmax=fmax, start=lpr_best)
