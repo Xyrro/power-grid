@@ -15,15 +15,20 @@ from its checkpoint, a finished job is skipped because its result file exists).*
 - Queues (each pins its jobs to one core, single-threaded): `bash scripts/rec_trm_queue.sh <core> <job> ...` with jobs
   `train:<tag>:<flags>`, `val:<tag>`, `cmd:<shell>`; logs in `data/generated/recursive/logs/` (`train_<tag>.log`,
   `q_*.out`, `queue_core*.out`). Checkpoints: `data/generated/recursive/models/<tag>.pt`.
-- Done: `oneshot` (13 min), `main` (73 min); validation of `lpround`, `m1x` (with blend decoder and mixed screening).
-- Running (01:50): core 0 `main_rl` (REINFORCE, 150 steps) → `val:main_rl` → `main_act` (ACT with halt_tol 8) →
-  `val:main_act`, then (`trm_q0e.sh`) `nods` → `nolp` → `y0lp` → quick validations; core 1 `deep` (~3 h) →
-  `oneshot_long` (18,000 steps), in parallel the revalidation of `oneshot` and `main`; then (`trm_q1e.sh`)
-  `oneshot_nolp`, `oneshot_rank`, `oneshot_costw`, `oneshot_attn`, `n2T1` → quick validations of all of them and of
-  `deep`, `oneshot_long`. The waiting queue scripts live in the scratchpad; to resume after a restart, rerun the
-  `scripts/rec_trm_queue.sh` lines of this list (finished trainings are skipped; validations are rerun only if their
-  `results/recursive/trm_val_<tag>.json` is missing or stale). Quick validation:
-  `python3 scripts/rec_trm_val.py --quick --tag <tag>`.
+- 02:00 container restart (all jobs killed; files intact). 02:04 queues relaunched from
+  `<scratchpad>/trm_q0f.sh` and `trm_q1f.sh`, i.e.
+  - core 0: `bash scripts/rec_trm_queue.sh 0 "val:main_rl" "train:main_act:--preset cpu --halt_tol 8" "val:main_act"
+    "train:nods:--preset cpu --n_sup 1" "train:nolp:--preset cpu --lp_feats 0" "train:y0lp:--preset cpu --y0 lp"`
+    + quick validations (`cmd:python3 scripts/rec_trm_val.py --quick --tag <tag>`) of nods, nolp, y0lp;
+  - core 1: `bash scripts/rec_trm_queue.sh 1 "train:deep:--preset cpu --mode deep" "val:main"
+    "train:oneshot_long:--preset cpu --mode oneshot --steps 18000 --val_every 3000 --log_every 500"
+    "train:oneshot_nolp:... --mode oneshot --lp_feats 0" "train:oneshot_rank:... --sym rank"
+    "train:oneshot_costw:... --cost_weight 1.0" "train:oneshot_attn:... --unit_mix attn --time_mix attn"
+    "train:n2T1:--preset cpu --n 2 --T 1"` + quick validations of deep, oneshot_long and those five.
+  Finished trainings are skipped (their `results/recursive/trm_train_<tag>.json` exists); an interrupted training
+  resumes from its checkpoint; validations rerun from scratch.
+- Done: training of `oneshot` (13 min), `main` (73 min), `main_rl` (REINFORCE, 34 min); validation of `lpround`,
+  `m1x`, `oneshot` (current decoder set).
 - Next: post-hoc halting head (`scripts/rec_trm_halt.py --tag <final>`), selection (`scripts/rec_trm_select.py`), test
   (`scripts/rec_trm_eval.py`, 2 shards on cores 0 / 1), report (`scripts/rec_trm_report.py`), stretch
   (`scripts/rec_trm_stretch.py --bench uc24|hard`).

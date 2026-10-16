@@ -36,6 +36,14 @@ Checkpoints and logs (git-ignored): `data/generated/recursive/rloop/`.*
   `rec_rloop_val.py --guide none|m1x|net --lam`), selection script `scripts/rec_rloop_select.py`.
 - 01:30 λ sweep of the guided search on validation 0–119 (scratchpad `rloop_sweep1.sh`), whole-schedule validation
   of `main_rl`, `main_rls` and decoding biases (scratchpad `rloop_valq2.sh`).
+- 02:00 **container restart** killed every job; checkpoints and results survived. 02:04 restarted with one process per
+  core: core 2 = selection validations (`rloop_A.sh`: guided full validation for priors m1x, main, main_rl, nofb,
+  run-once control, union seeds, main_rl with bias 1; each step skipped if its npz exists); core 3 = remaining
+  trainings and their validation (`rloop_B.sh`: nods from epoch 7, nofb_rl, norecall from epoch 2, nocount, then
+  whole-schedule and guided validation of each). Both scripts in the scratchpad `rloop/` folder; rerun to resume
+  (training resumes from its checkpoint, finished validations are skipped).
+- Next: `python3 scripts/rec_rloop_val.py --report`, `python3 scripts/rec_rloop_select.py`, then the test
+  (`scripts/rec_rloop_eval.py --bench uc12|line_out|hard|uc24 --shard i --nshards 4`, one process per core).
 
 ## Summary
 
