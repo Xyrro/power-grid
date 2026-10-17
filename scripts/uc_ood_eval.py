@@ -60,6 +60,7 @@ from uc_constrained import load_model1, strip  # noqa: E402
 ROOT, OUTD, OUT = "data/generated/uc12", "data/generated/uc12_ood", "results/uc12"
 TL, GAP = 60.0, 1e-3
 ORDER = ("id", "load_hi", "load_lo", "ren_hi", "gen_out", "line_out", "night")
+INSTANCES_ONLY = False      # --instances_only: generate shifted instances + their reference MILP only
 GNN_FILES = {"bce": "uc_model1_4.pt", "st": "combo_st_s0.pt", "rl": "constrained_rl_lf.pt", "lag": "constrained_lag_D.pt"}
 E2E = {"RL": ("rl", 0.5), "lag": ("lag", 0.6)}      # model, single-LP threshold (lag: val-calibrated, combo study)
 
@@ -99,6 +100,13 @@ def run_instance(shift, k, sc, job):
         extra["c_rel_intact"] = float(m.solve_dispatch(intact, None, relax=True).obj)
     di = dict(load=sc.load[None], avail=sc.avail[None], u0=sc.u0[None], sr=sc.sr[None], start=np.array([sc.start]),
               u_rel=rel.u[None], lmp_rel=rel.lmp[None], flow_rel=rel.flow[None])
+    if INSTANCES_ONLY:      # no learned model is loaded in this mode: emit the instance and its reference only
+        for r in recs:
+            r.update(extra)
+        inst = scenario_to_dict(sc, {"u_full": u_full if u_full is not None else np.zeros((T, G), np.int8),
+                                     "obj_full": full["obj"], "bound_full": full["bound"], "time_full": full["time"],
+                                     "u_rel": rel.u, "lmp_rel": rel.lmp, "flow_rel": rel.flow, "c_rel": rel.obj})
+        return recs, inst
     # ---------------- probabilities (each timed), overrides for unavailable units
     P, Ti = {}, {}
     P["knn"], Ti["knn"] = timed(lambda: KNN.predict(di)[0])
@@ -201,6 +209,8 @@ if __name__ == "__main__":
     ap.add_argument("--n", type=int, default=40)
     ap.add_argument("--shifts", default=",".join(ORDER))
     ap.add_argument("--out", default=os.path.join(OUT, "ood_eval.jsonl"))
+    ap.add_argument("--instances_only", action="store_true",
+                    help="only generate the shifted instances and their reference MILP; load no learned model")
     ap.add_argument("--rules", default="", help="comma-separated subset of fixing rules (default: all rules + end-to-end)")
     ap.add_argument("--bce", default="", help="replacement checkpoint for the BCE GNN (recovery test)")
     ap.add_argument("--knn_extra", default="", help="labelled instances (.npz) added to the kNN pool (recovery test)")
@@ -215,25 +225,29 @@ if __name__ == "__main__":
     specs = json.load(open(os.path.join(OUTD, "specs.json")))
     trs = strip(tr)
     RULES_SEL = set(x for x in a.rules.split(",") if x) or None
-    files = dict(GNN_FILES, **({"bce": os.path.relpath(a.bce, OUT)} if a.bce else {}))
-    GNN = {k: load_model1(os.path.join(OUT, f), SYS, trs, 12) for k, f in files.items()}
-    pool = tr
-    if a.knn_extra:
-        ex = load(a.knn_extra)
-        pool = {key: np.concatenate([tr[key], ex[key]]) for key in ("load", "avail", "u0", "sr", "start", "u")}
-    KNN = KNNProb(SYS, pool, k=50)
-    HARM = harm_from_file(os.path.join(OUT, "combo_harm_s0.pt"))
-    FF = FixFeaturizer(SYS, 12)
-    HNORM = json.load(open(os.path.join(OUT, "hybrid_probs.json")))["harm_norm_logh_mean_sd"]["bce_s0"]
-    LTF = {"LtF kNN eps=1%": (load_thr("ltfx_tune_knn_1.json"), "knn"),
-           "LtF BCE eps=1%": (load_thr("ltfx_tune_bce_1.json"), "bce")}
-    HYB = load_thr("hybrid_tune_he_bce_s0_e1_n360.json")
-    # warm-up (first-call overheads are not billed to the first instance)
-    d0 = {k: v[:1] for k, v in tf.items() if isinstance(v, np.ndarray) and v.ndim >= 1 and len(v) == len(tf["load"])}
-    for m1 in GNN.values():
-        m1.predict(d0)
-    KNN.predict(d0)
-    harm_scores(HARM, FF, GNN["bce"].predict(d0).astype(np.float64), d0, [0])
+    INSTANCES_ONLY = a.instances_only
+    if INSTANCES_ONLY:
+        GNN, KNN, HARM, FF, HNORM, LTF, HYB = {}, None, None, None, None, {}, None
+    else:
+        files = dict(GNN_FILES, **({"bce": os.path.relpath(a.bce, OUT)} if a.bce else {}))
+        GNN = {k: load_model1(os.path.join(OUT, f), SYS, trs, 12) for k, f in files.items()}
+        pool = tr
+        if a.knn_extra:
+            ex = load(a.knn_extra)
+            pool = {key: np.concatenate([tr[key], ex[key]]) for key in ("load", "avail", "u0", "sr", "start", "u")}
+        KNN = KNNProb(SYS, pool, k=50)
+        HARM = harm_from_file(os.path.join(OUT, "combo_harm_s0.pt"))
+        FF = FixFeaturizer(SYS, 12)
+        HNORM = json.load(open(os.path.join(OUT, "hybrid_probs.json")))["harm_norm_logh_mean_sd"]["bce_s0"]
+        LTF = {"LtF kNN eps=1%": (load_thr("ltfx_tune_knn_1.json"), "knn"),
+               "LtF BCE eps=1%": (load_thr("ltfx_tune_bce_1.json"), "bce")}
+        HYB = load_thr("hybrid_tune_he_bce_s0_e1_n360.json")
+        # warm-up (first-call overheads are not billed to the first instance)
+        d0 = {k: v[:1] for k, v in tf.items() if isinstance(v, np.ndarray) and v.ndim >= 1 and len(v) == len(tf["load"])}
+        for m1 in GNN.values():
+            m1.predict(d0)
+        KNN.predict(d0)
+        harm_scores(HARM, FF, GNN["bce"].predict(d0).astype(np.float64), d0, [0])
     done = set()
     if os.path.exists(a.out):
         for line in open(a.out):
