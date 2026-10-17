@@ -67,13 +67,15 @@ def test_pending_job_of_ours_counts_against_our_share_only():
 def test_budget_respects_project_share_and_user_limit():
     u = g.Usage(gpu_hours_all=26, gpu_hours_ours=2, gpu_jobs_all=4, gpu_jobs_ours=1, cpu_tasks_ours=0)
     c = cfg(SHARE_GPU_HOURS=16, USER_GPU_HOURS_LIMIT=32)
-    assert g.check_budget(c, u, "gpu", 1, 6.0, 1, None) == []                    # 26 + 6 = 32: allowed
-    bad = g.check_budget(c, u, "gpu", 1, 7.0, 1, None)                         # 33 > 32: would block others
-    assert any("user limit" in b for b in bad)
-    # the project share now applies to RUNNING capacity: 10 running + 8 > 16
-    bad = g.check_budget(c, g.Usage(10, 10, 2, 2, 0, 10.0), "gpu", 1, 8.0, 1, None)
-    assert any("project share" in b for b in bad)
-    # queued jobs of ours hold no running capacity, so a pipeline may be queued
+    assert g.check_budget(c, u, "gpu", 1, 6.0, 1, None) == []
+    # Exceeding the RUNNING-capacity caps is not a refusal: Slurm (MaxGRESRunMinsPerUser) just holds the job.
+    notes: list = []
+    assert g.check_budget(c, u, "gpu", 1, 7.0, 1, None, notes) == []
+    assert any("MaxGRESRunMinsPerUser" in n for n in notes)
+    notes.clear()
+    assert g.check_budget(c, g.Usage(10, 10, 2, 2, 0, 10.0), "gpu", 1, 8.0, 1, None, notes) == []
+    assert any("SHARE_GPU_HOURS" in n for n in notes)
+    # queued jobs of ours hold no running capacity
     assert g.check_budget(c, g.Usage(0, 30, 2, 2, 0, 0.0), "gpu", 1, 8.0, 1, None) == []
     assert any("MAX_WALLTIME" in b for b in g.check_budget(c, g.Usage(0, 0, 0, 0, 0), "gpu", 1, 9.0, 1, None))
     assert any("arrays" in b for b in g.check_budget(c, g.Usage(0, 0, 0, 0, 0), "gpu", 1, 1.0, 4, 2))

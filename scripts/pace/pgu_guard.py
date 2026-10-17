@@ -252,9 +252,10 @@ def array_size(spec: str | None) -> tuple[int, int | None]:
 
 
 def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_tasks: int,
-                 throttle: int | None) -> list[str]:
-    """Return a list of violations (empty = allowed)."""
+                 throttle: int | None, notes: list | None = None) -> list[str]:
+    """Return a list of violations (empty = allowed). `notes` collects non-blocking remarks."""
     bad = []
+    notes = notes if notes is not None else []
     # QOS MaxSubmitPU counts every queued or running job, array tasks individually, across all of the user's projects
     if u.jobs_all + n_tasks > int(cfg["USER_JOBS_LIMIT"]):
         bad.append(f"user limit: {u.jobs_all} jobs queued/running + {n_tasks} new > USER_JOBS_LIMIT "
@@ -269,16 +270,15 @@ def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_task
         if n_tasks != 1:
             bad.append("GPU jobs must not be arrays here; submit them one by one")
         new = gpus * hours
-        # Both caps apply to RUNNING capacity, which is what Slurm's MaxTRESRunMins limits; queued jobs hold nothing,
-        # so a pipeline may be queued and SHARE_GPU_JOBS bounds how deep that queue gets.
+        # Running-capacity caps are enforced by Slurm itself (MaxGRESRunMinsPerUser): a job that would exceed them
+        # simply waits in the queue, harming nobody, so exceeding them is a note rather than a refusal. What does
+        # need a hard limit is the job COUNT, because MaxSubmitPU is shared with the user's other projects.
         if u.gpu_hours_ours_running + new > float(cfg["SHARE_GPU_HOURS"]) + 1e-9:
-            bad.append(f"project share: {u.gpu_hours_ours_running:.1f} GPU-h running + {new:.1f} > "
-                       f"SHARE_GPU_HOURS {cfg['SHARE_GPU_HOURS']}")
-        # Slurm's MaxTRESRunMins counts RUNNING jobs; a pending job of ours does not block other projects.
+            notes.append(f"{u.gpu_hours_ours_running:.1f} GPU-h of ours already running + {new:.1f} exceeds "
+                         f"SHARE_GPU_HOURS {cfg['SHARE_GPU_HOURS']}: Slurm will hold this job until capacity frees")
         if u.gpu_hours_all + new > float(cfg["USER_GPU_HOURS_LIMIT"]) + 1e-9:
-            bad.append(f"user limit: your running jobs hold {u.gpu_hours_all:.1f} GPU-h; + {new:.1f} > "
-                       f"USER_GPU_HOURS_LIMIT {cfg['USER_GPU_HOURS_LIMIT']} (it would simply stay queued; "
-                       f"submit a shorter job or wait)")
+            notes.append(f"your running jobs hold {u.gpu_hours_all:.1f} GPU-h; this one waits for "
+                         f"MaxGRESRunMinsPerUser ({cfg['USER_GPU_HOURS_LIMIT']} GPU-h)")
         if u.gpu_jobs_ours + 1 > int(cfg["SHARE_GPU_JOBS"]):
             bad.append(f"project share: {u.gpu_jobs_ours} GPU jobs already, SHARE_GPU_JOBS {cfg['SHARE_GPU_JOBS']}")
         if u.gpu_jobs_all + 1 > int(cfg["USER_GPU_JOBS_LIMIT"]):
@@ -369,12 +369,15 @@ def cmd_submit(cfg: dict, a) -> None:
     n_tasks, throttle = array_size(a.array)
     reg = read_registry(root)
     u = usage(read_jobs(os.environ.get("USER", "")), reg, cfg["JOB_PREFIX"])
-    bad = check_budget(cfg, u, a.kind, a.gpus if a.kind == "gpu" else 0, hours, n_tasks, throttle)
+    notes: list = []
+    bad = check_budget(cfg, u, a.kind, a.gpus if a.kind == "gpu" else 0, hours, n_tasks, throttle, notes)
     cmd = build_sbatch(cfg, a)
     print(f"before: GPU-h running all {u.gpu_hours_all:.1f}/{cfg['USER_GPU_HOURS_LIMIT']}, project q+r "
           f"{u.gpu_hours_ours:.1f}/{cfg['SHARE_GPU_HOURS']}; GPU jobs all {u.gpu_jobs_all}/"
           f"{cfg['USER_GPU_JOBS_LIMIT']}; ALL jobs all {u.jobs_all}/{cfg['USER_JOBS_LIMIT']}, project "
           f"{u.jobs_ours}/{cfg['SHARE_JOBS']}")
+    for nmsg in notes:
+        print("note:", nmsg)
     print("command:", " ".join(shlex.quote(c) for c in cmd))
     if bad:
         print("REFUSED:\n  " + "\n  ".join(bad))
