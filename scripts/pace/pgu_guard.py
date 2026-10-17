@@ -273,9 +273,16 @@ def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_task
         # Running-capacity caps are enforced by Slurm itself (MaxGRESRunMinsPerUser): a job that would exceed them
         # simply waits in the queue, harming nobody, so exceeding them is a note rather than a refusal. What does
         # need a hard limit is the job COUNT, because MaxSubmitPU is shared with the user's other projects.
-        if u.gpu_hours_ours_running + new > float(cfg["SHARE_GPU_HOURS"]) + 1e-9:
-            notes.append(f"{u.gpu_hours_ours_running:.1f} GPU-h of ours already running + {new:.1f} exceeds "
-                         f"SHARE_GPU_HOURS {cfg['SHARE_GPU_HOURS']}: Slurm will hold this job until capacity frees")
+        share, cap = float(cfg["SHARE_GPU_HOURS"]), float(cfg["USER_GPU_HOURS_LIMIT"])
+        if u.gpu_hours_ours_running + new > share + 1e-9:
+            msg = (f"{u.gpu_hours_ours_running:.1f} GPU-h of ours running + {new:.1f} exceeds SHARE_GPU_HOURS "
+                   f"{cfg['SHARE_GPU_HOURS']}")
+            # A share deliberately set BELOW the cluster cap reserves headroom for the user's other projects, so it
+            # is enforced. A share equal to the cap reserves nothing, so exceeding it only means Slurm will queue.
+            if share < cap - 1e-9:
+                bad.append(f"project share: {msg} (headroom reserved for your other projects)")
+            else:
+                notes.append(f"{msg}: Slurm will hold this job until capacity frees")
         if u.gpu_hours_all + new > float(cfg["USER_GPU_HOURS_LIMIT"]) + 1e-9:
             notes.append(f"your running jobs hold {u.gpu_hours_all:.1f} GPU-h; this one waits for "
                          f"MaxGRESRunMinsPerUser ({cfg['USER_GPU_HOURS_LIMIT']} GPU-h)")

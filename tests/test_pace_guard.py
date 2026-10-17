@@ -171,3 +171,13 @@ def test_total_job_limit_protects_other_projects():
     assert g.check_budget(c, u, "cpu", 0, 2.0, 4, 4) == []
     ours = g.Usage(0, 0, 0, 0, 0, 0.0, 40, 40)
     assert any("SHARE_JOBS" in b for b in g.check_budget(c, ours, "cpu", 0, 2.0, 1, 1))
+
+
+def test_reserved_headroom_is_enforced_but_full_share_is_advisory():
+    """A share below the cluster cap reserves room for other projects and is enforced; a share equal to it is not."""
+    u = g.Usage(16.0, 16.0, 2, 2, 0, 16.0, 2, 2)
+    reserved = cfg(SHARE_GPU_HOURS=16, USER_GPU_HOURS_LIMIT=32, MAX_WALLTIME="16:00:00")
+    assert any("headroom reserved" in b for b in g.check_budget(reserved, u, "gpu", 1, 8.0, 1, None))
+    full, notes = cfg(SHARE_GPU_HOURS=32, USER_GPU_HOURS_LIMIT=32, MAX_WALLTIME="16:00:00"), []
+    assert g.check_budget(full, g.Usage(32.0, 32.0, 2, 2, 0, 32.0, 2, 2), "gpu", 1, 8.0, 1, None, notes) == []
+    assert any("Slurm will hold" in n for n in notes)
