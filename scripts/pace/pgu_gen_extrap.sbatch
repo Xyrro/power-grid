@@ -20,7 +20,9 @@ case "${SLURM_ARRAY_TASK_ID:-0}" in
       ;;
   2)  # line-outage shift: shift specifications, then the per-instance files
       python3 scripts/uc_ood_gen.py
-      python3 scripts/uc_ood_eval.py --shifts line_out --n 30
+      # --instances_only: this study evaluates its own models, so the earlier studies' trained
+      # artefacts (combo_st_s0.pt and friends) are not needed and are not present here
+      python3 scripts/uc_ood_eval.py --shifts line_out --n 30 --instances_only
       ;;
 esac
 echo "EXTRAP TASK ${SLURM_ARRAY_TASK_ID:-0} DONE"
