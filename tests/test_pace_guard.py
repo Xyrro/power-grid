@@ -134,10 +134,10 @@ def test_cli_submit_and_cancel_only_own_jobs(tmp_path, monkeypatch, capsys):
     g.main(["--config", str(cfgfile), "submit", "--kind", "gpu", "--name", "trm", "--gpus", "1",
             "--time", "02:00:00", "--dry-run", str(script)])
     assert "dry run" in capsys.readouterr().out and not (tmp_path / "sbatch_calls.txt").exists()
-    # running jobs hold 14 GPU-h (1001:5 + 2001:2 + 3001:7); a 19 h job would exceed 32 -> refused
+    # a hard limit still refuses: MAX_WALLTIME is 20 h in this config
     with pytest.raises(SystemExit):
         g.main(["--config", str(cfgfile), "submit", "--kind", "gpu", "--name", "trm", "--gpus", "1",
-                "--time", "19:00:00", str(script)])
+                "--time", "21:00:00", str(script)])
     assert not (tmp_path / "sbatch_calls.txt").exists()
     # a 2 h job fits: submitted and recorded
     g.main(["--config", str(cfgfile), "submit", "--kind", "gpu", "--name", "trm", "--gpus", "1",
