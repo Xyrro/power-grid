@@ -72,9 +72,9 @@ def test_budget_respects_project_share_and_user_limit():
     notes: list = []
     assert g.check_budget(c, u, "gpu", 1, 7.0, 1, None, notes) == []
     assert any("MaxGRESRunMinsPerUser" in n for n in notes)
-    notes.clear()
-    assert g.check_budget(c, g.Usage(10, 10, 2, 2, 0, 10.0), "gpu", 1, 8.0, 1, None, notes) == []
-    assert any("SHARE_GPU_HOURS" in n for n in notes)
+    # SHARE_GPU_HOURS (16) is below the cluster cap (32), i.e. headroom is reserved, so this IS a refusal
+    assert any("headroom reserved" in b
+               for b in g.check_budget(c, g.Usage(10, 10, 2, 2, 0, 10.0), "gpu", 1, 8.0, 1, None))
     # queued jobs of ours hold no running capacity
     assert g.check_budget(c, g.Usage(0, 30, 2, 2, 0, 0.0), "gpu", 1, 8.0, 1, None) == []
     assert any("MAX_WALLTIME" in b for b in g.check_budget(c, g.Usage(0, 0, 0, 0, 0), "gpu", 1, 9.0, 1, None))
