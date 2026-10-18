@@ -22,7 +22,11 @@ case "${SLURM_ARRAY_TASK_ID:-0}" in
       python3 scripts/uc_ood_gen.py
       # --instances_only: this study evaluates its own models, so the earlier studies' trained
       # artefacts (combo_st_s0.pt and friends) are not needed and are not present here
-      python3 scripts/uc_ood_eval.py --shifts line_out --n 30 --instances_only
+      # --out must be a FRESH file: the committed results/uc12/ood_eval.jsonl from the earlier study would
+      # otherwise mark all 30 instances as already done and nothing would be generated
+      mkdir -p results/recursive
+      python3 scripts/uc_ood_eval.py --shifts line_out --n 30 --instances_only \
+          --out results/recursive/ood_instances.jsonl
       ;;
 esac
 echo "EXTRAP TASK ${SLURM_ARRAY_TASK_ID:-0} DONE"
