@@ -999,6 +999,14 @@ def train(cfg: TRMConfig, sysm, tr, va, ckpt, device="cpu", log_every=50, val_ev
             v = dict(step=step, **val_loss(ema.shadow, vxt[:60], vxb[:60], vtgt[:60], cfg, vs, S=S_va))
             log["val"].append(v)
             logf("[trm] val(60, EMA) " + json.dumps(v))
+            # Keep the best-validation checkpoint beside the last one. Without this, a model that overfits is
+            # evaluated in its degraded final state; the non-recursive controls here lost 10-90 % of their
+            # validation BCE between their best step and the end of training.
+            sel = v[f"bce@{max(vs)}"]
+            if sel < log.get("best_val", float("inf")):
+                log["best_val"], log["best_step"] = sel, step
+                save_ckpt(ckpt.replace(".pt", "_best.pt"), model, ema, opt, step, carry, rng, cfg, feats, log)
+                logf(f"[trm] new best validation {sel:.5f} at step {step}")
         log["time_s"] = time.time() - t0
         if time.time() - t_save > save_every_s or step == cfg.steps:
             save_ckpt(ckpt, model, ema, opt, step, carry, rng, cfg, feats, log)
