@@ -140,3 +140,14 @@ An end-to-end model that serves ≥ 95 % of test instances at ≤ 0.5 % mean gap
 pass and one or a few LPs) would be 50–100× faster than the full MILP and several times faster than the best
 MILP-based pipeline, at similar quality. Beating the learning-free LP rounding baseline (1.6 %) and the one-shot
 model is the minimum bar.
+
+## Added after the literature check (2026-10-17)
+
+**A differentiable feasibility layer.** Xu et al. 2026 (GATCN-PICC, IJEPES 177; see
+[`../literature_uc.md`](../literature_uc.md)) put a deterministic min up/down + ramp + balance projection
+*inside* the forward pass, so the constraint layer is on the gradient path and the model trains end to end
+against it. Here the equivalent repairs (Viterbi, block adequacy, dispatch LP) sit outside the gradient,
+which is why cost-aware fine-tuning uses REINFORCE. A differentiable relaxation of the min up/down
+projection would allow direct gradient training through the repair, and is the most concrete untried idea
+from the surrounding literature. Their evaluation is not comparable with ours (dispatch labels; the speed
+reference is a QP repair, not a MILP solve), but the architectural point stands on its own.

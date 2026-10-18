@@ -32,6 +32,30 @@ straight-through estimator + augmented-Lagrangian physics loss), physics-informe
 neural second-stage surrogates in stochastic UC (Shao, Qin & Yu 2025; Fusco, Lodi & Marla 2026),
 cross-task / cross-topology graph backbones (Memon et al. 2026, [2605.02026](https://arxiv.org/abs/2605.02026)).
 
+## End-to-end prediction with a deterministic feasibility layer
+
+| work | what is predicted / how it is used | feasibility | systems, results |
+|---|---|---|---|
+| **Xu et al. 2026, GATCN-PICC** (IJEPES 177, 111821, [doi](https://doi.org/10.1016/j.ijepes.2026.111821), read in full) | graph-attention + temporal-convolution network regresses **generator power outputs**; on/off follows from the dispatch | **Physics-Informed Constraint Calibrator**: a deterministic discrete–continuous projection inside the forward pass, enforcing min up/down logic, ramps, capacities, balance and line limits; end-to-end trainable | IEEE 30 (6 units) and IEEE 118 (54 units), 5-min resolution, real load profiles; 0 % violations vs 13.96 % for the bare network; 0.085 s vs 2.5 s |
+
+Same problem class as this study (it states UC-ED with "binary on/off status and continuous power output"),
+and it independently supports our decoding design: a network alone violates the coupling constraints on
+~14 % of instances, and a deterministic repair removes that at negligible cost — the same conclusion as
+§4 V2 and §5 W1 here. Two differences make its headline numbers **not comparable with ours**:
+
+* **Its labels are dispatch, not commitments.** It regresses power outputs from SCUC solutions and lets the
+  on/off pattern follow; we predict the 876 binaries directly and treat the combinatorial coupling as the
+  problem. Its reported error metric is MAE/MSE to the reference dispatch, which §3 U7 here shows mis-ranks
+  methods when identical units are interchangeable.
+* **Its "+0.0100 % optimality gap" reference is Gurobi solving a QP *repair*, not an SCUC MILP.** Table 3
+  compares correction methods applied to the same prediction, so the ~30× speed-up is against a repair step,
+  not against solving the instance. Nothing re-solves a MILP at test time, and no gap to a proven dual bound
+  is reported.
+
+**Worth borrowing**: the calibrator is *differentiable*, so the constraint layer sits inside the gradient
+path. Our repairs sit outside it, which is why cost-aware fine-tuning here needs REINFORCE (§3 U4). A
+differentiable min up/down projection would allow direct gradient-based cost training; see the backlog.
+
 ## Dispatch given commitments (Model 2)
 
 * Chen, Park, Tanneau & Van Hentenryck 2022, SCED proxies (EPSR, [2112.13469](https://arxiv.org/abs/2112.13469)):
