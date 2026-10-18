@@ -252,7 +252,7 @@ def array_size(spec: str | None) -> tuple[int, int | None]:
 
 
 def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_tasks: int,
-                 throttle: int | None, notes: list | None = None) -> list[str]:
+                 throttle: int | None, notes: list | None = None, deferred: bool = False) -> list[str]:
     """Return a list of violations (empty = allowed). `notes` collects non-blocking remarks."""
     bad = []
     notes = notes if notes is not None else []
@@ -279,8 +279,10 @@ def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_task
                    f"{cfg['SHARE_GPU_HOURS']}")
             # A share deliberately set BELOW the cluster cap reserves headroom for the user's other projects, so it
             # is enforced. A share equal to the cap reserves nothing, so exceeding it only means Slurm will queue.
-            if share < cap - 1e-9:
+            if share < cap - 1e-9 and not deferred:
                 bad.append(f"project share: {msg} (headroom reserved for your other projects)")
+            elif deferred:
+                notes.append(f"{msg}, but this job waits on a dependency and cannot start until capacity frees")
             else:
                 notes.append(f"{msg}: Slurm will hold this job until capacity frees")
         if u.gpu_hours_all + new > float(cfg["USER_GPU_HOURS_LIMIT"]) + 1e-9:
@@ -377,7 +379,8 @@ def cmd_submit(cfg: dict, a) -> None:
     reg = read_registry(root)
     u = usage(read_jobs(os.environ.get("USER", "")), reg, cfg["JOB_PREFIX"])
     notes: list = []
-    bad = check_budget(cfg, u, a.kind, a.gpus if a.kind == "gpu" else 0, hours, n_tasks, throttle, notes)
+    bad = check_budget(cfg, u, a.kind, a.gpus if a.kind == "gpu" else 0, hours, n_tasks, throttle, notes,
+                       deferred=bool(a.dependency))
     cmd = build_sbatch(cfg, a)
     print(f"before: GPU-h running all {u.gpu_hours_all:.1f}/{cfg['USER_GPU_HOURS_LIMIT']}, project q+r "
           f"{u.gpu_hours_ours:.1f}/{cfg['SHARE_GPU_HOURS']}; GPU jobs all {u.gpu_jobs_all}/"

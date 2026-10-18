@@ -181,3 +181,13 @@ def test_reserved_headroom_is_enforced_but_full_share_is_advisory():
     full, notes = cfg(SHARE_GPU_HOURS=32, USER_GPU_HOURS_LIMIT=32, MAX_WALLTIME="16:00:00"), []
     assert g.check_budget(full, g.Usage(32.0, 32.0, 2, 2, 0, 32.0, 2, 2), "gpu", 1, 8.0, 1, None, notes) == []
     assert any("Slurm will hold" in n for n in notes)
+
+
+def test_dependent_job_may_be_queued_past_the_reserved_share():
+    """A job waiting on a dependency cannot start now, so it must not be refused for current running capacity."""
+    c = cfg(SHARE_GPU_HOURS=16, USER_GPU_HOURS_LIMIT=32, MAX_WALLTIME="16:00:00")
+    u = g.Usage(15.7, 15.7, 2, 2, 0, 15.7, 2, 2)
+    assert any("headroom reserved" in b for b in g.check_budget(c, u, "gpu", 1, 8.0, 1, None))
+    notes: list = []
+    assert g.check_budget(c, u, "gpu", 1, 8.0, 1, None, notes, deferred=True) == []
+    assert any("waits on a dependency" in n for n in notes)
