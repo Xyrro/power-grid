@@ -74,6 +74,8 @@ def arm_b_methods(r, tag):
 def arm_a_methods(r):
     m = {}
     for k, v in r.items():
+        if k == "relax":                  # the LP relaxation: a lower bound, not a schedule
+            continue
         if isinstance(v, dict) and "cost" in v and "time" in v and v.get("cost") is not None:
             m[k] = (v["cost"], served(v.get("shed", 0.0) or 0.0, v.get("short", 0.0) or 0.0), v["time"])
     return m, r["milp01"]["time"], r["milp01"]["bound"]
@@ -110,6 +112,18 @@ def main():
                 rows.setdefault("A|" + k, {})[i] = (v, tm)
         db[i] = max(bounds)
     rng = random.Random(0)
+    # alignment check: both arms solve the same full MILP (0.1 %) of instance i; their objectives must agree up to the
+    # MILP tolerance (a shifted index would show up as large differences)
+    if A:
+        dif = [abs(A[i]["milp01"]["cost"] - B[MODELS_B[0]][i]["full"]["0.001"]["obj"]) / A[i]["milp01"]["cost"]
+               for i in ids if i in A and i in B[MODELS_B[0]]]
+        out_chk = dict(n=len(dif), max_rel=max(dif), n_above_0p2pct=sum(x > 2e-3 for x in dif))
+        print("alignment: arm A vs arm B full-MILP objectives, max rel diff "
+              f"{out_chk['max_rel']:.2e}, {out_chk['n_above_0p2pct']} of {len(dif)} above 0.2 %")
+        if out_chk["n_above_0p2pct"] > 0.05 * len(dif):
+            raise SystemExit("arm A and arm B instances do not line up")
+    else:
+        out_chk = None
 
     def per(name):
         d = rows[name]
@@ -119,7 +133,7 @@ def main():
         return g, s, sp
 
     out = dict(n=len(ids), metric="(C - DB) / C, DB = tightest proven bound over this instance's full-MILP solves",
-               methods={}, paired={})
+               alignment=out_chk, methods={}, paired={})
     lines = [f"# GPU round: test results ({len(ids)} test_fresh instances, every choice fixed on validation)", "",
              "Gap = (C − DB)/C to the tightest proven bound; served = no shedding or reserve shortfall; speed-up = "
              "full MILP at 0.1 % / method, timed in the same process (mean / geometric mean).", "",

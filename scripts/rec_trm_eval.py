@@ -186,8 +186,10 @@ class TRMRunner:
             rec[f"{tag}_1{sfx}"], u_fin = ctx.finish(inst, [u], t_base + ti(kd) + t_d, rep)
             rec[f"{tag}_1{sfx}"]["k"] = kd
             if self.sel[kind].get("mix_th") and rounds is not None:
+                # the LP roundings need the LP relaxation even when the model's features do not
+                t_mix = t_base + ti(kd) + t_d + t_rounds + (0.0 if self.cfg.lp_feats else t_rel)
                 rec[f"{tag}_mix5{sfx}"], _ = ctx.finish(inst, [u] + [rounds[t] for t in self.sel[kind]["mix_th"]],
-                                                        t_base + ti(kd) + t_d + t_rounds, rep)
+                                                        t_mix, rep)
             if rep:
                 u1r = u_fin
             us, t_ds = [], 0.0
