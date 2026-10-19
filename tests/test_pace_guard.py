@@ -220,3 +220,15 @@ def test_cancel_refuses_malformed_ids(tmp_path, monkeypatch, capsys):
     g.main(["cancel", "1234,5678"])
     assert "not a plain job id" in capsys.readouterr().out
     assert not (tmp_path / "scancel_calls.txt").exists()
+
+
+def test_constraint_is_passed_and_validated(tmp_path, monkeypatch, capsys):
+    """--constraint pins a job to a node type (the bf16-capable CPUs for the TRM models); anything else is refused"""
+    root, script = _guard_root(tmp_path, monkeypatch, "", [])
+    g.main(["submit", "--kind", "cpu", "--name", "v", "--cpus", "1", "--time", "01:00:00", "--constraint", "cpu-gnr",
+            str(script)])
+    assert "--constraint=cpu-gnr" in (tmp_path / "sbatch_calls.txt").read_text()
+    with pytest.raises(SystemExit):
+        g.main(["submit", "--kind", "cpu", "--name", "v", "--cpus", "1", "--time", "01:00:00",
+                "--constraint", "cpu-gnr --gres=gpu:8", str(script)])
+    assert len((tmp_path / "sbatch_calls.txt").read_text().splitlines()) == 1

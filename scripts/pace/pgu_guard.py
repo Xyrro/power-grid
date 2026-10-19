@@ -358,6 +358,8 @@ def build_sbatch(cfg: dict, a) -> list[str]:
         cmd += [f"--array={a.array}"]
     if a.dependency:
         cmd += [f"--dependency={a.dependency}"]
+    if getattr(a, "constraint", ""):
+        cmd += [f"--constraint={a.constraint}"]
     exports = "ALL,PGU_ROOT=" + cfg["PGU_ROOT"]
     for k in ("PYTHON_MODULE", "CUDA_MODULE"):
         if cfg.get(k):
@@ -375,6 +377,8 @@ def cmd_submit(cfg: dict, a) -> None:
     hours = parse_slurm_time(a.time)
     if hours is None:
         sys.exit("refusing: --time must be a finite walltime")
+    if a.constraint and not re.fullmatch(r"[A-Za-z0-9_\-]+([&|][A-Za-z0-9_\-]+)*", a.constraint):
+        sys.exit("refusing: --constraint must be node features joined by & or |")
     n_tasks, throttle = array_size(a.array)
     reg = read_registry(root)
     u = usage(read_jobs(os.environ.get("USER", "")), reg, cfg["JOB_PREFIX"])
@@ -447,6 +451,8 @@ def main(argv=None) -> None:
     s.add_argument("--mem", default="")
     s.add_argument("--array", default="")
     s.add_argument("--dependency", default="")
+    s.add_argument("--constraint", default="", help="node features, e.g. cpu-gnr (a CPU with bf16 units: the TRM models "
+                   "run in bfloat16, which CPUs without them emulate many times slower)")
     s.add_argument("--export", default="")
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("script")
