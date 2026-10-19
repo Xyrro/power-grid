@@ -17,6 +17,7 @@ import json
 import math
 import os
 import random
+import zlib
 
 RES = os.path.join("results", "recursive", "gpu_round")
 MODELS_B = ("w2_rloop_rl", "w1_rloop_nofb_rl")
@@ -111,16 +112,21 @@ def main():
             for k, v in m.items():
                 rows.setdefault("A|" + k, {})[i] = (v, tm)
         db[i] = max(bounds)
-    rng = random.Random(0)
-    # alignment check: both arms solve the same full MILP (0.1 %) of instance i; their objectives must agree up to the
-    # MILP tolerance (a shifted index would show up as large differences)
+    # alignment check: the LP relaxation of instance i is deterministic and solved by both arms, so its cost must agree
+    # exactly (a shifted index would not). The full MILPs agree too, except where a 60 s time limit stopped them at
+    # different incumbents (the arms ran on different nodes): reported, not checked.
     if A:
-        dif = [abs(A[i]["milp01"]["cost"] - B[MODELS_B[0]][i]["full"]["0.001"]["obj"]) / A[i]["milp01"]["cost"]
-               for i in ids if i in A and i in B[MODELS_B[0]]]
-        out_chk = dict(n=len(dif), max_rel=max(dif), n_above_0p2pct=sum(x > 2e-3 for x in dif))
-        print("alignment: arm A vs arm B full-MILP objectives, max rel diff "
-              f"{out_chk['max_rel']:.2e}, {out_chk['n_above_0p2pct']} of {len(dif)} above 0.2 %")
-        if out_chk["n_above_0p2pct"] > 0.05 * len(dif):
+        b0 = B[MODELS_B[0]]
+        both = [i for i in ids if i in A and i in b0]
+        rel = max(abs(A[i]["relax"]["cost"] - b0[i]["c_rel"]) / b0[i]["c_rel"] for i in both)
+        dif = {i: abs(A[i]["milp01"]["cost"] - b0[i]["full"]["0.001"]["obj"]) / A[i]["milp01"]["cost"] for i in both}
+        big = [i for i, x in dif.items() if x > 2e-3]
+        tl = [i for i in big if "time_limit" in (A[i]["milp01"]["status"], b0[i]["full"]["0.001"]["status"])]
+        out_chk = dict(n=len(both), lp_relaxation_max_rel=rel, milp_max_rel=max(dif.values()), milp_above_0p2pct=big,
+                       of_which_time_limited=tl)
+        print(f"alignment: LP relaxation costs of the two arms differ by at most {rel:.1e} (relative); full MILPs "
+              f"differ by > 0.2 % on {len(big)} instances, {len(tl)} of them time-limited")
+        if rel > 1e-9:
             raise SystemExit("arm A and arm B instances do not line up")
     else:
         out_chk = None
@@ -156,6 +162,7 @@ def main():
         ga = [(da[i][0][0] - db[i]) / da[i][0][0] * 100 for i in common]
         gb = [(dbb[i][0][0] - db[i]) / dbb[i][0][0] * 100 for i in common]
         d = [y - x for x, y in zip(ga, gb)]                       # > 0: A better
+        rng = random.Random(zlib.crc32(f"{a} vs {b}".encode()))   # per pair: a CI does not depend on the other pairs
         # > 0: A faster. Log speed-up of A minus that of B, each against the full MILP solved in its own process:
         # the same as the log time ratio within an arm, and the only paired comparison across arms (other processes,
         # other nodes)
@@ -179,10 +186,14 @@ def main():
         plan = json.load(open(plan_p))
         head = plan.get("headline", "")
         fin = plan.get("final", "")
-        for c in plan.get("trm", {}):
-            if c != fin and head:
-                pairs.append(("A|" + head, "A|" + c + head[len(fin):]))
+        # the headline pipeline, then the two pipelines the go/no-go gate is defined on (docs/recursive/trm.md: 1 LP +
+        # repair, and the 5-threshold screening), each against every control
+        for sfx in dict.fromkeys([head[len(fin):], "_1r", "_t5r"]) if head else []:
+            for c in plan.get("trm", {}):
+                if c != fin:
+                    pairs.append(("A|" + fin + sfx, "A|" + c + sfx))
         if head:
+            pairs.append((f"A|{fin}_k16r", f"A|{fin}_k1r"))      # test-time recursion: 16 steps against 1
             pairs += [("A|" + head, "A|milp05"), ("A|" + head, "A|lpround5r"), ("A|" + head, "A|m1x_mix5r"),
                       ("A|" + head, f"{MODELS_B[0]} @24 steps")]
     lines += ["", "Paired differences (positive = the first method is better / faster; 95 % bootstrap CI). Δ log speed-up "
