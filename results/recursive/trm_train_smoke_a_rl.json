@@ -1,0 +1,84 @@
+{
+ "tag": "smoke_a_rl",
+ "stage": "rl",
+ "base": "smoke_a",
+ "cfg": {
+  "hidden": 128,
+  "layers": 2,
+  "expansion": 2.0,
+  "unit_mix": "attn",
+  "time_mix": "attn",
+  "heads": 4,
+  "time_kernel": 5,
+  "hops": 2,
+  "elec": true,
+  "lp_feats": true,
+  "sym": "count",
+  "y0": "fixed",
+  "cost_weight": 0.0,
+  "mode": "trm",
+  "n": 6,
+  "T": 3,
+  "n_sup": 16,
+  "halt_train": true,
+  "halt_tol": 2,
+  "halt_explore": 0.1,
+  "halt_weight": 0.5,
+  "batch": 256,
+  "micro_batch": 0,
+  "steps": 60,
+  "lr": 0.0003,
+  "weight_decay": 0.5,
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "warmup": 1000,
+  "lr_min_frac": 0.1,
+  "ema": 0.999,
+  "clip": 1.0,
+  "amp": "bf16",
+  "seed": 0
+ },
+ "params": 629522,
+ "rl": {
+  "steps": 3,
+  "bs": 4,
+  "samples": 4,
+  "lr": 0.0001,
+  "anchor": 0.5,
+  "random_step": 0,
+  "k": 0
+ },
+ "train_s": 4.392098665237427,
+ "threads": 2,
+ "hist": [
+  {
+   "step": 1,
+   "k": 16,
+   "gap_rel": 8.735241348054409,
+   "served": 1.0,
+   "bce": 0.8436700105667114,
+   "lps": 16,
+   "s": 2.0449626445770264
+  },
+  {
+   "step": 2,
+   "k": 16,
+   "gap_rel": 1.2711126564569546,
+   "served": 1.0,
+   "bce": 0.7375227212905884,
+   "lps": 32,
+   "s": 3.215688467025757
+  },
+  {
+   "step": 3,
+   "k": 16,
+   "gap_rel": 1.4371051387793532,
+   "served": 0.6875,
+   "bce": 0.6794737577438354,
+   "lps": 48,
+   "s": 4.392098665237427
+  }
+ ]
+}

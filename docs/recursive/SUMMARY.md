@@ -1,12 +1,31 @@
-# Recursive reasoning for end-to-end unit commitment: CPU round, summary
+# Recursive reasoning for end-to-end unit commitment: summary
 
-*Two arms run in parallel on 4 CPU cores (no GPU), following [`PLAN.md`](PLAN.md). Details:
+*First round: two arms run in parallel on 4 CPU cores (no GPU), following [`PLAN.md`](PLAN.md). Details:
 [`trm.md`](trm.md) (arm A, a TRM-style recursive model) and [`rloop.md`](rloop.md) (arm B, recursion with the exact
 dispatch LP in the loop). uc12 (RTS-GMLC, 73 units, 12 h); selection on 360 validation instances; one pass over the 120
 test_fresh instances; the full MILP and every pipeline are timed back to back on one core per instance. Gap is to the
 dual bound of the full MILP at a 0.1 % gap. One seed per configuration.*
 
-## Bottom line
+## GPU round (PACE ICE, 50,000 labels): validation results
+
+The decisive runs of the plan below were made on PACE ICE (H200 GPUs; 50,000 polished labels instead of 2,000);
+details and every table in [`gpu_round.md`](gpu_round.md). All on the 360 validation instances, paired per instance:
+
+* **Arm A fails its go/no-go.** At their final checkpoints a same-size one-shot network (−0.24 pp [−0.39, −0.12]) and a
+  deeper unshared network (−0.51 pp [−0.75, −0.29]) are both significantly *better* than the recursive model
+  (1.731 % mean gap). Their validation loss rises late in training, but their schedules keep improving, so
+  best-validation-loss checkpoints understate them. Training the recursive model twice as long did not help.
+* **Arm B's LP feedback buys feasibility, not cost.** With feedback the loop serves 97.5 % of instances at 16 steps
+  against 92.2 % without, and the mean gap is 0.62 pp [0.23, 1.08] better; on the instances both serve, feedback is
+  not better (−0.08 pp [−0.22, +0.05]). The feedback model's halting head stops earlier (5.0 steps against 6.5) and
+  lands better (1.63 % against 2.26 %). The feedback costs about 3× the training time.
+* **Neither arm displaces the MILP pipeline** of `docs/RESEARCH.md` §7–§8 (0.30 % at ~10×); the best end-to-end
+  numbers are 1.0–1.2 % mean gap. Every learned model now beats learning-free LP rounding (2.11 %).
+* **Remaining**: the single test pass on the 120 test_fresh instances for the selected models.
+
+## CPU round (4 cores, 2,000 labels)
+
+### Bottom line
 
 * **Neither arm meets the success criterion** of [`PLAN.md`](PLAN.md) (≥ 95 % served at ≤ 0.5 % mean gap in well under
   a second), and no end-to-end pipeline beats the MILP-based pipeline of `docs/RESEARCH.md` §7–§8 (0.30 % at ~10×).
@@ -19,7 +38,7 @@ dual bound of the full MILP at a 0.1 % gap. One seed per configuration.*
   which the LP prices every move and the network only ranks the moves, and most of its gain comes from the search.
 * **The LP relaxation carries most of the answer**: without LP-relaxation inputs every model degrades to 6–8 %.
 
-## Test results (uc12 test_fresh, 120 instances)
+### Test results (uc12 test_fresh, 120 instances)
 
 Both arms re-ran the shared baselines on their own cores; their numbers differ slightly because arm A added an
 LP-guided adequacy repair to every pipeline and arm B used the existing repairs.
@@ -45,7 +64,7 @@ LP-guided adequacy repair to every pipeline and arm B used the existing repairs.
 * Arm B: the guided search beats LP rounding by −0.61 pp [−0.95, −0.33] and the learning-free search by −0.15 pp
   [−0.28, −0.03]; it is level with the same search ranked by the one-shot ensemble (−0.02 pp [−0.06, +0.02]).
 
-## What the ablations say (validation, 360 instances)
+### What the ablations say (validation, 360 instances)
 
 | question | answer |
 |---|---|
@@ -58,7 +77,7 @@ LP-guided adequacy repair to every pipeline and arm B used the existing repairs.
 | halting heads (A, B) | not useful: about 30 % of steps qualify as good at every step |
 | LP-relaxation inputs (A) | essential: without them TRM 7.96 %, one-shot 7.24 % |
 
-## Zero-shot extrapolation (nothing re-tuned)
+### Zero-shot extrapolation (nothing re-tuned)
 
 | benchmark | LP rounding | learned schedules (A, B) | B: guided search | B: + safety net |
 |---|---|---|---|---|
@@ -68,7 +87,7 @@ LP-guided adequacy repair to every pipeline and arm B used the existing repairs.
 
 The networks' own schedules shed load on about half of the shifted instances; the LP-in-the-loop search stays robust.
 
-## Why it did not work better, and what would test it properly
+### Why it did not work better, and what would test it properly
 
 * **Too few epochs for the TRM**: deep supervision keeps each instance for 8 steps, so in the CPU budget the TRM saw
   3 epochs against the one-shot's 24.
@@ -86,7 +105,7 @@ These are exactly what GPU time can change. The decisive experiments:
    whole-schedule verdict.
 3. **Cheap, either way**: the one-shot + REINFORCE + safety-net pipeline on 50k labels.
 
-## PACE ICE plan (nothing submitted; run it through the guard in [`scripts/pace/README.md`](../../scripts/pace/README.md))
+## PACE ICE plan (stages 1–2 run; stage 3 not run because arm A's gate failed; see [`scripts/pace/README.md`](../../scripts/pace/README.md))
 
 | stage | job | resources (estimates) |
 |---|---|---|

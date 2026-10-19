@@ -1,0 +1,133 @@
+{
+ "tag": "smoke_paper_mb64",
+ "stage": "ds",
+ "preset": "paper",
+ "cfg": {
+  "hidden": 512,
+  "layers": 2,
+  "expansion": 2.0,
+  "unit_mix": "attn",
+  "time_mix": "attn",
+  "heads": 8,
+  "time_kernel": 5,
+  "hops": 2,
+  "elec": true,
+  "lp_feats": true,
+  "sym": "count",
+  "y0": "fixed",
+  "cost_weight": 0.0,
+  "mode": "trm",
+  "n": 6,
+  "T": 3,
+  "n_sup": 16,
+  "halt_train": true,
+  "halt_tol": 2,
+  "halt_explore": 0.1,
+  "halt_weight": 0.5,
+  "batch": 768,
+  "micro_batch": 64,
+  "steps": 6,
+  "lr": 0.0001,
+  "weight_decay": 1.0,
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "warmup": 2000,
+  "lr_min_frac": 0.1,
+  "ema": 0.999,
+  "clip": 1.0,
+  "amp": "bf16",
+  "seed": 0
+ },
+ "params": 9989154,
+ "n_train": 500,
+ "train_s": 36.277438163757324,
+ "threads": 4,
+ "device": "cuda",
+ "train": [
+  {
+   "step": 1,
+   "bce": 0.5435081124305725,
+   "wrong": 346.81640625,
+   "halt_rate": 0.0,
+   "q_acc": 1.0,
+   "slot_step": 8.5,
+   "steps_per_inst": 16.0,
+   "epoch": 1,
+   "lr": 5.0000000000000004e-08,
+   "s": 6.2065839767456055
+  },
+  {
+   "step": 2,
+   "bce": 0.5035543441772461,
+   "wrong": 276.0208435058594,
+   "halt_rate": 0.0,
+   "q_acc": 1.0,
+   "slot_step": 8.5,
+   "steps_per_inst": 16.0,
+   "epoch": 1,
+   "lr": 1.0000000000000001e-07,
+   "s": 11.296021223068237
+  },
+  {
+   "step": 3,
+   "bce": 0.5321717262268066,
+   "wrong": 329.16278076171875,
+   "halt_rate": 0.0,
+   "q_acc": 1.0,
+   "slot_step": 8.5,
+   "steps_per_inst": 16.0,
+   "epoch": 1,
+   "lr": 1.5000000000000002e-07,
+   "s": 16.38600516319275
+  },
+  {
+   "step": 4,
+   "bce": 0.5743648409843445,
+   "wrong": 347.40496826171875,
+   "halt_rate": 0.0,
+   "q_acc": 1.0,
+   "slot_step": 8.5,
+   "steps_per_inst": 16.0,
+   "epoch": 1,
+   "lr": 2.0000000000000002e-07,
+   "s": 21.475635528564453
+  },
+  {
+   "step": 5,
+   "bce": 0.5922814011573792,
+   "wrong": 355.06121826171875,
+   "halt_rate": 0.0,
+   "q_acc": 1.0,
+   "slot_step": 8.5,
+   "steps_per_inst": 16.0,
+   "epoch": 2,
+   "lr": 2.5e-07,
+   "s": 26.56572914123535
+  },
+  {
+   "step": 6,
+   "bce": 0.6049258708953857,
+   "wrong": 360.703125,
+   "halt_rate": 0.0,
+   "q_acc": 1.0,
+   "slot_step": 8.5,
+   "steps_per_inst": 16.0,
+   "epoch": 2,
+   "lr": 3.0000000000000004e-07,
+   "s": 31.655680179595947
+  }
+ ],
+ "val": [
+  {
+   "step": 6,
+   "bce@1": 0.527800977230072,
+   "wrong@1": 336.8166809082031,
+   "bce@4": 0.5727026462554932,
+   "wrong@4": 351.26666259765625,
+   "bce@16": 0.7970778346061707,
+   "wrong@16": 450.4666748046875
+  }
+ ]
+}
