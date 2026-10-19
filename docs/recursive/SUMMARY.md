@@ -6,22 +6,29 @@ dispatch LP in the loop). uc12 (RTS-GMLC, 73 units, 12 h); selection on 360 vali
 test_fresh instances; the full MILP and every pipeline are timed back to back on one core per instance. Gap is to the
 dual bound of the full MILP at a 0.1 % gap. One seed per configuration.*
 
-## GPU round (PACE ICE, 50,000 labels): validation results
+## GPU round (PACE ICE, 50,000 labels): validation and test results
 
 The decisive runs of the plan below were made on PACE ICE (H200 GPUs; 50,000 polished labels instead of 2,000);
-details and every table in [`gpu_round.md`](gpu_round.md). All on the 360 validation instances, paired per instance:
+details and every table in [`gpu_round.md`](gpu_round.md). Selection on the 360 validation instances, then one
+test pass on the 120 test_fresh instances; all comparisons paired per instance:
 
-* **Arm A fails its go/no-go.** At their final checkpoints a same-size one-shot network (−0.24 pp [−0.39, −0.12]) and a
+* **Arm A fails its go/no-go.** On validation, at their final checkpoints a same-size one-shot network (−0.24 pp [−0.39, −0.12]) and a
   deeper unshared network (−0.51 pp [−0.75, −0.29]) are both significantly *better* than the recursive model
   (1.731 % mean gap). Their validation loss rises late in training, but their schedules keep improving, so
   best-validation-loss checkpoints understate them. Training the recursive model twice as long did not help.
-* **Arm B's LP feedback buys feasibility, not cost.** With feedback the loop serves 97.5 % of instances at 16 steps
+* **Arm B's LP feedback buys feasibility, not cost.** On validation, with feedback the loop serves 97.5 % of instances at 16 steps
   against 92.2 % without, and the mean gap is 0.62 pp [0.23, 1.08] better; on the instances both serve, feedback is
   not better (−0.08 pp [−0.22, +0.05]). The feedback model's halting head stops earlier (5.0 steps against 6.5) and
   lands better (1.63 % against 2.26 %). The feedback costs about 3× the training time.
 * **Neither arm displaces the MILP pipeline** of `docs/RESEARCH.md` §7–§8 (0.30 % at ~10×); the best end-to-end
-  numbers are 1.0–1.2 % mean gap. Every learned model now beats learning-free LP rounding (2.11 %).
-* **Remaining**: the single test pass on the 120 test_fresh instances for the selected models.
+  validation numbers are 1.0–1.2 % mean gap. Every learned model now beats learning-free LP rounding (2.11 %).
+* **The test pass confirms all three** (gap to the tightest proven bound, paired timing on one core). Arm A: the
+  recursive model loses to the final one-shot network on both of the gate's pipelines (−0.36 pp [−0.65, −0.08] with
+  1 LP + repair, −0.26 pp [−0.40, −0.12] with 5-threshold screening). Its 16 CPU steps take 8 s per instance, slower
+  than the full MILP at 0.5 % on a typical instance. Arm B: feedback +0.55 pp [+0.01, +1.28] overall (99.2 % served
+  against 94.2 %), −0.05 pp [−0.22, +0.12] on the instances both serve; with the safety net it serves every instance
+  at 0.342 %, 0.08 pp worse than the 0.5 % MILP and 1.35× faster. Best arm A pipeline: the deep control with a safety
+  net, 0.753 % at 20× (mean). One seed per model; 120 instances.
 
 ## CPU round (4 cores, 2,000 labels)
 

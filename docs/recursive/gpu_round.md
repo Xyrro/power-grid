@@ -3,10 +3,23 @@
 *The decisive experiments of [`PLAN.md`](PLAN.md), run on PACE ICE (H200, 1 GPU + 20–24 CPU cores for the LP workers)
 on the full 50,000-label training set instead of the 2,000 labels and 4 CPU cores of the first round
 ([`SUMMARY.md`](SUMMARY.md)). Arm A is the pure TRM-style recursion ([`trm.md`](trm.md)); arm B is recursion with the
-exact dispatch LP in the loop ([`rloop.md`](rloop.md)). Selection and all numbers below are on the same 360 uc12
-validation instances; gap is to the dual bound of the full MILP at a 0.1 % gap. One seed per configuration.*
+exact dispatch LP in the loop ([`rloop.md`](rloop.md)). Every choice was made on the same 360 uc12 validation
+instances; the [test pass](#test-pass-120-test_fresh-instances) then ran once on the 120 test_fresh instances. Gap
+definitions: arm A's validation tables measure against the stored MILP objective, (C − C\*)/C\*
+(`scripts/rec_trm_val.py`); arm B's against that MILP's dual bound, (C − DB)/C; the test pass uses (C − DB)/C for both
+arms, DB the tightest bound over every full-MILP solve of the instance. Levels are comparable within a table, not
+across the two validation metrics. One seed per configuration.*
 
 ## Bottom line
+
+* **The test pass confirms both verdicts** (120 test_fresh instances, every choice fixed on validation beforehand).
+  The recursive model loses to the one-shot network on both of the gate's pipelines (−0.36 pp [−0.65, −0.08] with
+  1 LP + repair, −0.26 pp [−0.40, −0.12] with 5-threshold screening). On one CPU core its 16 steps take 8 s per
+  instance, which makes it slower than the full MILP at a 0.5 % gap on a typical instance as well as 1.15 pp worse. Arm B's feedback again
+  wins on feasibility only: +0.55 pp [+0.01, +1.28] overall, −0.05 pp [−0.22, +0.12] on the instances both arms
+  serve. Details in [the test section](#test-pass-120-test_fresh-instances).
+
+The validation findings that led there:
 
 * **Arm A's go/no-go gate is not met, and the recursive model loses to plain networks trained to the end.** In paired
   comparisons on the same instances and pipeline, the recursive model is significantly *worse* than the same-size
@@ -165,6 +178,105 @@ seconds across the REINFORCE stage alone, carried by 20 CPU worker processes bes
 and it is worth recording next to the gain itself: the no-feedback control reaches 92 % served for a third of the
 compute.
 
+## Test pass (120 test_fresh instances)
+
+One pass, after every choice was fixed on validation: arm A's plan
+(`results/recursive/gpu_round/trm_select_gpu.json`, from `scripts/rec_trm_select.py`) and arm B's
+(`rloop_select_gpu.json`: 24 steps, safety net at the preset 1 % certified gap). For each instance, one process on
+one CPU core solves the full MILP (0.1 % and 0.5 %, 60 s) and runs every pipeline back to back, so speed-ups are
+paired. Gap is (C − DB)/C against the tightest proven bound of the instance over every full-MILP solve of both arms.
+All numbers below come from `scripts/rec_gpu_test_report.py` (`results/recursive/gpu_round/test_results.md`, every
+row and pair; per-instance records alongside).
+
+The two arms' records line up exactly: the LP relaxation, solved by both, has identical cost on every instance, and
+learning-free LP rounding, run by both, gives identical costs (1.744 %). The full MILPs differ by more than 0.2 % on
+six instances, all of which hit the 60 s limit; arm A, on the faster node, found the better incumbent on all six.
+
+### Arm A on test
+
+The recursive model is the retrained 30,000-step `w1_trm30`, a bit-for-bit reproduction of the model validated
+above (the original checkpoint had been overwritten by the 60,000-step continuation; its retrain matches every
+logged loss and every validation array exactly). Each model uses its own validation-chosen decoders and thresholds.
+
+| model (checkpoint) | mixed + repair (headline) | 1 LP + repair | 5 thresholds + repair | + safety net | speed-up (mixed), mean / geo |
+|---|---|---|---|---|---|
+| recursive, 16 steps (final) | 1.374 % | 2.003 % | 1.378 % | 1.126 % | 2.6× / 1.7× |
+| one-shot (final) | 1.240 % | 1.645 % | 1.120 % | 0.892 % | 33.8× / 22.6× |
+| deep, unshared (final) | **1.021 %** | **1.415 %** | 1.268 % | **0.753 %** | 19.7× / 13.1× |
+| one-shot (best validation loss) | 1.574 % | 1.935 % | 1.325 % | 1.160 % | 36.5× / 24.6× |
+| deep (best validation loss) | 1.303 % | 1.992 % | 1.469 % | 1.104 % | 19.7× / 13.2× |
+| m1x temporal GNN | 1.529 % | 2.576 % | 1.578 % | — | 33.9× / 22.9× |
+| LP rounding, no learning | 1.707 % | — | — | — | 40.8× / 27.8× |
+
+Paired differences, recursive minus control (positive = the recursive model is better):
+
+| control | mixed + repair | 1 LP + repair | 5 thresholds + repair |
+|---|---|---|---|
+| one-shot, final | **−0.133** [−0.241, −0.029] | **−0.358** [−0.646, −0.084] | **−0.258** [−0.396, −0.122] |
+| deep, final | **−0.353** [−0.710, −0.053] | **−0.588** [−0.948, −0.222] | −0.111 [−0.431, +0.240] |
+| one-shot, best loss | **+0.200** [+0.011, +0.410] | −0.068 [−0.525, +0.517] | −0.053 [−0.283, +0.188] |
+| deep, best loss | −0.071 [−0.181, +0.031] | −0.011 [−0.343, +0.325] | +0.091 [−0.121, +0.320] |
+
+* **The gate fails on test as on validation.** It asks the recursive model to beat the one-shot by more than about
+  0.2 pp on the 1 LP + repair and 5-threshold pipelines ([`trm.md`](trm.md)). Against the final one-shot it is
+  significantly worse on both; against the best-loss one-shot it is level on both. The only win is the one validation
+  also showed — the mixed pipeline against the best-loss one-shot, +0.200 pp, now with a CI that barely clears zero.
+* **The final checkpoints are again the better controls**, by 0.2–0.6 pp of mean gap in every pipeline; the
+  checkpoint lesson replicates.
+* **Recursion at test time buys little.** 16 steps against 1 improve the 1 LP + repair pipeline by +0.146 pp
+  [−0.033, +0.324] (2.149 % → 2.003 %), not significant, and 32 steps add nothing (2.008 %). The learned halting head
+  rarely stops (mean 23 steps, median the 32-step cap) and comes out at 2.093 %.
+* **The recursion is expensive on a CPU.** Each supervision step is 21 evaluations of the shared network (3 recursions of 6 latent updates and 1 answer
+  update), about 0.5 s on one core:
+  0.8 s at one step, 8.1 s at 16, 15.9 s at 32 per instance. The full MILP takes 21.6 s at 0.1 % and 11.7 s at
+  0.5 % on the same core (medians 17.8 s and 6.6 s), so the recursive model's headline pipeline runs at 2.6× the 0.1 %
+  MILP and is *slower* than the 0.5 % MILP on a typical instance (−0.29 log speed-up [−0.50, −0.08]; only the hardest
+  instances pull the MILP's mean above 8 s) while 1.15 pp [0.80, 1.58] worse. The one-shot and deep pipelines take
+  0.4–1.1 s. A GPU would shrink the gap; it would not change the ranking.
+* **Against the baselines**, the recursive model's headline beats LP rounding (+0.333 [+0.184, +0.524]) and the m1x
+  network (+0.155 [+0.034, +0.325]) — as do the plain networks, by more.
+
+### Arm B on test
+
+| pipeline | gap mean | median | served | speed-up mean / geo |
+|---|---|---|---|---|
+| full MILP, 0.1 % | 0.221 % | 0.096 % | 96.7 % | 1.0× |
+| full MILP, 0.5 % | 0.261 % | 0.101 % | 96.7 % | 3.6× / 2.1× |
+| feedback, 24 steps + safety net | 0.342 % | 0.171 % | 100 % | 3.9× / 2.9× |
+| no feedback, 24 steps + safety net | 0.320 % | 0.192 % | 100 % | 3.8× / 2.9× |
+| feedback, 24 steps | 0.763 % | 0.227 % | 99.2 % | 5.4× / 3.8× |
+| feedback, halting head | 1.253 % | 0.511 % | 97.5 % | 25.0× / 18.9× |
+| no feedback, 24 steps | 1.316 % | 0.230 % | 94.2 % | 5.4× / 3.8× |
+| no feedback, halting head | 1.608 % | 0.608 % | 94.2 % | 25.1× / 17.8× |
+| LP-checked local search, no learning | 1.222 % | 0.808 % | 99.2 % | 16.6× / 11.8× |
+| LP rounding, no learning | 1.744 % | 0.916 % | 98.3 % | 52.0× / 37.7× |
+
+* **Feedback is a feasibility gain, again.** At 24 steps it is +0.553 pp [+0.010, +1.282] better overall, serving
+  99.2 % against 94.2 %; on the 112 instances both serve it is −0.050 pp [−0.215, +0.123]. The medians tie
+  (0.227 % against 0.230 %). The halting-head comparison is +0.356 [−0.373, +1.154], not significant on 120 instances.
+* **The safety net levels the two arms** (−0.023 pp [−0.061, +0.013]): once a reduced MILP backs up the failures, the
+  feasibility advantage has nothing left to do. With it the feedback model serves every instance at 0.342 %, 0.08 pp
+  [0.02, 0.15] worse than the 0.5 % MILP and 1.35× faster than it (+0.30 log speed-up [+0.14, +0.46]).
+* **Without the safety net** the loop beats both learning-free baselines: +0.981 pp [+0.628, +1.388] against LP
+  rounding and +0.459 pp [+0.253, +0.672] against the LP-checked local search, at a tenth and a third of their speed.
+
+### Across the arms
+
+The headline pipelines of the two arms, on the same instances: arm B's feedback loop at 24 steps is 0.611 pp
+[0.322, 0.965] better than arm A's recursive model, and faster relative to its own full MILP. Arm A's best pipeline on
+test is the deep control with the safety net (0.753 %, 99.2 % served, 20× mean / 14× geometric speed-up), a different
+point on the trade-off than arm B's 0.342 % at 4× / 3×. Neither reaches the MILP pipeline of
+[`../RESEARCH.md`](../RESEARCH.md) §7–§8 (0.30 % at ~10×). The safety nets fired on 11–16 % of test instances in arm A,
+under the 20 % cap set on validation.
+
+**Caveats.** One seed per model and 120 test instances, so CIs of 0.1–0.4 pp; many pairs without a multiplicity
+correction, so the conclusions rest on directions that agree across pipelines and with validation rather than on any
+single interval. Hardware: arm A ran on the Granite Rapids node (Xeon 6972P), which has bf16 units — the TRM models run
+in bfloat16 and CPUs without bf16 support emulate it many times slower — while arm B's tasks were spread over three
+CPU types, its speed-up at 24 steps ranging from 2.6× (AMD EPYC 7513) to 4.2× (Xeon Gold 6226) by geometric mean.
+LP rounding, identical in both arms, runs at 41× in arm A's records and 52× in arm B's, which sets the scale of
+hardware effects on cross-arm speed-ups; within an arm, speed-ups are paired on one core.
+
 ## What this round settles
 
 1. **Latent recursion is not the lever** for unit commitment, at 2k labels or at 50k. Arm A's gate failed at both
@@ -180,15 +292,16 @@ compute.
    Each of these changed a conclusion in this round: best-validation-loss checkpoints made the controls look worse
    than they are, mixing pipelines across models turned a loss into a tie, and an unconditional mean made a
    feasibility gain look like a cost gain.
-5. **Not yet done: the test set.** Every number here is on the 360 validation instances. The protocol's single test
-   pass on the 120 test_fresh instances (paired timing on CPU) is the remaining step, for the models selected here.
+5. **The test set agrees.** The single pass on the 120 test_fresh instances reproduces every verdict above: the
+   recursive model loses to final-checkpoint plain networks, feedback buys feasibility and not cost, and neither arm
+   reaches the MILP pipeline.
 
 ## Reproducing
 
 ```
-# arm A, one validated model per array task, each at its best checkpoint
-python3 scripts/pace/pgu_guard.py submit --kind cpu --name vala --array 0-6%7 --cpus 2 --mem 16G \
-    --time 16:00:00 scripts/pace/pgu_val_arma.sbatch
+# arm A, one validated model per array task, on the bf16-capable CPU node (lpround first: the mixed pipeline needs it)
+python3 scripts/pace/pgu_guard.py submit --kind cpu --name vala --array 0-7%8 --cpus 2 --mem 16G \
+    --time 02:00:00 --constraint cpu-gnr scripts/pace/pgu_val_arma.sbatch
 python3 scripts/rec_trm_pair.py --a w1_trm --b w1b_oneshot_best w1_oneshot w1b_deep_best w1_deep w1_trm_best \
     w1_os_eqep w1_trm_nolp w1_os_nolp --pipelines mix5_rep__rep mix5_plain__plain
 
@@ -196,6 +309,15 @@ python3 scripts/rec_trm_pair.py --a w1_trm --b w1b_oneshot_best w1_oneshot w1b_d
 python3 scripts/pace/pgu_guard.py submit --kind gpu --name w2-rloop-s1 --cpus 24 --mem 64G --time 08:00:00 \
     --export "TAG=w2_rloop,N_TRAIN=50000,EXTRA=--data_dir data/generated/recursive/pace" scripts/pace/rloop_train.sbatch
 python3 scripts/rec_rloop_pair.py --a w2_rloop_rl --b w1_rloop_nofb_rl
+
+# the single test pass (120 test_fresh instances, one core per task, paired timing), then both arms in one report
+python3 scripts/rec_trm_select.py --final w1_trm30 --controls w1_oneshot w1_deep w1b_oneshot_best w1b_deep_best \
+    --val_dirs results/recursive/gpu_round results/recursive --out results/recursive/gpu_round/trm_select_gpu.json
+python3 scripts/pace/pgu_guard.py submit --kind cpu --name testa --array 0-7%8 --cpus 1 --mem 12G \
+    --time 08:00:00 --constraint cpu-gnr scripts/pace/pgu_test_arma.sbatch
+python3 scripts/pace/pgu_guard.py submit --kind cpu --name testb --array 0-7%8 --cpus 1 --mem 8G \
+    --time 06:00:00 scripts/pace/pgu_test_armb.sbatch
+python3 scripts/rec_gpu_test_report.py
 ```
 
 Both arms' per-instance validation arrays are committed under `results/recursive/` as
