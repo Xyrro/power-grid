@@ -116,9 +116,19 @@ def test_training_smoke_and_resume(rts, small, mode, tmp_path):
     ck = str(tmp_path / "m.pt")
     model, ema, feats, log = trm.train(cfg, rts, d, va, ck, log_every=1, val_every=3, logf=lambda *_: None)
     assert len(log["train"]) == 3 and np.isfinite(log["train"][-1]["bce"])
+    # an interrupted 5-step run (e.g. a wall-time limit at step 3): same checkpoint, configured length 5
+    c = torch.load(ck, weights_only=False)
+    c["cfg"]["steps"] = 5
+    torch.save(c, ck)
     cfg.steps = 5
     model, ema, feats, log = trm.train(cfg, rts, d, va, ck, log_every=1, val_every=5, logf=lambda *_: None)
     assert len(log["train"]) == 5
+    # resuming under a CHANGED configuration (here a longer schedule) is refused: it would restart the learning-rate
+    # schedule mid-run and overwrite the checkpoint earlier results came from
+    cfg.steps = 7
+    with pytest.raises(SystemExit, match="refusing to resume"):
+        trm.train(cfg, rts, d, va, ck, log_every=1, val_every=5, logf=lambda *_: None)
+    cfg.steps = 5
     m2, f2, c2, _ = trm.load_model(ck, rts)
     xt, xb = f2(d)
     P, Q = trm.run_steps(m2, xt, xb, 3, bs=2)
