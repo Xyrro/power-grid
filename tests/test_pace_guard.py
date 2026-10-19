@@ -75,8 +75,11 @@ def test_budget_respects_project_share_and_user_limit():
     # SHARE_GPU_HOURS (16) is below the cluster cap (32), i.e. headroom is reserved, so this IS a refusal
     assert any("headroom reserved" in b
                for b in g.check_budget(c, g.Usage(10, 10, 2, 2, 0, 10.0), "gpu", 1, 8.0, 1, None))
-    # queued jobs of ours hold no running capacity
-    assert g.check_budget(c, g.Usage(0, 30, 2, 2, 0, 0.0), "gpu", 1, 8.0, 1, None) == []
+    # queued jobs of ours count against our share at their full request, even before they run
+    assert any("project share" in b for b in g.check_budget(c, g.Usage(0, 10, 2, 2, 0, 0.0), "gpu", 1, 8.0, 1, None))
+    # a single job larger than the whole share is refused outright
+    assert any("one job of 4 GPU" in b for b in g.check_budget(cfg(SHARE_GPU_HOURS=16, USER_GPU_HOURS_LIMIT=32),
+                                                             g.Usage(0, 0, 0, 0, 0), "gpu", 4, 8.0, 1, None))
     assert any("MAX_WALLTIME" in b for b in g.check_budget(c, g.Usage(0, 0, 0, 0, 0), "gpu", 1, 9.0, 1, None))
     assert any("arrays" in b for b in g.check_budget(c, g.Usage(0, 0, 0, 0, 0), "gpu", 1, 1.0, 4, 2))
 
@@ -173,21 +176,47 @@ def test_total_job_limit_protects_other_projects():
     assert any("SHARE_JOBS" in b for b in g.check_budget(c, ours, "cpu", 0, 2.0, 1, 1))
 
 
-def test_reserved_headroom_is_enforced_but_full_share_is_advisory():
-    """A share below the cluster cap reserves room for other projects and is enforced; a share equal to it is not."""
+def test_share_is_enforced_even_when_it_equals_the_cluster_cap():
+    """A share equal to the per-user cap is still a hard limit on this project's queued + running GPU jobs."""
     u = g.Usage(16.0, 16.0, 2, 2, 0, 16.0, 2, 2)
     reserved = cfg(SHARE_GPU_HOURS=16, USER_GPU_HOURS_LIMIT=32, MAX_WALLTIME="16:00:00")
     assert any("headroom reserved" in b for b in g.check_budget(reserved, u, "gpu", 1, 8.0, 1, None))
     full, notes = cfg(SHARE_GPU_HOURS=32, USER_GPU_HOURS_LIMIT=32, MAX_WALLTIME="16:00:00"), []
-    assert g.check_budget(full, g.Usage(32.0, 32.0, 2, 2, 0, 32.0, 2, 2), "gpu", 1, 8.0, 1, None, notes) == []
-    assert any("Slurm will hold" in n for n in notes)
+    assert any("project share" in b
+               for b in g.check_budget(full, g.Usage(30.0, 30.0, 2, 2, 0, 30.0, 2, 2), "gpu", 1, 8.0, 1, None, notes))
+    assert any("reserves nothing" in n for n in notes)
 
 
-def test_dependent_job_may_be_queued_past_the_reserved_share():
-    """A job waiting on a dependency cannot start now, so it must not be refused for current running capacity."""
-    c = cfg(SHARE_GPU_HOURS=16, USER_GPU_HOURS_LIMIT=32, MAX_WALLTIME="16:00:00")
-    u = g.Usage(15.7, 15.7, 2, 2, 0, 15.7, 2, 2)
-    assert any("headroom reserved" in b for b in g.check_budget(c, u, "gpu", 1, 8.0, 1, None))
-    notes: list = []
-    assert g.check_budget(c, u, "gpu", 1, 8.0, 1, None, notes, deferred=True) == []
-    assert any("waits on a dependency" in n for n in notes)
+def _guard_root(tmp_path, monkeypatch, squeue_text, registry_lines, conf=""):
+    root = tmp_path / "pgu"
+    (root / "repo" / "scripts").mkdir(parents=True)
+    (root / ".pgu-root").write_text("")
+    script = root / "repo" / "scripts" / "job.sbatch"
+    script.write_text("#!/bin/sh\n")
+    (root / "jobs.tsv").write_text("#header\n" + "".join(registry_lines))
+    if conf:
+        (root / "pgu.conf").write_text(conf)
+    bin_dir = _fake_slurm(tmp_path, squeue_text)
+    monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ['PATH']}")
+    monkeypatch.setenv("PGU_ROOT", str(root))
+    monkeypatch.setenv("USER", "someone")
+    monkeypatch.chdir(root / "repo")
+    return root, script
+
+
+def test_dependency_does_not_bypass_the_share(tmp_path, monkeypatch, capsys):
+    """A job waiting on a dependency starts later and then holds capacity, so it is counted like any other."""
+    root, script = _guard_root(tmp_path, monkeypatch, "5001|pgu-a|PENDING|1|gres:gpu:H100:1|15:00:00|15:00:00\n",
+                               ["5001\tpgu-a\n"], "SHARE_GPU_HOURS=16\nUSER_GPU_HOURS_LIMIT=32\nMAX_WALLTIME=16:00:00\n")
+    with pytest.raises(SystemExit):
+        g.main(["submit", "--kind", "gpu", "--name", "b", "--gpus", "1", "--time", "08:00:00",
+                "--dependency", "afterany:5001", str(script)])
+    assert "project share" in capsys.readouterr().out
+    assert not (tmp_path / "sbatch_calls.txt").exists()
+
+
+def test_cancel_refuses_malformed_ids(tmp_path, monkeypatch, capsys):
+    _guard_root(tmp_path, monkeypatch, "", [])
+    g.main(["cancel", "1234,5678"])
+    assert "not a plain job id" in capsys.readouterr().out
+    assert not (tmp_path / "scancel_calls.txt").exists()

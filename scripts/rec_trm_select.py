@@ -32,11 +32,22 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--final", nargs="+", required=True)
     ap.add_argument("--controls", nargs="*", default=[])
+    ap.add_argument("--val_dirs", nargs="+", default=[RES],
+                    help="where to look for trm_val_<tag>.json, first match wins (e.g. a round's own folder first)")
+    ap.add_argument("--out", default=os.path.join(RES, "trm_select.json"))
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     va = trm.val_data()
     plan = dict(trm={}, gstar={}, notes={})
     one = {}
+
+    def val_json(tag):
+        for d_ in a.val_dirs:
+            p_ = os.path.join(d_, f"trm_val_{tag}.json")
+            if os.path.exists(p_):
+                plan["notes"][f"source_{tag}"] = p_
+                return json.load(open(p_))
+        raise SystemExit(f"no trm_val_{tag}.json in {a.val_dirs}")
 
     def pick(s):
         return dict(decoder=s["decoder"], th=s["th"], screen_dec=s.get("screen_dec", s["decoder"]),
@@ -44,8 +55,10 @@ def main():
                     val_screen=s.get("screen_th_metrics"), val_mix=s.get("mix_metrics"))
 
     for tag in a.final + a.controls:
-        v = json.load(open(os.path.join(RES, f"trm_val_{tag}.json")))
+        v = val_json(tag)
         s = v["selection"]
+        if "checkpoint" in v:
+            plan["notes"][f"checkpoint_{tag}"] = v["checkpoint"]
         kd = s["rep"]["k_def"]
         plan["trm"][tag] = dict(ckpt=tag, k_def=kd, plain=pick(s["plain"]), rep=pick(s["rep"]))
         hp = os.path.join(RES, f"trm_halt_{tag}.json")
@@ -65,7 +78,7 @@ def main():
     plan["notes"]["final_rule"] = ("lowest validation mean gap of the 1-LP + LP-repair pipeline among " +
                                    ", ".join(a.final))
     # headline pipeline of the final model: the lowest validation mean gap among its repaired pipelines
-    v = json.load(open(os.path.join(RES, f"trm_val_{plan['final']}.json")))["selection"]
+    v = val_json(plan["final"])["selection"]
     kd = v["rep"]["k_def"]
     cand = {"_1r": v["rep"]["one_lp"], "_t5r": v["rep"].get("screen_th_metrics"), "_mix5r": v["rep"].get("mix_metrics"),
             "_s5r": v.get(f"screen_steps_k{kd}_rep")}
@@ -73,9 +86,10 @@ def main():
     plan["headline"] = plan["final"] + min(cand, key=cand.get)
     plan["notes"]["headline_rule"] = "lowest validation mean gap among the final model's repaired pipelines: " + \
         json.dumps({k: round(x, 3) for k, x in cand.items()})
-    m = json.load(open(os.path.join(RES, "trm_val_m1x.json")))["selection"]
+    m = val_json("m1x")["selection"]
     plan["m1x"] = dict(plain=pick(m["plain"]), rep=pick(m["rep"]))
-    with open(os.path.join(RES, "trm_select.json"), "w") as f:
+    os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
+    with open(a.out, "w") as f:
         json.dump(plan, f, indent=1, default=float)
     print(json.dumps(plan, indent=1, default=float))
 

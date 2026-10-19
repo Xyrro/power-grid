@@ -15,8 +15,9 @@
 #   w1-rloop-nofb   the recursion with LP feedback switched off (the control for wave 2)
 #
 # Measured on an H200 by scripts/pace/pgu_smoke_gpu.sbatch: 0.54 s per step at this size, so 30,000 steps is about
-# 4.5 h; an 8 h request leaves room for the larger data set and the validation passes, and four such jobs fit exactly
-# inside the 32 GPU-hour running cap.
+# 4.5 h; an 8 h request leaves room for the larger data set and the validation passes. With this project's share of
+# 16 GPU-hours (queued + running, enforced by the guard), at most two such jobs are in the queue at a time: the guard
+# refuses the rest, and they are submitted as earlier ones finish.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 : "${PGU_ROOT:?export PGU_ROOT first}"

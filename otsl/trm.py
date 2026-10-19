@@ -938,6 +938,17 @@ def train(cfg: TRMConfig, sysm, tr, va, ckpt, device="cpu", log_every=50, val_ev
     step, log = 0, dict(train=[], val=[], params=n_params(model), time_s=0.0)
     if os.path.exists(ckpt):
         ck = torch.load(ckpt, map_location=device, weights_only=False)
+        # Resuming is only for continuing the SAME run (after a wall-time limit or a crash). A changed configuration,
+        # e.g. a larger `steps`, silently restarts the cosine schedule mid-run and overwrites the checkpoint the
+        # earlier results were computed from; that happened once here (w1_trm, 30k -> 60k steps). Extend a run under
+        # a new tag instead.
+        old_cfg, new_cfg = dict(ck.get("cfg") or {}), cfg.to_json()
+        dflt = TRMConfig().to_json()        # a field added after the checkpoint was written counts at its default
+        diff = {k: (old_cfg.get(k, dflt.get(k)), new_cfg.get(k)) for k in set(old_cfg) | set(new_cfg)
+                if k != "micro_batch" and old_cfg.get(k, dflt.get(k)) != new_cfg.get(k)}
+        if diff:
+            raise SystemExit(f"[trm] refusing to resume {ckpt}: its configuration differs from this run's "
+                             f"({json.dumps(diff, default=str)}). Use a new tag.")
         model.load_state_dict(ck["model"])
         ema.shadow.load_state_dict(ck["ema"])
         opt.load_state_dict(ck["opt"])
@@ -947,6 +958,14 @@ def train(cfg: TRMConfig, sysm, tr, va, ckpt, device="cpu", log_every=50, val_ev
         torch.set_rng_state(ck["torch_rng"].cpu().to(torch.uint8))
         if ck["carry"] is not None:
             carry.load(ck["carry"], device)
+        if "best_val" not in log and log.get("val"):
+            # a run started before best-checkpoint tracking existed: seed the record from its validation history so
+            # a later, worse step is not saved as "best" (no _best.pt exists for the earlier step; the final
+            # checkpoint then stands in for it)
+            vs_ = tuple(sorted({1, min(cfg.n_sup, 4), cfg.n_sup} | set(val_steps))) if cfg.mode == "trm" else (1,)
+            hist = [(v[f"bce@{max(vs_)}"], v["step"]) for v in log["val"] if f"bce@{max(vs_)}" in v]
+            if hist:
+                log["best_val"], log["best_step"] = min(hist)
         logf(f"[trm] resumed at step {step}")
     logf(f"[trm] params {n_params(model)}; cfg {json.dumps(cfg.to_json())}")
     t0, t_save, acc = time.time() - log["time_s"], time.time(), []

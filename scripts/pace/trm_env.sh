@@ -24,9 +24,16 @@ module load "${PYTHON_MODULE:-python/3.11.9}"
 if [ -n "${CUDA_MODULE:-}" ]; then module load "$CUDA_MODULE"; fi
 
 # --- this project's own environment, inside PGU_ROOT ----------------------------------------------------------------
-REPO=${REPO:-$PGU_ROOT/repo}
-ENV_DIR=${ENV_DIR:-$PGU_ROOT/env/venv}
-case "$ENV_DIR" in "$PGU_ROOT"/*) ;; *) echo "refusing: ENV_DIR must be inside PGU_ROOT"; exit 1;; esac
+# REPO and ENV_DIR are NOT taken from the environment: Slurm exports the submitting shell's variables, and a REPO or
+# ENV_DIR set there (for another project) would make jobs write into, or pip-install into, that project's folder.
+_root=$(cd "$PGU_ROOT" && pwd -P)
+REPO=$_root/repo
+ENV_DIR=$_root/env/venv
+for _p in "$REPO" "$ENV_DIR"; do
+  _c=$(realpath -m "$_p")
+  case "$_c" in "$_root"/*) ;; *) echo "refusing: $_p resolves outside PGU_ROOT ($_c)"; exit 1;; esac
+done
+unset _p _c _root
 export PIP_CACHE_DIR=$PGU_ROOT/env/pip-cache MPLCONFIGDIR=$PGU_ROOT/env/mpl XDG_CACHE_HOME=$PGU_ROOT/env/cache
 export TORCH_HOME=$PGU_ROOT/env/torch HF_HOME=$PGU_ROOT/env/hf   # never the shared ~/scratch/hf_cache
 if [ ! -x "$ENV_DIR/bin/python" ]; then

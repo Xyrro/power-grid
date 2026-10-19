@@ -45,7 +45,7 @@ DEFAULTS = {
     "USER_GPU_JOBS_LIMIT": "50",    # cluster per-user limit on queued + running GPU jobs
     "USER_JOBS_LIMIT": "50",        # QOS MaxSubmitPU: ALL queued + running jobs, array tasks counted one by one
     "SHARE_JOBS": "40",             # leave the rest of MaxSubmitPU free for the user's other projects
-    "SHARE_GPU_HOURS": "16",        # this project's share of the running capacity (incl. its pending GPU jobs)
+    "SHARE_GPU_HOURS": "16",        # this project's share: its queued + running GPU jobs at their full request
     "SHARE_GPU_JOBS": "4",          # this project's max GPU jobs, queued + running
     "SHARE_CPU_TASKS": "16",        # this project's max CPU jobs/array tasks, queued + running
     "SHARE_CPU_CONCURRENT": "8",    # max throttle (%k) allowed on a CPU array
@@ -165,7 +165,7 @@ def parse_squeue_lines(text: str) -> list[Job]:
 
 
 def read_jobs(user: str) -> list[Job]:
-    out = subprocess.run(["squeue", "-u", user, "-h", "-r", "-o", "%i|%j|%T|%D|%b|%L|%l"],
+    out = subprocess.run(["squeue", "-a", "-u", user, "-h", "-r", "-o", "%i|%j|%T|%D|%b|%L|%l"],
                          capture_output=True, text=True, check=True).stdout
     jobs = parse_squeue_lines(out)
     # %b (TRES per node) misses GPUs requested per job (--gpus); fill those in from scontrol.
@@ -252,7 +252,7 @@ def array_size(spec: str | None) -> tuple[int, int | None]:
 
 
 def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_tasks: int,
-                 throttle: int | None, notes: list | None = None, deferred: bool = False) -> list[str]:
+                 throttle: int | None, notes: list | None = None) -> list[str]:
     """Return a list of violations (empty = allowed). `notes` collects non-blocking remarks."""
     bad = []
     notes = notes if notes is not None else []
@@ -270,22 +270,22 @@ def check_budget(cfg: dict, u: Usage, kind: str, gpus: int, hours: float, n_task
         if n_tasks != 1:
             bad.append("GPU jobs must not be arrays here; submit them one by one")
         new = gpus * hours
-        # Running-capacity caps are enforced by Slurm itself (MaxGRESRunMinsPerUser): a job that would exceed them
-        # simply waits in the queue, harming nobody, so exceeding them is a note rather than a refusal. What does
-        # need a hard limit is the job COUNT, because MaxSubmitPU is shared with the user's other projects.
         share, cap = float(cfg["SHARE_GPU_HOURS"]), float(cfg["USER_GPU_HOURS_LIMIT"])
-        if u.gpu_hours_ours_running + new > share + 1e-9:
-            msg = (f"{u.gpu_hours_ours_running:.1f} GPU-h of ours running + {new:.1f} exceeds SHARE_GPU_HOURS "
-                   f"{cfg['SHARE_GPU_HOURS']}")
-            # A share deliberately set BELOW the cluster cap reserves headroom for the user's other projects, so it
-            # is enforced. A share equal to the cap reserves nothing, so exceeding it only means Slurm will queue.
-            if share < cap - 1e-9 and not deferred:
-                bad.append(f"project share: {msg} (headroom reserved for your other projects)")
-            elif deferred:
-                notes.append(f"{msg}, but this job waits on a dependency and cannot start until capacity frees")
-            else:
-                notes.append(f"{msg}: Slurm will hold this job until capacity frees")
-        if u.gpu_hours_all + new > float(cfg["USER_GPU_HOURS_LIMIT"]) + 1e-9:
+        # This project's share counts every GPU job of ours, queued or running, at its full request, whatever it
+        # waits on: Slurm's own cap (MaxTRESRunMins) is per USER and shared with the user's other projects, and a
+        # queued job of ours that later starts takes capacity those projects would otherwise get. So no job state
+        # (pending, waiting on a dependency) exempts a job from the share; a resume chain is submitted one segment
+        # at a time, each once the previous one has finished.
+        if new > share + 1e-9:
+            bad.append(f"project share: one job of {gpus} GPU x {hours:.1f} h = {new:.1f} GPU-h > SHARE_GPU_HOURS "
+                       f"{cfg['SHARE_GPU_HOURS']}")
+        elif u.gpu_hours_ours + new > share + 1e-9:
+            bad.append(f"project share: {u.gpu_hours_ours:.1f} GPU-h of ours queued/running + {new:.1f} > "
+                       f"SHARE_GPU_HOURS {cfg['SHARE_GPU_HOURS']} (headroom reserved for your other projects)")
+        if share > cap - 1e-9:
+            notes.append(f"SHARE_GPU_HOURS {share:g} reserves nothing below the per-user cap {cap:g}: "
+                         "your other projects get no guaranteed GPU capacity while this project's jobs hold it")
+        if u.gpu_hours_all + new > cap + 1e-9:
             notes.append(f"your running jobs hold {u.gpu_hours_all:.1f} GPU-h; this one waits for "
                          f"MaxGRESRunMinsPerUser ({cfg['USER_GPU_HOURS_LIMIT']} GPU-h)")
         if u.gpu_jobs_ours + 1 > int(cfg["SHARE_GPU_JOBS"]):
@@ -379,8 +379,7 @@ def cmd_submit(cfg: dict, a) -> None:
     reg = read_registry(root)
     u = usage(read_jobs(os.environ.get("USER", "")), reg, cfg["JOB_PREFIX"])
     notes: list = []
-    bad = check_budget(cfg, u, a.kind, a.gpus if a.kind == "gpu" else 0, hours, n_tasks, throttle, notes,
-                       deferred=bool(a.dependency))
+    bad = check_budget(cfg, u, a.kind, a.gpus if a.kind == "gpu" else 0, hours, n_tasks, throttle, notes)
     cmd = build_sbatch(cfg, a)
     print(f"before: GPU-h running all {u.gpu_hours_all:.1f}/{cfg['USER_GPU_HOURS_LIMIT']}, project q+r "
           f"{u.gpu_hours_ours:.1f}/{cfg['SHARE_GPU_HOURS']}; GPU jobs all {u.gpu_jobs_all}/"
@@ -419,6 +418,9 @@ def cmd_cancel(cfg: dict, ids: list[str]) -> None:
     reg = read_registry(root)
     jobs = {j.jobid: j for j in read_jobs(os.environ.get("USER", ""))}
     for jid in ids:
+        if not re.fullmatch(r"\d+(_\d+)?", jid):
+            print(f"refusing to cancel {jid!r}: not a plain job id")
+            continue
         b = base_id(jid)
         live = [j for j in jobs.values() if base_id(j.jobid) == b]
         if b not in reg or not live or not all(j.name.startswith(cfg["JOB_PREFIX"]) for j in live):

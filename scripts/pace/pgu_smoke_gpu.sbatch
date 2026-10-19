@@ -15,6 +15,10 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True   # less fragmentation a
 NCPU=${SLURM_CPUS_PER_TASK:-24}
 SM=data/generated/recursive/smoke
 rm -rf "$SM"; mkdir -p "$SM"
+# arm B's trainer writes its smoke checkpoints into the rloop folder, not $SM: clear them too, or a second smoke run
+# resumes the finished one and reports PASS without training on the GPU
+rm -f data/generated/recursive/rloop/smoke_b.pt data/generated/recursive/rloop/smoke_b_nofb.pt \
+      data/generated/recursive/rloop/smoke_b_rl.pt data/generated/recursive/rloop/smoke_b_nofb_rl.pt
 FAILED=""
 run() {  # run <name> <command...>
   local name=$1; shift

@@ -240,9 +240,11 @@ def main():
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--nshards", type=int, default=1)
     ap.add_argument("--n", type=int, default=120)
-    ap.add_argument("--plan", default=os.path.join(RES, "trm_select.json"))
+    ap.add_argument("--plan", required=True, help="test plan from scripts/rec_trm_select.py (no default: the "
+                    "CPU-round plan results/recursive/trm_select.json must not be picked up by accident)")
     ap.add_argument("--no_milp", action="store_true", help="skip the full MILPs (dry runs only)")
-    ap.add_argument("--out", default=None)
+    ap.add_argument("--out", required=True, help="this run's own records (jsonl); resuming reads only this file")
+    ap.add_argument("--round", default="", help="label stored in every record (e.g. gpu)")
     ap.add_argument("--trm_device", default="cpu", help="device of the TRM forward passes (LPs / MILPs stay on the CPU)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
@@ -252,7 +254,7 @@ def main():
     ctx = Ctx(m, sysm)
     d = trm.load_npz(os.path.join(trm.ROOT, f"{a.split}.npz"))
     plan = json.load(open(a.plan))
-    out = a.out or os.path.join(RES, f"trm_eval_{a.split}_s{a.shard}.jsonl")
+    out = a.out
     done = {json.loads(line)["i"] for line in open(out)} if os.path.exists(out) else set()
     jobs = [i for i in range(a.n)[a.shard::a.nshards] if i not in done]
     from otsl.m1x import build_model
@@ -266,13 +268,18 @@ def main():
         m1.net.load_state_dict(torch.load(os.path.join(R12, f"m1x_pol_n2000_gnnt_s{s_}.pt")))
         m1.net.eval()
         gnnt.append(m1)
-    lag = load_model1(os.path.join(R12, "constrained_lag_D.pt"), sysm, strip(tr), 12)
-    rl = load_model1(os.path.join(R12, "constrained_rl_lf.pt"), sysm, strip(tr), 12)
+    # the REINFORCE end-to-end baselines of the combo study; their weights exist only where that study ran
+    lag_p, rl_p = os.path.join(R12, "constrained_lag_D.pt"), os.path.join(R12, "constrained_rl_lf.pt")
+    have_rl = os.path.exists(lag_p) and os.path.exists(rl_p)
+    lag = load_model1(lag_p, sysm, strip(tr), 12) if have_rl else None
+    rl = load_model1(rl_p, sysm, strip(tr), 12) if have_rl else None
+    if not have_rl:
+        print("REINFORCE end-to-end baselines (rl_lag7, rl_rl1) skipped: their weights are not here", flush=True)
     runners = [TRMRunner(tag, sel, sysm, a.trm_device) for tag, sel in plan["trm"].items()]
     # warm-up (first-call overheads), not recorded
     sc0 = UCScenario(load=d["load"][0], avail=d["avail"][0], u0=d["u0"][0], sr=d["sr"][0])
     w = Inst(d, 0, m.solve_dispatch(sc0, None, relax=True))
-    for m1 in gnnt + [lag, rl]:
+    for m1 in gnnt + ([lag, rl] if have_rl else []):
         m1.predict(w.d1)
     for rn in runners:
         rn.infer(w.d1)
@@ -282,7 +289,8 @@ def main():
     t_start = time.time()
     for j, i in enumerate(jobs):
         sc = UCScenario(load=d["load"][i], avail=d["avail"][i], u0=d["u0"][i], sr=d["sr"][i])
-        rec = dict(i=int(i), split=a.split, shard=a.shard, cpu=sorted(os.sched_getaffinity(0)))
+        rec = dict(i=int(i), split=a.split, shard=a.shard, cpu=sorted(os.sched_getaffinity(0)), round=a.round,
+                   plan=os.path.basename(a.plan))
         if not a.no_milp:
             for name, gap in (("milp01", 1e-3), ("milp05", 5e-3)):
                 r = solve_reduced(m, sc, None, 60.0, gap)
@@ -300,17 +308,18 @@ def main():
         rec.update(prob_pipelines(ctx, inst, "m1x", lambda: np.mean([m1.predict(inst.d1)[0].astype(np.float64)
                                                                      for m1 in gnnt], 0), t_rel, plan["m1x"], rounds, t_c))
         # REINFORCE end-to-end pipelines (combo study, seed 0, its own validation-calibrated choices)
-        p, t_p = timed(lambda: lag.predict(inst.d1).astype(np.float64))
-        us, t_ds = [], 0.0
-        for th in THRESHOLDS:
-            u, t_d = timed(block_decode, p, inst.d1, sysm, th)
-            us.append(u[0])
-            t_ds += t_d
-        p2, t_p2 = timed(lambda: rl.predict(inst.d1).astype(np.float64))
-        u2, t_d2 = timed(block_decode, p2, inst.d1, sysm, 0.9)
-        for sfx, rep in (("", False), ("r", True)):
-            rec[f"rl_lag7{sfx}"], _ = ctx.finish(inst, us, t_rel + t_p + t_ds, rep)
-            rec[f"rl_rl1{sfx}"], _ = ctx.finish(inst, [u2[0]], t_rel + t_p2 + t_d2, rep)
+        if have_rl:
+            p, t_p = timed(lambda: lag.predict(inst.d1).astype(np.float64))
+            us, t_ds = [], 0.0
+            for th in THRESHOLDS:
+                u, t_d = timed(block_decode, p, inst.d1, sysm, th)
+                us.append(u[0])
+                t_ds += t_d
+            p2, t_p2 = timed(lambda: rl.predict(inst.d1).astype(np.float64))
+            u2, t_d2 = timed(block_decode, p2, inst.d1, sysm, 0.9)
+            for sfx, rep in (("", False), ("r", True)):
+                rec[f"rl_lag7{sfx}"], _ = ctx.finish(inst, us, t_rel + t_p + t_ds, rep)
+                rec[f"rl_rl1{sfx}"], _ = ctx.finish(inst, [u2[0]], t_rel + t_p2 + t_d2, rep)
         for rn in runners:
             rn.run(ctx, inst, t_rel, rec, plan.get("gstar", {}).get(rn.tag), rounds, t_c)
         with open(out, "a") as f:

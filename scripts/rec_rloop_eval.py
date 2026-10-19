@@ -94,13 +94,29 @@ def main():
     ap.add_argument("--n", type=int, default=0)
     ap.add_argument("--start", type=int, default=0)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--select", default=None,
+                    help="selection file; when given, every setting must be in it (no silent CPU-round defaults)")
+    ap.add_argument("--skip", default="", help="comma list of pipelines not to run: m1x, guided, union")
     a = ap.parse_args()
     torch.set_num_threads(1)
     os.chdir(C.ROOT)
-    sel = json.load(open(os.path.join(C.RES, "rloop_select.json"))) if os.path.exists(os.path.join(C.RES, "rloop_select.json")) else {}
+    sel_path = a.select or os.path.join(C.RES, "rloop_select.json")
+    sel = json.load(open(sel_path)) if os.path.exists(sel_path) else {}
+    skip = {x for x in a.skip.split(",") if x}
+    if a.select:     # an explicit selection must state every setting this run uses
+        need = ["model", "K", "rollout_K", "bias", "main", "round"]
+        if "guided" not in skip:
+            need += ["lam_net", "guide_model"]
+        if "m1x" not in skip:
+            need += ["m1x_thresholds", "lam_m1x"]
+        missing = [k_ for k_ in need if k_ not in sel]
+        if missing:
+            raise SystemExit(f"selection file {sel_path} lacks {missing}; refusing to fall back to defaults")
+        if sel["main"] == "rloop_guided" and "guided" in skip:
+            raise SystemExit("main pipeline rloop_guided needs the guided search")
     tag = a.model or sel["model"]
     k_sel = a.k_sel or sel.get("K", {}).get(a.bench) or 8
-    K = a.K or max(16, 2 * k_sel)
+    K = a.K or sel.get("rollout_K") or max(16, 2 * k_sel)
     gaps = [float(g) for g in (a.gaps or "0.001,0.005").split(",")]
     m1x_ths = sel.get("m1x_thresholds", {"1": [0.5], "3": [0.3, 0.5, 0.7], "5": [0.2, 0.35, 0.5, 0.65, 0.8]})
     sysm = C.system(a.bench)
@@ -111,7 +127,7 @@ def main():
     net, ck, feats = C.load_model(os.path.join(C.OUT, f"{tag}.pt"), sysm)
     bias = a.bias if a.bias is not None else sel.get("bias", 0.0)
     inf = rloop.Inference(net, feats, sysm, rloop.FastLP(sysm, T), mode=ck["cfg"].get("decode", "viterbi"), bias=bias)
-    m1x = M1X(sysm) if T == 12 else None
+    m1x = M1X(sysm) if T == 12 and "m1x" not in skip else None
     lam_m1x, lam_net = sel.get("lam_m1x", 0.5), sel.get("lam_net", 0.5)
     main_pipe = a.main or sel.get("main", "rloop")
     gtag = a.guide_model or sel.get("guide_model", tag)
@@ -119,10 +135,8 @@ def main():
     fmax = sysm.fmax
     n = len(d["load"]) if a.n == 0 else min(a.n, len(d["load"]))
     out = a.out or os.path.join(C.RES, f"rloop_eval_{a.bench}_s{a.shard}.jsonl")
-    done = set()
-    for f in os.listdir(C.RES):
-        if f.startswith(f"rloop_eval_{a.bench}_") and f.endswith(".jsonl"):
-            done |= {r["k"] for r in C.read_jsonl(os.path.join(C.RES, f))}
+    # resume from THIS run's own records only: other files (other rounds, other models) are other experiments
+    done = {r["k"] for r in C.read_jsonl(out)} if os.path.exists(out) else set()
     todo = [k for k in range(a.start, n) if k % a.nshards == a.shard and k not in done]
     print(f"{a.bench} shard {a.shard}/{a.nshards} on CPU {sorted(os.sched_getaffinity(0))}: model {tag}, K {K}, "
           f"k_sel {k_sel}, {len(todo)} instances ({len(done)} done)", flush=True)
@@ -135,7 +149,8 @@ def main():
         t_start = time.time()
         inst0 = C.insts_of(d, [k])[0]
         sc = rloop.scenario_of(inst0)
-        rec = dict(bench=a.bench, k=k, model=tag, cpu=sorted(os.sched_getaffinity(0)), T=T, bias=bias, k_sel=k_sel)
+        rec = dict(bench=a.bench, k=k, model=tag, cpu=sorted(os.sched_getaffinity(0)), T=T, bias=bias, k_sel=k_sel,
+                   K=K, round=sel.get("round", "cpu"), select=os.path.basename(sel_path), skip=sorted(skip))
         full = {}
         for g in gaps:
             r = solve_reduced(m, sc, None, TL[a.bench], g)
@@ -175,10 +190,11 @@ def main():
         if m1x is not None:
             ls, _, _ = rloop.guided_search(inst, lpr_best, KG, lp, sysm, lam_m1x, prior=p)
             rec["m1x_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr + t_inf, c0=c0, lam=lam_m1x)
-        ls, _, _, (g_best, g_logit) = rloop.guided_search(inst, lpr_best, KG, lp, sysm, lam_net, net=gnet, feats=gfeats,
-                                                          fmax=fmax, snap=16)    # best schedule after 16 LPs
-        rec["rloop_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0, lam=lam_net, model=gtag)
-        if m1x is not None:      # 12 h only: seed = the best of LP rounding (5 LPs) and m1x (5 LPs)
+        if "guided" not in skip:
+            ls, _, _, (g_best, g_logit) = rloop.guided_search(inst, lpr_best, KG, lp, sysm, lam_net, net=gnet,
+                                                              feats=gfeats, fmax=fmax, snap=16)  # best after 16 LPs
+            rec["rloop_guided"] = dict(recs=ls, t_pre=t_rel + t_lpr, c0=c0, lam=lam_net, model=gtag)
+        if m1x is not None and "union" not in skip and "guided" not in skip:   # 12 h: seed = best of LP rounding and m1x
             pm = rec["m1x_5"]["c"]
             jm = int(np.argmin([x[0] for x in pm]))
             if pm[jm][0] < c0:

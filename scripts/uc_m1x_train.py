@@ -54,8 +54,8 @@ def _locked(path):
             if os.path.exists(path):
                 try:
                     d = json.load(open(path))
-                except json.JSONDecodeError:            # a previous unlocked run left it half-written
-                    d = {}
+                except json.JSONDecodeError as e:     # never silently replace it with {}: that drops every entry
+                    raise SystemExit(f"{path} is not valid JSON ({e}); repair or restore it before training") from e
             yield d
             tmp = f"{path}.tmp.{os.getpid()}"
             with open(tmp, "w") as f:

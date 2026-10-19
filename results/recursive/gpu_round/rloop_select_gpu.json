@@ -1,0 +1,10 @@
+{
+ "round": "gpu",
+ "model": "w2_rloop_rl",
+ "control": "w1_rloop_nofb_rl",
+ "K": {"uc12": 24},
+ "rollout_K": 24,
+ "bias": 0.0,
+ "main": "rloop",
+ "notes": "GPU round, fixed from validation only (docs/recursive/gpu_round.md): both arm B models were validated over 24 refinement steps with no decoding bias (results/recursive/rloop_val_w2_rloop_rl.npz, rloop_val_w1_rloop_nofb_rl.npz) and their gap was still falling at step 24, so k_sel = rollout_K = 24. The guided local search and the m1x pipelines were not validated for these models and are skipped (--skip m1x,guided,union); the m1x baseline is tested in arm A's pass. The safety net uses the script's preset threshold (theta_min 1 %), not one tuned on test."
+}

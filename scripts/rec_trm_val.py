@@ -162,6 +162,7 @@ def select(rows, k_def, kind):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", required=True)
+    ap.add_argument("--res", default=RES, help="folder for trm_val_<tag>.json (e.g. a round's own results folder)")
     ap.add_argument("--n", type=int, default=360)
     ap.add_argument("--threads", type=int, default=1)
     ap.add_argument("--quick", action="store_true", help="ablation pass: viterbi 0.2 / 0.3 / 0.5 and blend0.5 only, no "
@@ -197,7 +198,14 @@ def main():
             sgs, k_def, recursive = [None] * a.n, 1, False
             info.update(source="pol_n2000_gnnt_ens5 (5 x CommitGNNT, 500 MILP + 1,500 polished)")
         else:
-            model, feats, cfg, _ = trm.load_model(os.path.join(OUT, "models", f"{a.tag}.pt"), sysm, "cpu", which="ema")
+            ck_path = os.path.join(OUT, "models", f"{a.tag}.pt")
+            model, feats, cfg, ck = trm.load_model(ck_path, sysm, "cpu", which="ema")
+            # record exactly which weights were evaluated: the checkpoint's training step, its run's best step and the
+            # configured length, so a swapped or overwritten checkpoint shows up in the result file
+            ck_log = ck.get("log") or {}
+            info.update(checkpoint=dict(path=ck_path, step=int(ck.get("step", -1)), steps_cfg=int(cfg.steps),
+                                        best_step=ck_log.get("best_step"), best_val=ck_log.get("best_val"),
+                                        mtime=os.path.getmtime(ck_path)))
             xt, xb = feats(va)
             recursive = cfg.mode == "trm"
             ti = time.time()
@@ -273,7 +281,8 @@ def main():
                                  plain=ev.rows["halt_q|plain"], rep=ev.rows["halt_q|rep"])
     info.update(selection=sel, rows=ev.rows, lps=price.n, lp_s=price.t, wall_s=time.time() - t0, quick=a.quick)
     np.savez_compressed(os.path.join(OUT, "val", f"{a.tag}.npz"), **{k.replace("|", "__"): v for k, v in ev.store.items()})
-    with open(os.path.join(RES, f"trm_val_{a.tag}.json"), "w") as f:
+    os.makedirs(a.res, exist_ok=True)
+    with open(os.path.join(a.res, f"trm_val_{a.tag}.json"), "w") as f:
         json.dump(info, f, indent=1, default=float)
     short = {k: (v.get("decoder"), v.get("th"), round(v.get("one_lp", v).get("gap_mean", np.nan), 3),
                  round(v.get("one_lp", v).get("served", np.nan), 1)) if isinstance(v, dict) and ("one_lp" in v or "gap_mean" in v)
