@@ -51,14 +51,14 @@ resamples) of the per-instance difference in cost gap, from `scripts/rec_trm_pai
 because they rank the models differently: **with repair** (the cheapest of the model's own schedule and four LP
 roundings, then the LP-guided repair if it sheds load) and **without repair** (the same choice, no repair).
 
-The recursive model (30,000 steps; its validation loss falls monotonically, so its best and final checkpoints
-coincide) scores **1.731 % mean / 0.461 % median / 97.5 % served** with repair and 1.797 % / 0.502 % / 97.2 % without.
+The recursive model (30,000 steps; its validation loss ticks up at a few evaluations but is lowest at the last one,
+so its best and final checkpoints coincide) scores **1.731 % mean / 0.461 % median / 97.5 % served** with repair and 1.797 % / 0.502 % / 97.2 % without.
 
 | control (parameters) | checkpoint | control's gap, with / without repair | difference, with repair | difference, without repair |
 |---|---|---|---|---|
-| one-shot (0.63 M, same network) | best validation loss (≈ step 6,000) | 1.959 % / 1.730 % | **+0.228** [+0.086, +0.402] | −0.067 [−0.162, +0.019] |
+| one-shot (0.63 M, same network) | best validation loss (step 5,000) | 1.959 % / 1.730 % | **+0.228** [+0.086, +0.402] | −0.067 [−0.162, +0.019] |
 | one-shot (0.63 M) | final (30,000) | 1.488 % / 1.572 % | **−0.244** [−0.385, −0.122] | **−0.226** [−0.390, −0.078] |
-| deep, unshared (13.1 M) | best validation loss | 1.653 % / 1.654 % | −0.079 [−0.233, +0.097] | −0.143 [−0.291, +0.026] |
+| deep, unshared (13.1 M) | best validation loss (step 3,000) | 1.653 % / 1.654 % | −0.079 [−0.233, +0.097] | −0.143 [−0.291, +0.026] |
 | deep, unshared (13.1 M) | final (30,000) | 1.218 % / 1.233 % | **−0.514** [−0.749, −0.290] | **−0.565** [−0.799, −0.344] |
 | recursive, 60,000 steps | best validation loss | 1.872 % / 1.804 % | +0.140 [+0.017, +0.297] | +0.006 [−0.080, +0.103] |
 | one-shot at equal instance visits | final | 1.966 % / 2.104 % | +0.234 [+0.084, +0.413] | +0.307 [+0.173, +0.482] |
@@ -75,11 +75,12 @@ only with repair; without repair the same comparison is a tie. A result that fli
 not one to build on.
 
 **Validation loss chose the wrong checkpoints.** The controls' validation BCE bottoms out early and then rises (one-shot
-0.0401 at step 6,000 → 0.0444 at the end; deep 0.0503 → 0.0951), which was read as overfitting and was why they were
-retrained with best-loss checkpointing. Downstream the opposite holds: the late checkpoints produce markedly cheaper
-schedules. The loss rises because the networks become confidently wrong on a minority of unit-hours, while the
-decoded schedules — after LP-rounding candidates and repair — keep improving. The recursive model's loss does not rise
-(the TRM paper's claim about overfitting reproduces on the proxy), but that robustness does not translate into better
+0.0401 at step 6,000 → 0.0444 at the end; deep 0.0408 at step 2,000 → 0.0951), which was read as overfitting and was
+why they were retrained with best-loss checkpointing (the retrained runs, evaluated every 500 steps, bottom out at
+steps 5,000 and 3,000). Downstream the opposite holds: the late checkpoints produce markedly cheaper
+schedules. The loss presumably rises because the networks become confidently wrong on a minority of unit-hours,
+while the decoded schedules — after LP-rounding candidates and repair — keep improving. The recursive model's loss does not drift
+up the same way (the TRM paper's claim about overfitting reproduces on the proxy), but that robustness does not translate into better
 schedules. This is the same lesson as §3 U7 of [`../RESEARCH.md`](../RESEARCH.md): proxies mislead, and only the cost
 gap decides. A first draft of this section reported the opposite, from point estimates taken under different pipelines
 for different models; it is superseded by the paired table.
