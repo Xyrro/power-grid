@@ -156,11 +156,14 @@ def main():
         ga = [(da[i][0][0] - db[i]) / da[i][0][0] * 100 for i in common]
         gb = [(dbb[i][0][0] - db[i]) / dbb[i][0][0] * 100 for i in common]
         d = [y - x for x, y in zip(ga, gb)]                       # > 0: A better
-        lt = [math.log(dbb[i][0][2] / da[i][0][2]) for i in common]   # > 0: A faster
+        # > 0: A faster. Log speed-up of A minus that of B, each against the full MILP solved in its own process:
+        # the same as the log time ratio within an arm, and the only paired comparison across arms (other processes,
+        # other nodes)
+        lt = [math.log((da[i][1] / da[i][0][2]) / (dbb[i][1] / dbb[i][0][2])) for i in common]
         both = [k for k, i in enumerate(common) if da[i][0][1] and dbb[i][0][1]]
         db_ = [d[k] for k in both]
-        r = dict(n=len(common), diff=sum(d) / len(d), diff_ci=ci(d, rng), log_time=sum(lt) / len(lt),
-                 log_time_ci=ci(lt, rng), n_both_served=len(both),
+        r = dict(n=len(common), diff=sum(d) / len(d), diff_ci=ci(d, rng), log_speedup=sum(lt) / len(lt),
+                 log_speedup_ci=ci(lt, rng), n_both_served=len(both),
                  diff_both=sum(db_) / len(db_) if db_ else float("nan"), diff_both_ci=ci(db_, rng) if len(db_) > 1 else None)
         out["paired"][f"{a} vs {b}"] = r
         return r
@@ -182,8 +185,10 @@ def main():
         if head:
             pairs += [("A|" + head, "A|milp05"), ("A|" + head, "A|lpround5r"), ("A|" + head, "A|m1x_mix5r"),
                       ("A|" + head, f"{MODELS_B[0]} @24 steps")]
-    lines += ["", "Paired differences (positive = the first method is better / faster; 95 % bootstrap CI):", "",
-              "| first | second | n | Δ gap (pp) | Δ log time | n both served | Δ gap, both served |",
+    lines += ["", "Paired differences (positive = the first method is better / faster; 95 % bootstrap CI). Δ log speed-up "
+              "compares each method's speed-up over the full MILP solved in its own process (within an arm: the log "
+              "time ratio).", "",
+              "| first | second | n | Δ gap (pp) | Δ log speed-up | n both served | Δ gap, both served |",
               "|---|---|---|---|---|---|---|"]
     for a, b in pairs:
         r = pair(a, b)
@@ -191,7 +196,7 @@ def main():
             dbs = (f"{r['diff_both']:+.3f} [{r['diff_both_ci'][0]:+.3f}, {r['diff_both_ci'][1]:+.3f}]"
                    if r["diff_both_ci"] else "—")
             lines.append(f"| {a} | {b} | {r['n']} | {r['diff']:+.3f} [{r['diff_ci'][0]:+.3f}, {r['diff_ci'][1]:+.3f}] | "
-                         f"{r['log_time']:+.2f} [{r['log_time_ci'][0]:+.2f}, {r['log_time_ci'][1]:+.2f}] | "
+                         f"{r['log_speedup']:+.2f} [{r['log_speedup_ci'][0]:+.2f}, {r['log_speedup_ci'][1]:+.2f}] | "
                          f"{r['n_both_served']} | {dbs} |")
     with open(os.path.join(RES, "test_results.json"), "w") as f:
         json.dump(out, f, indent=1)
