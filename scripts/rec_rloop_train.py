@@ -7,7 +7,7 @@
     # GPU (scripts/pace/rloop_train.sbatch): network on cuda, LPs in a CPU worker pool, batches kept in flight
     python3 scripts/rec_rloop_train.py --tag gpu_main --preset gpu --device cuda --lp_workers 16 --inflight 4
 
-Ablation switches: --no_feedback (LP signals zeroed, the schedule and repair changes kept), --no_recall,
+Ablation switches: --no_feedback (LP signals zeroed, the schedule and repair changes kept), --no_recall, --loopres,
 --no_deep_sup (loss on the last outer step only, back-propagated through all steps), --no_counts (per-unit heads with
 symmetry-aligned labels and the symmetry-rank input), --k_train, --decode round, --p_ext 0.
 
@@ -60,6 +60,10 @@ def parse():
     ap.add_argument("--no_counts", action="store_true")
     ap.add_argument("--no_carry_z", action="store_true")
     ap.add_argument("--anchor", action="store_true", help="skip connection from the priced schedule to the logits")
+    ap.add_argument("--loopres", action="store_true",
+                    help="loop-native attention residual across outer steps (InfiLoop; otsl.rloop.RLoopNet)")
+    ap.add_argument("--loopres_beta0", type=float, default=0.55, help="initial decay of the attention residual")
+    ap.add_argument("--loopres_no_lp", action="store_true", help="state-only write scores (no LP verdict term)")
     return ap.parse_args()
 
 
@@ -86,6 +90,8 @@ def main():
         cfg = C.model_cfg(a.preset, **over)
         cfg.update(feedback=not a.no_feedback, recall=not a.no_recall, deep_sup=not a.no_deep_sup,
                    counts=not a.no_counts, carry_z=not a.no_carry_z, sym_rank=a.no_counts, anchor=a.anchor)
+        if a.loopres:
+            cfg.update(loopres=True, loopres_beta0=a.loopres_beta0, loopres_lp=not a.loopres_no_lp)
     cfg.update(device=a.device, preset=a.preset, seed=a.seed, n_train=a.n_train, line_scale=1.0)
     log_f = open(os.path.join(C.OUT, f"{a.tag}.log"), "a")
 

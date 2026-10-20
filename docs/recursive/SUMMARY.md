@@ -19,7 +19,7 @@ test pass on the 120 test_fresh instances; all comparisons paired per instance:
 * **Arm B's LP feedback buys feasibility, not cost.** On validation, with feedback the loop serves 97.5 % of instances at 16 steps
   against 92.2 % without, and the mean gap is 0.62 pp [0.23, 1.08] better; on the instances both serve, feedback is
   not better (−0.08 pp [−0.22, +0.05]). The feedback model's halting head stops earlier (5.0 steps against 6.5) and
-  lands better (1.63 % against 2.26 %). The feedback costs about 3× the training time.
+  lands better (1.63 % against 2.26 %). Training it took about 23 GPU-hours of jobs, against 17.5 for the control.
 * **Neither arm displaces the MILP pipeline** of `docs/RESEARCH.md` §7–§8 (0.30 % at ~10×); the best end-to-end
   validation numbers are 1.0–1.2 % mean gap. Every learned model now beats learning-free LP rounding (2.11 %).
 * **The test pass confirms all three** (gap to the tightest proven bound, paired timing on one core). Arm A: the

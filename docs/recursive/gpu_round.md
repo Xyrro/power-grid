@@ -172,12 +172,13 @@ feasibility effect as above, now showing up as better-calibrated early stopping.
 
 ### What the feedback costs
 
-Training the feedback arm took roughly **3× the wall-clock per epoch** of the control (≈ 21 min against ≈ 7 min)
-because every refinement step of every training example solves dispatch LPs: 2.4 million LP solves and 57,000 LP
-seconds across the REINFORCE stage alone, carried by 20 CPU worker processes beside the GPU. The supervised stage plus
-1,500 REINFORCE updates came to about 13 GPU-hours in resumable segments. That is the price of the feasibility gain,
-and it is worth recording next to the gain itself: the no-feedback control reaches 92 % served for a third of the
-compute.
+From the job logs: the feedback model's supervised stage took 18.3 GPU-hours of epochs against 13.5 for the control,
+and its jobs 22.9 GPU-hours in all against 17.5 (supervision, REINFORCE and validation, in resumable 8-hour segments).
+Both models solve dispatch LPs at every step — the control still prices its schedules and only ignores the signals —
+and per-epoch times ranged from about 11 to 21 minutes for either model depending on the node a segment ran on, so the
+per-epoch ratio is not well determined. The feedback model's REINFORCE stage alone solved 2.4 million LPs in 57,000
+LP-seconds on 20 worker processes beside the GPU. (An earlier version of this paragraph said 3× the time per epoch
+and about 13 GPU-hours; the logs support neither.)
 
 ## Test pass (120 test_fresh instances)
 

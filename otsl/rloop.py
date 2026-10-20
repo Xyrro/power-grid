@@ -489,10 +489,21 @@ class RLoopNet(nn.Module):
     feedback embedding + y. Logits from y: count heads per identical group (ordinal, monotone in the position) or
     per-unit heads. A halting head predicts, per instance, whether this step's schedule is within 0.5 % of the best
     known cost. recall=False: the x-embedding only initialises z. feedback=False: LP signals are zeroed (the priced
-    schedule and what the repair changed are kept). carry_z=False: z is re-initialised every outer step."""
+    schedule and what the repair changed are kept). carry_z=False: z is re-initialised every outer step.
+
+    loopres=True: a loop-native attention residual across outer steps (InfiLoop, arXiv 2610.11570, on the LP-step
+    axis). Instead of carrying the newest (y, z) into the next step, each step starts from a running weighted average
+    of every earlier step's final state, h_k = sum_i a_{k,i} c_i, a_{k,i} ~ exp(s_i - lambda (k - i)), computed by the
+    exact streaming update h <- h + g (c - h), g = e^s / (beta D + e^s), D <- beta D + e^s (log-space here). A
+    candidate is written once, at the start of the step after it, when its schedule's LP verdict is known: its score is
+    s = q . RMSNorm(c) per token plus w . phi, phi the per-instance verdict (certified gap of the schedule and of the
+    best so far, served, is-best; zero without feedback), clipped to [-8, 8]. Separate (q, w, beta) for y and z;
+    beta = exp(-softplus(rho)) is learned from loopres_beta0. loopres_lp=False drops the verdict term (the paper's
+    state-only score). The step's own answer and logits are unchanged: only what the next step builds on changes."""
 
     def __init__(self, sysm, dx, db, dl, hidden=64, n_latent=2, n_cycles=1, mp_layers=1, dilations=(1, 2, 4),
-                 recall=True, feedback=True, carry_z=True, counts=True, anchor=False, anchor_init=0.0, **_):
+                 recall=True, feedback=True, carry_z=True, counts=True, anchor=False, anchor_init=0.0, loopres=False,
+                 loopres_beta0=0.55, loopres_lp=True, **_):
         super().__init__()
         H = hidden
         self.H, self.n_latent, self.n_cycles = H, n_latent, n_cycles
@@ -516,6 +527,13 @@ class RLoopNet(nn.Module):
         self.z0 = nn.Parameter(torch.zeros(H))
         if anchor:      # skip connection to the priced schedule: logit += a (2 s - 1) when feedback is present
             self.anchor = nn.Parameter(torch.full((1,), float(anchor_init)))
+        self.loopres, self.loopres_lp = loopres, loopres_lp
+        if loopres:     # created last and without random draws: every other weight is initialised as without it
+            rho0 = math.log(math.expm1(-math.log(loopres_beta0)))
+            self.lr_q = nn.Parameter(torch.zeros(2, H))                     # pseudo-queries for y and z
+            self.lr_rho = nn.Parameter(torch.full((2,), rho0))             # decay beta = exp(-softplus(rho))
+            if loopres_lp:
+                self.lr_w = nn.Parameter(torch.zeros(2, F_I))               # weights of the LP verdict
 
     def embed_static(self, ux):
         return self.ex(ux)
@@ -525,6 +543,25 @@ class RLoopNet(nn.Module):
         y = self.y0.expand(B, T, G, H)
         z = xe if not self.recall else self.z0.expand(B, T, G, H)
         return y.contiguous(), z.contiguous()
+
+    def detach_state(self, state):
+        """the carried state with the graph cut (deep supervision): (y, z), or with loopres (y, z, Hy, Hz, Ly, Lz)"""
+        return tuple(t.detach() for t in state)
+
+    def _lr_score(self, i, c, phi):
+        """write score of candidate c [B, T, G, H] on axis i (0: y, 1: z): q . RMSNorm(c) (+ w . phi), [B, T, G]"""
+        cn = c * torch.rsqrt(c.pow(2).mean(-1, keepdim=True) + 1e-6)
+        s = (cn * self.lr_q[i]).sum(-1)
+        if self.loopres_lp:
+            s = s + (phi @ self.lr_w[i])[:, None, None]
+        return s.clamp(-8.0, 8.0)
+
+    def _lr_write(self, i, h, logd, c, s):
+        """exact streaming attention residual: N <- beta N + e^s c, D <- beta D + e^s, h = N / D, in log-space
+        (logd = log D). Equivalent to h <- h + g (c - h), g = e^s / (beta D + e^s)."""
+        logd_new = torch.logaddexp(logd - F.softplus(self.lr_rho[i]), s)
+        g = torch.exp(s - logd_new)
+        return h + g[..., None] * (c - h), logd_new
 
     def logits(self, y, pos):
         """per-unit logits [B, T, G]; pos [B, G] stacking positions (count heads)"""
@@ -545,13 +582,28 @@ class RLoopNet(nn.Module):
         pos [B,G]; fbu [B,T,G,FB_UNIT], fbb [B,T,N,F_B+1], fbl [B,T,L,F_L+1] feedback (zeros at step 0).
         Returns logits [B,T,G], halting features [B,2H] (halt_logit) and the new (y, z). Only the last grad_cycles
         cycles carry gradients."""
-        y, z = state
+        y, z = state[0], state[1]
         if not self.carry_z:
             z = self.init_state(xe)[1]
         if not self.feedback:                                               # keep schedule bits, drop LP signals
             fbu = torch.cat([fbu[..., :2], torch.zeros_like(fbu[..., 2:-1]), fbu[..., -1:]], -1)
             fbb = torch.cat([torch.zeros_like(fbb[..., :-1]), fbb[..., -1:]], -1)
             fbl = torch.cat([torch.zeros_like(fbl[..., :-1]), fbl[..., -1:]], -1)
+        if self.loopres:
+            if len(state) == 2:         # the starting state is each aggregate's first entry (no priced schedule yet)
+                phi0 = torch.zeros(y.shape[0], F_I, device=y.device, dtype=y.dtype)
+                hy, ly = y, self._lr_score(0, y, phi0)
+                hz, lz = z, self._lr_score(1, z, phi0)
+            else:                       # write the previous step's final state with its schedule's LP verdict
+                _, _, hy, hz, ly, lz = state
+                i0 = F_U + F_B + F_H
+                phi = fbu[:, 0, 0, i0:i0 + F_I] * fbu[:, 0, 0, -1:]       # zero when no schedule was priced
+                hy, ly = self._lr_write(0, hy, ly, y, self._lr_score(0, y, phi))
+                if self.carry_z:
+                    hz, lz = self._lr_write(1, hz, lz, z, self._lr_score(1, z, phi))
+                else:
+                    hz, lz = z, self._lr_score(1, z, torch.zeros_like(phi))
+            y, z = hy, hz
         fe = self.efb(fbu)
         be = self.eb(torch.cat([bx, fbb], -1))
         le = self.el(torch.cat([lx, fbl], -1))
@@ -559,6 +611,11 @@ class RLoopNet(nn.Module):
         for c in range(self.n_cycles):
             # the last grad_cycles cycles keep the caller's grad mode (no_grad at inference), earlier ones never track
             ctx = contextlib.nullcontext() if c >= self.n_cycles - grad_cycles else torch.no_grad()
+            if self.loopres and c > 0 and c == self.n_cycles - grad_cycles and torch.is_grad_enabled():
+                # the aggregate only enters before the gradient-free cycles: pass its gradient through them as an
+                # identity (the 1-step gradient TRM / HRM use for those cycles); the values are unchanged
+                y = y + (hy - hy.detach())
+                z = z + (hz - hz.detach())
             with ctx:
                 for _ in range(self.n_latent):
                     z = self.core(z + stat + fe + self.ey(y), be, le, gate)
@@ -567,6 +624,8 @@ class RLoopNet(nn.Module):
         lg = self.logits(y, pos)
         if hasattr(self, "anchor"):
             lg = lg + self.anchor * (2 * fbu[..., 0] - 1) * fbu[..., -1]
+        if self.loopres:            # (y, z): this step's state, written at the next step; then the aggregates
+            return lg, hf, (y, z, hy, hz, ly, lz)
         return lg, hf, (y, z)
 
     def halt_logit(self, hf):
@@ -872,7 +931,7 @@ def train_supervised(net, feats, sysm, train_insts, labels, best_known, cfg, poo
                 sched.step()
                 ema.update(net)
                 n_opt += 1
-                e.state = (state[0].detach(), state[1].detach())
+                e.state = net.detach_state(state)
             else:
                 e.state = state                       # no detach: the last step's loss reaches every step
                 if torch.is_tensor(hloss):
@@ -991,7 +1050,7 @@ def train_reinforce(net, feats, sysm, train_insts, labels, best_known, cfg, pool
             torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
             opt.step()
             ema.update(net)
-            state = (st[0].detach(), st[1].detach())
+            state = net.detach_state(st)
             fb = stack_feedback(b, greedy, best, sysm.gbus)
             hist[f"gap{k}"].append(float(np.mean(np.log(gc / c_rel)) * 100))
             hist[f"smp{k}"].append(float(np.mean(np.log(c / c_rel[None])) * 100))

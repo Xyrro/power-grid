@@ -81,3 +81,93 @@ def test_network_runs_on_any_horizon_and_with_lines_out(rts, T):
     assert torch.isfinite(lg2).all()
     for r in res:
         assert violates_min_updown(r["s"], inst["u0"], rts.min_up, rts.min_dn) == 0
+
+
+def _two_insts(rts, uc12):
+    from otsl.uc import make_scenario
+    m, sc = uc12
+    return [_inst(m, sc), _inst(m, make_scenario(rts, 140, np.random.default_rng(5), T=12, start=3))]
+
+
+def test_loopres_write_is_the_exact_decayed_attention(rts, uc12):
+    """the streaming write equals h_t = sum_i a_{t,i} c_i, a_{t,i} ~ exp(s_i - lambda (t - i)), exactly"""
+    insts = _two_insts(rts, uc12)
+    feats = rloop.StaticFeats(rts, insts)
+    net = rloop.build_net(rts, feats, dict(hidden=8, loopres=True))
+    g = torch.Generator().manual_seed(0)
+    with torch.no_grad():
+        net.lr_q.copy_(torch.randn(net.lr_q.shape, generator=g))
+        net.lr_w.copy_(torch.randn(net.lr_w.shape, generator=g))
+        net.lr_rho.fill_(0.3)
+    cands = [torch.randn(2, 3, 4, 8, generator=g) for _ in range(6)]
+    phis = [torch.zeros(2, rloop.F_I)] + [torch.randn(2, rloop.F_I, generator=g) for _ in range(5)]
+    scores = [net._lr_score(0, c, p) for c, p in zip(cands, phis)]
+    h, logd = cands[0], scores[0]
+    for c, s in zip(cands[1:], scores[1:]):
+        h, logd = net._lr_write(0, h, logd, c, s)
+    lam = torch.nn.functional.softplus(net.lr_rho[0])
+    t = len(cands) - 1
+    w = torch.stack([torch.exp(s - lam * (t - i)) for i, s in enumerate(scores)])          # [t+1, B, T, G]
+    ref = (w[..., None] * torch.stack(cands)).sum(0) / w.sum(0)[..., None]
+    assert torch.allclose(h, ref, atol=1e-5) and torch.allclose(logd, torch.log(w.sum(0)), atol=1e-5)
+
+
+def test_loopres_without_decay_memory_is_carry_last_and_its_gate_learns(rts, uc12):
+    """with beta -> 0 the aggregate is the newest state: the same logits as the model without it, step by step; with
+    the default decay the gate's parameters receive gradients (also through the gradient-free first cycle)"""
+    insts = _two_insts(rts, uc12)
+    feats = rloop.StaticFeats(rts, insts)
+    cfg = dict(hidden=16, n_latent=2, n_cycles=2)
+    torch.manual_seed(0)
+    plain = rloop.build_net(rts, feats, cfg)
+    torch.manual_seed(0)
+    lr = rloop.build_net(rts, feats, dict(cfg, loopres=True))
+    missing, unexpected = lr.load_state_dict(plain.state_dict(), strict=False)
+    assert not unexpected and set(missing) == {"lr_q", "lr_rho", "lr_w"}
+    with torch.no_grad():
+        lr.lr_rho.fill_(40.0)
+        lr.lr_q.normal_()
+        lr.lr_w.normal_()
+    b = rloop.Batch(feats, insts, "cpu")
+    pool = rloop.LPPool(workers=0)
+    with torch.no_grad():
+        xe = plain.embed_static(b.ux)
+        sa, sb, fb = plain.init_state(xe), lr.init_state(xe), rloop.empty_feedback(b)
+        for k in range(3):
+            la, _, sa = plain.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, sa)
+            lb, _, sb = lr.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, sb)
+            assert torch.allclose(la, lb, atol=1e-4), k
+            res = pool.run([(("t", j), x, torch.sigmoid(la[j]).numpy(), 1.0, "viterbi") for j, x in enumerate(insts)])
+            fb = rloop.stack_feedback(b, res, np.full(2, np.inf), rts.gbus)
+    assert len(sb) == 6 and len(sa) == 2
+    with torch.no_grad():
+        lr.lr_rho.fill_(float(np.log(np.expm1(-np.log(0.55)))))
+    lr.train()
+    xe = lr.embed_static(b.ux)
+    _, _, st = lr.step(xe, b.bx, b.lx, b.gate, b.pos, *rloop.empty_feedback(b), lr.init_state(xe))
+    st = lr.detach_state(st)
+    assert all(not t.requires_grad for t in st)
+    lg, _, _ = lr.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, st)
+    lg.pow(2).mean().backward()
+    for name in ("lr_q", "lr_rho", "lr_w"):
+        gr = getattr(lr, name).grad
+        assert gr is not None and torch.isfinite(gr).all() and (gr.abs().sum(-1) > 0).all(), name
+
+
+def test_loopres_trains_in_both_stages(rts, uc12):
+    """deep supervision and REINFORCE run with the attention residual (state carried and detached between steps)"""
+    insts = _two_insts(rts, uc12)
+    feats = rloop.StaticFeats(rts, insts)
+    labels = np.stack([(x["u_rel"] > 0.5).astype(np.int8) for x in insts])
+    best = np.array([x["c_rel"] * 1.01 for x in insts])
+    cfg = dict(rloop.PRESETS["cpu"], hidden=16, n_latent=1, n_cycles=2, epochs=1, batch=2, k_train=2, p_ext=0.5,
+               rl_updates=1, rl_batch=2, rl_samples=2, rl_k=2, loopres=True)
+    torch.manual_seed(0)
+    net = rloop.build_net(rts, feats, cfg)
+    pool = rloop.LPPool(workers=0)
+    q0 = net.lr_q.detach().clone()
+    net, ema = rloop.train_supervised(net, feats, rts, insts, labels, best, cfg, pool, "cpu", log=lambda *_: None)
+    net, ema = rloop.train_reinforce(net, feats, rts, insts, labels, best, cfg, pool, "cpu", log=lambda *_: None)
+    assert not torch.equal(net.lr_q.detach(), q0)
+    steps = rloop.rollout_batch(ema.shadow, feats, rts, insts, 3, pool, "cpu", [("v", 0), ("v", 1)])
+    assert len(steps) == 3 and all(np.isfinite(c) for st in steps for c, *_ in st)
