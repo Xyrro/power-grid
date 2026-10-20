@@ -11,3 +11,7 @@ results/uc24/uc24ltf_probs.npz
 results/**/*.out
 results/**/*_probs.npz
 .papers/
+
+# the user's reference papers: kept on disk, never committed (copyright)
+ref papers/
+*.pdf
