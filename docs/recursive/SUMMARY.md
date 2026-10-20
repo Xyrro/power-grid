@@ -33,7 +33,8 @@ test pass on the 120 test_fresh instances; all comparisons paired per instance:
 * **After the round, an InfiLoop-style gate on arm B failed its pilot** ([`infiloop_pilot.md`](infiloop_pilot.md)):
   starting each step from a learned, LP-verdict-scored average of earlier states instead of the newest one made the
   CPU-scale model worse on the mean (−0.91 pp [−1.79, −0.16], fewer instances served) though slightly cheaper where both
-  serve (+0.15 pp [+0.03, +0.29]); the GPU run was stopped after 7 epochs.
+  serve (+0.15 pp [+0.03, +0.29]) — within the spread of two runs of the plain model, so no gain but no proven loss.
+  A seed-matched comparison of the plain model, this gate and the paper's own placement is running at CPU and GPU scale.
 
 ## CPU round (4 cores, 2,000 labels)
 

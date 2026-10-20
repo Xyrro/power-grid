@@ -42,7 +42,15 @@ paired 95 % CI excluding zero.
 | latest schedule at step 24 | 6.059 % | 4.484 % | |
 | steps worse than the best so far | 13.9 % | 12.9 % | |
 
-**The pilot fails the rule.** The gated model is significantly worse on the mean, through feasibility (it serves
+**How much of this is noise.** Two runs of the *plain* model differ by about as much. The CPU round's arm B model
+(same preset and seed, another machine, an earlier code version) against this pilot's plain run, at 16 steps:
+0.48 pp worse [−0.27, +1.28], and significantly cheaper where both serve (−0.16 pp [−0.30, −0.03]). Against that run
+the gated model is 0.38 pp worse [−0.31, +1.17], not significant. The bootstrap intervals above resample instances
+only, not training runs, and the seed then fixed only data order and sampling — the initial weights were unseeded
+in every arm B run so far (fixed since). So the pilot shows no gain, but it does not show that the gate makes the
+model worse.
+
+**The pilot fails the rule.** On this single pair the gated model is worse on the mean, through feasibility (it serves
 fewer instances), while its schedules are slightly cheaper where both models serve — the mirror image of what the LP
 feedback itself does. It does not reduce the drift it was meant to fix: its latest schedule is further from its best
 one, not closer. The halting head also stops later (17.8 steps against 14.1).
@@ -56,3 +64,15 @@ Caveats: one seed per model at CPU scale (1 recursion cycle per step, 3 training
 targeted is smaller (13 % of steps) than at GPU scale (27 %); only the LP-verdict variant was tried, not the paper's
 state-only scores (`--loopres_no_lp`) or its within-step axes. Records: `results/recursive/rloop_val_pilot_*_rl.npz`,
 `rloop_pair_pilot_lr_rl_vs_pilot_base_rl.json`, `rloop_train_pilot_*.json`, `rloop_train_w3_rloop_lr.json`.
+
+## Next: seed-matched comparison at both scales
+
+The question that matters is whether either version beats the existing models, so both are now run with seeds:
+the plain model, this LP-step gate, and the paper's own placement (`loopres_mode="paper"`: an inner axis over each
+cycle's latent updates and an outer axis over every answer update, state-only scores), seeds 1–3, with seeded initial
+weights so that equal seeds give equal starting weights and data order. CPU scale: `scripts/pace/pgu_rloop_screen.sbatch`.
+GPU scale (the GPU-round configuration, 50,000 labels): `scripts/pace/plans/loopres_gpu.json`, run through
+`scripts/pace/pgu_queue.py` within the project's GPU share. Rule, fixed before the runs (`scripts/rec_loopres_compare.py`):
+a variant beats the plain model only if its seed-averaged per-instance advantage on validation has a 95 % CI above zero
+and it is better in every seed; only then does it go to the test set, against the plain seeds, the GPU-round model and
+arm A's best pipelines.
