@@ -30,6 +30,11 @@ test pass on the 120 test_fresh instances; all comparisons paired per instance:
   at 0.342 %, 0.08 pp worse than the 0.5 % MILP and 1.35× faster. Best arm A pipeline: the deep control with a safety
   net, 0.753 % at 20× (mean). One seed per model; 120 instances.
 
+* **After the round, an InfiLoop-style gate on arm B failed its pilot** ([`infiloop_pilot.md`](infiloop_pilot.md)):
+  starting each step from a learned, LP-verdict-scored average of earlier states instead of the newest one made the
+  CPU-scale model worse on the mean (−0.91 pp [−1.79, −0.16], fewer instances served) though slightly cheaper where both
+  serve (+0.15 pp [+0.03, +0.29]); the GPU run was stopped after 7 epochs.
+
 ## CPU round (4 cores, 2,000 labels)
 
 ### Bottom line
