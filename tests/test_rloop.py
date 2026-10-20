@@ -112,7 +112,8 @@ def test_loopres_write_is_the_exact_decayed_attention(rts, uc12):
     assert torch.allclose(h, ref, atol=1e-5) and torch.allclose(logd, torch.log(w.sum(0)), atol=1e-5)
 
 
-def test_loopres_without_decay_memory_is_carry_last_and_its_gate_learns(rts, uc12):
+@pytest.mark.parametrize("mode", ["lp", "paper"])
+def test_loopres_without_decay_memory_is_carry_last_and_its_gate_learns(rts, uc12, mode):
     """with beta -> 0 the aggregate is the newest state: the same logits as the model without it, step by step; with
     the default decay the gate's parameters receive gradients (also through the gradient-free first cycle)"""
     insts = _two_insts(rts, uc12)
@@ -121,13 +122,16 @@ def test_loopres_without_decay_memory_is_carry_last_and_its_gate_learns(rts, uc1
     torch.manual_seed(0)
     plain = rloop.build_net(rts, feats, cfg)
     torch.manual_seed(0)
-    lr = rloop.build_net(rts, feats, dict(cfg, loopres=True))
+    lr = rloop.build_net(rts, feats, dict(cfg, loopres=True, loopres_mode=mode))
+    gate = {"lr_q", "lr_rho", "lr_w"} if mode == "lp" else {"lr_q", "lr_rho"}
+    assert all(torch.equal(v, lr.state_dict()[k]) for k, v in plain.state_dict().items())   # same seed: same weights
     missing, unexpected = lr.load_state_dict(plain.state_dict(), strict=False)
-    assert not unexpected and set(missing) == {"lr_q", "lr_rho", "lr_w"}
+    assert not unexpected and set(missing) == gate
     with torch.no_grad():
         lr.lr_rho.fill_(40.0)
         lr.lr_q.normal_()
-        lr.lr_w.normal_()
+        if mode == "lp":
+            lr.lr_w.normal_()
     b = rloop.Batch(feats, insts, "cpu")
     pool = rloop.LPPool(workers=0)
     with torch.no_grad():
@@ -139,7 +143,7 @@ def test_loopres_without_decay_memory_is_carry_last_and_its_gate_learns(rts, uc1
             assert torch.allclose(la, lb, atol=1e-4), k
             res = pool.run([(("t", j), x, torch.sigmoid(la[j]).numpy(), 1.0, "viterbi") for j, x in enumerate(insts)])
             fb = rloop.stack_feedback(b, res, np.full(2, np.inf), rts.gbus)
-    assert len(sb) == 6 and len(sa) == 2
+    assert len(sb) == (6 if mode == "lp" else 3) and len(sa) == 2
     with torch.no_grad():
         lr.lr_rho.fill_(float(np.log(np.expm1(-np.log(0.55)))))
     lr.train()
@@ -149,19 +153,20 @@ def test_loopres_without_decay_memory_is_carry_last_and_its_gate_learns(rts, uc1
     assert all(not t.requires_grad for t in st)
     lg, _, _ = lr.step(xe, b.bx, b.lx, b.gate, b.pos, *fb, st)
     lg.pow(2).mean().backward()
-    for name in ("lr_q", "lr_rho", "lr_w"):
+    for name in sorted(gate):
         gr = getattr(lr, name).grad
         assert gr is not None and torch.isfinite(gr).all() and (gr.abs().sum(-1) > 0).all(), name
 
 
-def test_loopres_trains_in_both_stages(rts, uc12):
+@pytest.mark.parametrize("mode", ["lp", "paper"])
+def test_loopres_trains_in_both_stages(rts, uc12, mode):
     """deep supervision and REINFORCE run with the attention residual (state carried and detached between steps)"""
     insts = _two_insts(rts, uc12)
     feats = rloop.StaticFeats(rts, insts)
     labels = np.stack([(x["u_rel"] > 0.5).astype(np.int8) for x in insts])
     best = np.array([x["c_rel"] * 1.01 for x in insts])
     cfg = dict(rloop.PRESETS["cpu"], hidden=16, n_latent=1, n_cycles=2, epochs=1, batch=2, k_train=2, p_ext=0.5,
-               rl_updates=1, rl_batch=2, rl_samples=2, rl_k=2, loopres=True)
+               rl_updates=1, rl_batch=2, rl_samples=2, rl_k=2, loopres=True, loopres_mode=mode)
     torch.manual_seed(0)
     net = rloop.build_net(rts, feats, cfg)
     pool = rloop.LPPool(workers=0)

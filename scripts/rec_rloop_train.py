@@ -64,6 +64,8 @@ def parse():
                     help="loop-native attention residual across outer steps (InfiLoop; otsl.rloop.RLoopNet)")
     ap.add_argument("--loopres_beta0", type=float, default=0.55, help="initial decay of the attention residual")
     ap.add_argument("--loopres_no_lp", action="store_true", help="state-only write scores (no LP verdict term)")
+    ap.add_argument("--loopres_mode", default="lp", choices=["lp", "paper"],
+                    help="lp: across LP steps, scores with the LP verdict; paper: the paper's inner + outer axes")
     return ap.parse_args()
 
 
@@ -91,7 +93,8 @@ def main():
         cfg.update(feedback=not a.no_feedback, recall=not a.no_recall, deep_sup=not a.no_deep_sup,
                    counts=not a.no_counts, carry_z=not a.no_carry_z, sym_rank=a.no_counts, anchor=a.anchor)
         if a.loopres:
-            cfg.update(loopres=True, loopres_beta0=a.loopres_beta0, loopres_lp=not a.loopres_no_lp)
+            cfg.update(loopres=True, loopres_beta0=a.loopres_beta0, loopres_lp=not a.loopres_no_lp,
+                       loopres_mode=a.loopres_mode)
     cfg.update(device=a.device, preset=a.preset, seed=a.seed, n_train=a.n_train, line_scale=1.0)
     log_f = open(os.path.join(C.OUT, f"{a.tag}.log"), "a")
 
@@ -115,6 +118,9 @@ def main():
     cores = [int(c) for c in a.lp_cores.split(",") if c != ""] or None
     pool = rloop.LPPool(workers=cfg["lp_workers"], cores=cores)
     device = torch.device(a.device)
+    # the seed fixes the initial weights too (it did not before: every earlier run started from unseeded weights);
+    # options that add parameters create them last without random draws, so equal seeds give equal shared weights
+    torch.manual_seed(a.seed)
     net = rloop.build_net(sysm, feats, cfg).to(device)
     n_par = sum(p.numel() for p in net.parameters())
     log(f"[{a.tag}] stage {a.stage} params {n_par} cfg {json.dumps(cfg, default=str)}")

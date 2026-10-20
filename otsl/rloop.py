@@ -499,11 +499,14 @@ class RLoopNet(nn.Module):
     s = q . RMSNorm(c) per token plus w . phi, phi the per-instance verdict (certified gap of the schedule and of the
     best so far, served, is-best; zero without feedback), clipped to [-8, 8]. Separate (q, w, beta) for y and z;
     beta = exp(-softplus(rho)) is learned from loopres_beta0. loopres_lp=False drops the verdict term (the paper's
-    state-only score). The step's own answer and logits are unchanged: only what the next step builds on changes."""
+    state-only score). The step's own answer and logits are unchanged: only what the next step builds on changes.
+    loopres_mode="paper": the paper's own placement instead, state-only scores: an inner axis over the latent updates of
+    each cycle (its accumulator restarts every cycle from the cycle's starting z) and an outer axis over the answer
+    updates of every cycle of every step (its accumulator is carried across steps); the logits read the aggregated y."""
 
     def __init__(self, sysm, dx, db, dl, hidden=64, n_latent=2, n_cycles=1, mp_layers=1, dilations=(1, 2, 4),
                  recall=True, feedback=True, carry_z=True, counts=True, anchor=False, anchor_init=0.0, loopres=False,
-                 loopres_beta0=0.55, loopres_lp=True, **_):
+                 loopres_beta0=0.55, loopres_lp=True, loopres_mode="lp", **_):
         super().__init__()
         H = hidden
         self.H, self.n_latent, self.n_cycles = H, n_latent, n_cycles
@@ -527,12 +530,15 @@ class RLoopNet(nn.Module):
         self.z0 = nn.Parameter(torch.zeros(H))
         if anchor:      # skip connection to the priced schedule: logit += a (2 s - 1) when feedback is present
             self.anchor = nn.Parameter(torch.full((1,), float(anchor_init)))
-        self.loopres, self.loopres_lp = loopres, loopres_lp
+        if loopres_mode not in ("lp", "paper"):
+            raise ValueError(f"loopres_mode {loopres_mode!r}")
+        self.loopres, self.loopres_mode = loopres, loopres_mode
+        self.loopres_lp = loopres_lp and loopres_mode == "lp"
         if loopres:     # created last and without random draws: every other weight is initialised as without it
             rho0 = math.log(math.expm1(-math.log(loopres_beta0)))
             self.lr_q = nn.Parameter(torch.zeros(2, H))                     # pseudo-queries for y and z
             self.lr_rho = nn.Parameter(torch.full((2,), rho0))             # decay beta = exp(-softplus(rho))
-            if loopres_lp:
+            if self.loopres_lp:
                 self.lr_w = nn.Parameter(torch.zeros(2, F_I))               # weights of the LP verdict
 
     def embed_static(self, ux):
@@ -545,14 +551,15 @@ class RLoopNet(nn.Module):
         return y.contiguous(), z.contiguous()
 
     def detach_state(self, state):
-        """the carried state with the graph cut (deep supervision): (y, z), or with loopres (y, z, Hy, Hz, Ly, Lz)"""
+        """the carried state with the graph cut (deep supervision): (y, z); loopres "lp" (y, z, Hy, Hz, Ly, Lz);
+        loopres "paper" (y, z, Ly)"""
         return tuple(t.detach() for t in state)
 
     def _lr_score(self, i, c, phi):
         """write score of candidate c [B, T, G, H] on axis i (0: y, 1: z): q . RMSNorm(c) (+ w . phi), [B, T, G]"""
         cn = c * torch.rsqrt(c.pow(2).mean(-1, keepdim=True) + 1e-6)
         s = (cn * self.lr_q[i]).sum(-1)
-        if self.loopres_lp:
+        if self.loopres_lp and phi is not None:
             s = s + (phi @ self.lr_w[i])[:, None, None]
         return s.clamp(-8.0, 8.0)
 
@@ -589,7 +596,10 @@ class RLoopNet(nn.Module):
             fbu = torch.cat([fbu[..., :2], torch.zeros_like(fbu[..., 2:-1]), fbu[..., -1:]], -1)
             fbb = torch.cat([torch.zeros_like(fbb[..., :-1]), fbb[..., -1:]], -1)
             fbl = torch.cat([torch.zeros_like(fbl[..., :-1]), fbl[..., -1:]], -1)
-        if self.loopres:
+        paper = self.loopres and self.loopres_mode == "paper"
+        if paper:                       # outer-axis accumulator of y, carried across steps
+            ly = state[2] if len(state) == 3 else self._lr_score(0, y, None)
+        if self.loopres and not paper:
             if len(state) == 2:         # the starting state is each aggregate's first entry (no priced schedule yet)
                 phi0 = torch.zeros(y.shape[0], F_I, device=y.device, dtype=y.dtype)
                 hy, ly = y, self._lr_score(0, y, phi0)
@@ -611,19 +621,29 @@ class RLoopNet(nn.Module):
         for c in range(self.n_cycles):
             # the last grad_cycles cycles keep the caller's grad mode (no_grad at inference), earlier ones never track
             ctx = contextlib.nullcontext() if c >= self.n_cycles - grad_cycles else torch.no_grad()
-            if self.loopres and c > 0 and c == self.n_cycles - grad_cycles and torch.is_grad_enabled():
+            if self.loopres and not paper and c > 0 and c == self.n_cycles - grad_cycles and torch.is_grad_enabled():
                 # the aggregate only enters before the gradient-free cycles: pass its gradient through them as an
                 # identity (the 1-step gradient TRM / HRM use for those cycles); the values are unchanged
                 y = y + (hy - hy.detach())
                 z = z + (hz - hz.detach())
             with ctx:
-                for _ in range(self.n_latent):
-                    z = self.core(z + stat + fe + self.ey(y), be, le, gate)
-                y = y + self.yupd(torch.cat([y, z], -1))
+                if paper:
+                    lz = self._lr_score(1, z, None)         # inner axis restarts from the cycle's starting z
+                    for _ in range(self.n_latent):
+                        cz = self.core(z + stat + fe + self.ey(y), be, le, gate)
+                        z, lz = self._lr_write(1, z, lz, cz, self._lr_score(1, cz, None))
+                    cy = y + self.yupd(torch.cat([y, z], -1))
+                    y, ly = self._lr_write(0, y, ly, cy, self._lr_score(0, cy, None))
+                else:
+                    for _ in range(self.n_latent):
+                        z = self.core(z + stat + fe + self.ey(y), be, le, gate)
+                    y = y + self.yupd(torch.cat([y, z], -1))
         hf = torch.cat([y.mean((1, 2)), y.amax((1, 2))], -1)              # halting features [B, 2H]
         lg = self.logits(y, pos)
         if hasattr(self, "anchor"):
             lg = lg + self.anchor * (2 * fbu[..., 0] - 1) * fbu[..., -1]
+        if paper:                   # aggregated (y, z) and the outer accumulator's log-mass
+            return lg, hf, (y, z, ly)
         if self.loopres:            # (y, z): this step's state, written at the next step; then the aggregates
             return lg, hf, (y, z, hy, hz, ly, lz)
         return lg, hf, (y, z)
