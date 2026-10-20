@@ -80,26 +80,6 @@
   ]
  },
  {
-  "name": "g3-lp-s2",
-  "done": "results/recursive/rloop_val_g3_lp_s2_rl.npz",
-  "max_segments": 5,
-  "submit": [
-   "--kind",
-   "gpu",
-   "--gpus",
-   "1",
-   "--cpus",
-   "24",
-   "--mem",
-   "64G",
-   "--time",
-   "08:00:00",
-   "--export",
-   "TAG=g3_lp_s2,N_TRAIN=50000,EXTRA=--seed 2 --loopres --data_dir data/generated/recursive/pace",
-   "scripts/pace/rloop_train.sbatch"
-  ]
- },
- {
   "name": "g3-paper-s2",
   "done": "results/recursive/rloop_val_g3_paper_s2_rl.npz",
   "max_segments": 5,
@@ -140,26 +120,6 @@
   ]
  },
  {
-  "name": "g3-lp-s3",
-  "done": "results/recursive/rloop_val_g3_lp_s3_rl.npz",
-  "max_segments": 5,
-  "submit": [
-   "--kind",
-   "gpu",
-   "--gpus",
-   "1",
-   "--cpus",
-   "24",
-   "--mem",
-   "64G",
-   "--time",
-   "08:00:00",
-   "--export",
-   "TAG=g3_lp_s3,N_TRAIN=50000,EXTRA=--seed 3 --loopres --data_dir data/generated/recursive/pace",
-   "scripts/pace/rloop_train.sbatch"
-  ]
- },
- {
   "name": "g3-paper-s3",
   "done": "results/recursive/rloop_val_g3_paper_s3_rl.npz",
   "max_segments": 5,
@@ -176,6 +136,46 @@
    "08:00:00",
    "--export",
    "TAG=g3_paper_s3,N_TRAIN=50000,EXTRA=--seed 3 --loopres --loopres_mode paper --data_dir data/generated/recursive/pace",
+   "scripts/pace/rloop_train.sbatch"
+  ]
+ },
+ {
+  "name": "g3-lp-s2",
+  "done": "results/recursive/rloop_val_g3_lp_s2_rl.npz",
+  "max_segments": 5,
+  "submit": [
+   "--kind",
+   "gpu",
+   "--gpus",
+   "1",
+   "--cpus",
+   "24",
+   "--mem",
+   "64G",
+   "--time",
+   "08:00:00",
+   "--export",
+   "TAG=g3_lp_s2,N_TRAIN=50000,EXTRA=--seed 2 --loopres --data_dir data/generated/recursive/pace",
+   "scripts/pace/rloop_train.sbatch"
+  ]
+ },
+ {
+  "name": "g3-lp-s3",
+  "done": "results/recursive/rloop_val_g3_lp_s3_rl.npz",
+  "max_segments": 5,
+  "submit": [
+   "--kind",
+   "gpu",
+   "--gpus",
+   "1",
+   "--cpus",
+   "24",
+   "--mem",
+   "64G",
+   "--time",
+   "08:00:00",
+   "--export",
+   "TAG=g3_lp_s3,N_TRAIN=50000,EXTRA=--seed 3 --loopres --data_dir data/generated/recursive/pace",
    "scripts/pace/rloop_train.sbatch"
   ]
  }

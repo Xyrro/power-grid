@@ -34,7 +34,10 @@ test pass on the 120 test_fresh instances; all comparisons paired per instance:
   starting each step from a learned, LP-verdict-scored average of earlier states instead of the newest one made the
   CPU-scale model worse on the mean (−0.91 pp [−1.79, −0.16], fewer instances served) though slightly cheaper where both
   serve (+0.15 pp [+0.03, +0.29]) — within the spread of two runs of the plain model, so no gain but no proven loss.
-  A seed-matched comparison of the plain model, this gate and the paper's own placement is running at CPU and GPU scale.
+  Seed-matched at CPU scale (seeds 1–3), neither version beats the plain model: the LP-step gate is worse
+  (−0.82 pp [−1.28, −0.41], 0/3 seeds), the paper's own placement a wash (−0.21 pp [−0.69, +0.28], 1/3) though cheaper
+  in every seed where both serve (+0.13 pp [+0.06, +0.20]). The gates barely trained at that scale; they do at GPU
+  scale, where the same comparison is running.
 
 ## CPU round (4 cores, 2,000 labels)
 

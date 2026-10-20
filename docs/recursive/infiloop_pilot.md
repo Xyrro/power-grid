@@ -65,7 +65,7 @@ targeted is smaller (13 % of steps) than at GPU scale (27 %); only the LP-verdic
 state-only scores (`--loopres_no_lp`) or its within-step axes. Records: `results/recursive/rloop_val_pilot_*_rl.npz`,
 `rloop_pair_pilot_lr_rl_vs_pilot_base_rl.json`, `rloop_train_pilot_*.json`, `rloop_train_w3_rloop_lr.json`.
 
-## Next: seed-matched comparison at both scales
+## Seed-matched comparison at both scales
 
 The question that matters is whether either version beats the existing models, so both are now run with seeds:
 the plain model, this LP-step gate, and the paper's own placement (`loopres_mode="paper"`: an inner axis over each
@@ -76,3 +76,33 @@ GPU scale (the GPU-round configuration, 50,000 labels): `scripts/pace/plans/loop
 a variant beats the plain model only if its seed-averaged per-instance advantage on validation has a 95 % CI above zero
 and it is better in every seed; only then does it go to the test set, against the plain seeds, the GPU-round model and
 arm A's best pipelines.
+
+### CPU scale: neither version beats the plain model
+
+Best of 24 steps on the 360 validation instances, mean gap to the bound (served at the best schedule in brackets);
+`python3 scripts/rec_loopres_compare.py --prefix cs`, record `results/recursive/loopres_compare_cs.json`.
+
+| seed | plain | LP-step gate | paper's placement |
+|---|---|---|---|
+| 1 | 3.757 % (88.9 %) | 4.314 % (87.2 %) | 2.598 % (93.1 %) |
+| 2 | 3.056 % (91.7 %) | 3.770 % (89.7 %) | 4.282 % (88.3 %) |
+| 3 | 2.872 % (91.7 %) | 4.057 % (87.5 %) | 3.444 % (88.9 %) |
+| **against plain, seed-averaged** (better > 0) | | **−0.819 pp [−1.282, −0.410]**, better in 0/3 seeds | **−0.213 pp [−0.693, +0.276]**, better in 1/3 |
+| on the instances both serve | | −0.051 pp [−0.118, +0.008] | +0.131 pp [+0.060, +0.204] |
+| steps worse than the best so far | 16.7 / 22.0 / 35.7 % | 14.6 / 15.0 / 23.2 % | 31.8 / 29.3 / 19.4 % |
+
+* **The LP-step gate is worse**, in every seed and outside the interval: it serves fewer instances (87–90 % against
+  89–92 %) and is no cheaper where both serve. It does reduce the drift it was built for — fewer steps fall behind
+  the best one in every seed — but its best schedule is worse, so less drift buys nothing.
+* **The paper's placement is a wash on the mean** and the seeds disagree (+1.16, −1.23, −0.57 pp), all through
+  feasibility (served +4.2, −3.4, −2.8 points). Where both models serve, it is cheaper in all three seeds
+  (+0.08, +0.19, +0.09 pp) — the one consistent signal of the study, and a small one. It does not reduce drift.
+* The plain model's own seeds span 2.87–3.76 %: the run-to-run spread is as large as any effect here.
+
+**At this scale the gates hardly learned.** After training, the decay is β = 0.55–0.57 in every gated model (from 0.55),
+the score vectors |q| = 0.15–0.31 and the LP weights |w| = 0.06–0.12 (from 0): scores near zero, so each step starts from a near-fixed
+running average of earlier states that gives the newest state weight ≈ 0.45. The CPU screen therefore tests that
+structure more than a learned gate. At GPU scale the gate does learn: the seed-1 LP-step model after 9 of 60 epochs
+has β ≈ 0.71 / 0.74, |q| ≈ 2.1 / 2.4, |w| ≈ 0.9 / 1.0 (the stopped `w3_rloop_lr` after 7 epochs: β ≈ 0.64 / 0.62), so
+the GPU runs are the real test. They are queued plain and paper's placement first (seeds 1–3), then the remaining
+LP-step seeds.
