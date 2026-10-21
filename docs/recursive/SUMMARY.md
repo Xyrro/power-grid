@@ -37,7 +37,10 @@ test pass on the 120 test_fresh instances; all comparisons paired per instance:
   Seed-matched at CPU scale (seeds 1–3), neither version beats the plain model: the LP-step gate is worse
   (−0.82 pp [−1.28, −0.41], 0/3 seeds), the paper's own placement a wash (−0.21 pp [−0.69, +0.28], 1/3) though cheaper
   in every seed where both serve (+0.13 pp [+0.06, +0.20]). The gates barely trained at that scale; they do at GPU
-  scale, where the same comparison is running.
+  scale, where **both versions are worse than the plain model in every seed**: LP-step gate −0.48 pp [−0.87, −0.22],
+  the paper's placement −0.16 pp [−0.28, −0.04] (best of 24 on 360 validation instances; the plain seeds average
+  0.956 %). The LP-step gate halves the drift and improves the latest schedule, but arm B outputs the best schedule it
+  has priced, and that gets worse. Neither variant went to the test set.
 
 ## CPU round (4 cores, 2,000 labels)
 

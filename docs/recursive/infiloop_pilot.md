@@ -104,5 +104,51 @@ the score vectors |q| = 0.15–0.31 and the LP weights |w| = 0.06–0.12 (from 0
 running average of earlier states that gives the newest state weight ≈ 0.45. The CPU screen therefore tests that
 structure more than a learned gate. At GPU scale the gate does learn: the seed-1 LP-step model after 9 of 60 epochs
 has β ≈ 0.71 / 0.74, |q| ≈ 2.1 / 2.4, |w| ≈ 0.9 / 1.0 (the stopped `w3_rloop_lr` after 7 epochs: β ≈ 0.64 / 0.62), so
-the GPU runs are the real test. They are queued plain and paper's placement first (seeds 1–3), then the remaining
-LP-step seeds.
+the GPU runs are the real test.
+
+### GPU scale: neither version beats the plain model either
+
+The GPU-round configuration (50,000 labels, 60 supervised epochs, then REINFORCE; one H200 and 24 cores per model),
+all nine models to completion. Best of 24 steps on the 360 validation instances, mean gap to the bound (served at the
+best schedule in brackets); `python3 scripts/rec_loopres_compare.py --prefix g3 --ref w2_rloop_rl`, record
+`results/recursive/loopres_compare_g3.json`.
+
+| seed | plain | LP-step gate | paper's placement |
+|---|---|---|---|
+| 1 | 1.090 % (96.9 %) | 1.572 % (96.1 %) | 1.140 % (98.9 %) |
+| 2 | 0.827 % (99.2 %) | 1.412 % (95.3 %) | 1.068 % (97.2 %) |
+| 3 | 0.951 % (97.8 %) | 1.328 % (96.1 %) | 1.128 % (97.8 %) |
+| **against plain, seed-averaged** (better > 0) | | **−0.482 pp [−0.868, −0.217]**, better in 0/3 seeds | **−0.156 pp [−0.278, −0.037]**, better in 0/3 |
+| on the instances both serve | | −0.212 pp [−0.411, −0.062] | −0.157 pp [−0.265, −0.058] |
+| latest schedule at step 24 | 3.840 / 1.738 / 4.854 % | 2.169 / 2.321 / 1.680 % | 3.291 / 4.150 / 7.443 % |
+| steps worse than the best so far | 35.6 / 33.0 / 39.6 % | 20.7 / 21.1 / 21.2 % | 36.0 / 37.3 / 45.4 % |
+
+* **Both versions fail the pre-set rule, and both are significantly worse than the plain model**: worse in every seed,
+  with the seed-averaged interval below zero. Neither goes to the test set.
+* **The LP-step gate does what it was built for and it does not help.** It halves the drift (21 % of steps behind the
+  best so far, against 33–40 %) and its latest schedule is better than the plain model's (2.06 % against 3.48 %, seed
+  means). But arm B keeps the best schedule it has priced, so the output is the best-of-K, and that is worse by
+  0.48 pp: fewer instances served (95–96 % against 97–99 %) and dearer where both serve.
+* **The paper's placement loses its one CPU-scale signal.** At CPU scale it was cheaper where both serve in every
+  seed; at GPU scale it is dearer there in every seed (−0.13 to −0.18 pp). Its drift is no lower than the plain
+  model's.
+* **The plain re-runs reproduce the GPU-round model**: seed mean 0.956 % against `w2_rloop_rl`'s 1.037 %,
+  +0.081 pp [−0.051, +0.218], with seeds spanning 0.83–1.09 %. The paper's placement is level with `w2_rloop_rl`
+  (−0.075 pp [−0.221, +0.063]); the LP-step gate is worse (−0.401 pp [−0.793, −0.114]).
+
+**What the gates learned** (EMA weights of the final models; y / z):
+
+| | β (from 0.55) | \|q\| | \|w\| |
+|---|---|---|---|
+| LP-step gate, seeds 1 / 2 / 3 | 0.80 / 0.65, 0.82 / 0.60, 0.99 / 0.60 | 3.5 / 5.3, 3.3 / 4.9, 4.1 / 5.8 | 2.3 / 1.3, 1.7 / 1.0, 3.8 / 1.0 |
+| paper's placement (y: outer axis, z: inner) | 0.03 / 0.26, 0.02 / 0.21, 0.03 / 0.23 | 6.5 / 1.0, 4.2 / 1.1, 6.5 / 1.2 | — |
+
+The LP-step gate learned a long memory across steps (slower decay than it started with, and large scores). The paper's
+placement learned to decay its outer, answer axis almost completely (β ≈ 0.02–0.03): each answer update carries close
+to the newest answer forward unless an older one scores about 4 higher. That is close to the plain model's
+carry-last rule, which fits a result just below the plain model's.
+
+**Conclusion.** On this problem the loop-native attention residual does not transfer. The paper's motivation, a model
+whose answers get worse as it loops, is real for arm B's latest schedule. But arm B already has an exact verdict on
+every schedule and keeps the best one, so smoothing the trajectory removes a failure that its output never had. One
+configuration per variant (β₀ = 0.55, scores clipped to [−8, 8], no tuning); 9 models, 131 GPU-hours.
