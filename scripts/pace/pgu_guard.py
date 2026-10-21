@@ -360,6 +360,8 @@ def build_sbatch(cfg: dict, a) -> list[str]:
         cmd += [f"--dependency={a.dependency}"]
     if getattr(a, "constraint", ""):
         cmd += [f"--constraint={a.constraint}"]
+    if getattr(a, "exclude", ""):
+        cmd += [f"--exclude={a.exclude}"]
     exports = "ALL,PGU_ROOT=" + cfg["PGU_ROOT"]
     for k in ("PYTHON_MODULE", "CUDA_MODULE"):
         if cfg.get(k):
@@ -379,6 +381,8 @@ def cmd_submit(cfg: dict, a) -> None:
         sys.exit("refusing: --time must be a finite walltime")
     if a.constraint and not re.fullmatch(r"[A-Za-z0-9_\-]+([&|][A-Za-z0-9_\-]+)*", a.constraint):
         sys.exit("refusing: --constraint must be node features joined by & or |")
+    if a.exclude and not re.fullmatch(r"[A-Za-z0-9_\-]+(,[A-Za-z0-9_\-]+)*", a.exclude):
+        sys.exit("refusing: --exclude must be node names joined by commas")
     n_tasks, throttle = array_size(a.array)
     reg = read_registry(root)
     u = usage(read_jobs(os.environ.get("USER", "")), reg, cfg["JOB_PREFIX"])
@@ -453,6 +457,8 @@ def main(argv=None) -> None:
     s.add_argument("--dependency", default="")
     s.add_argument("--constraint", default="", help="node features, e.g. cpu-gnr (a CPU with bf16 units: the TRM models "
                    "run in bfloat16, which CPUs without them emulate many times slower)")
+    s.add_argument("--exclude", default="", help="node names to avoid, comma-separated (e.g. a node whose GPU "
+                   "runs thermally throttled)")
     s.add_argument("--export", default="")
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("script")
