@@ -95,7 +95,7 @@
    "--time",
    "08:00:00",
    "--exclude",
-   "atl1-1-03-017-2-0",
+   "atl1-1-03-017-2-0,atl1-1-03-014-2-0",
    "--export",
    "TAG=g3_paper_s2,N_TRAIN=50000,EXTRA=--seed 2 --loopres --loopres_mode paper --data_dir data/generated/recursive/pace",
    "scripts/pace/rloop_train.sbatch"
@@ -117,7 +117,7 @@
    "--time",
    "08:00:00",
    "--exclude",
-   "atl1-1-03-017-2-0",
+   "atl1-1-03-017-2-0,atl1-1-03-014-2-0",
    "--export",
    "TAG=g3_plain_s3,N_TRAIN=50000,EXTRA=--seed 3 --data_dir data/generated/recursive/pace",
    "scripts/pace/rloop_train.sbatch"
@@ -139,7 +139,7 @@
    "--time",
    "08:00:00",
    "--exclude",
-   "atl1-1-03-017-2-0",
+   "atl1-1-03-017-2-0,atl1-1-03-014-2-0",
    "--export",
    "TAG=g3_paper_s3,N_TRAIN=50000,EXTRA=--seed 3 --loopres --loopres_mode paper --data_dir data/generated/recursive/pace",
    "scripts/pace/rloop_train.sbatch"
@@ -161,7 +161,7 @@
    "--time",
    "08:00:00",
    "--exclude",
-   "atl1-1-03-017-2-0",
+   "atl1-1-03-017-2-0,atl1-1-03-014-2-0",
    "--export",
    "TAG=g3_lp_s2,N_TRAIN=50000,EXTRA=--seed 2 --loopres --data_dir data/generated/recursive/pace",
    "scripts/pace/rloop_train.sbatch"
@@ -183,7 +183,7 @@
    "--time",
    "08:00:00",
    "--exclude",
-   "atl1-1-03-017-2-0",
+   "atl1-1-03-017-2-0,atl1-1-03-014-2-0",
    "--export",
    "TAG=g3_lp_s3,N_TRAIN=50000,EXTRA=--seed 3 --loopres --data_dir data/generated/recursive/pace",
    "scripts/pace/rloop_train.sbatch"
