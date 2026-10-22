@@ -113,7 +113,9 @@ Every other model has one seed.
 **Design.** Every test instance is run by one worker pinned to one core of PACE's Granite Rapids node:
 * **Back to back.** Each evaluation process that covers the instance runs on that core, one after another, in a random order seeded by the instance.
 * **Same CPU for everything.** Arm A's networks run in bfloat16, and this is ICE's only CPU with bf16 units; it has no hyper-threading.
-* **One thread, one solver build.** Every process is single-threaded (HiGHS, torch, OMP and MKL). MILPs use highspy 1.15.1; LPs use scipy 1.17.1's HiGHS.
+* **One thread, one solver build per problem type.** Every process is single-threaded (HiGHS, torch, OMP and MKL).
+  * Every MILP goes through highspy 1.15.1.
+  * Dispatch LPs go through scipy 1.17.1's bundled HiGHS 1.12, except arm B's warm-started LPs, which use highspy 1.15.1 as in its published implementation.
 * **Reference measured several times.** Each process re-solves its own full MILP at 0.1 %. This gives the paired speed-up reference and a measure of timing noise per instance.
 * **All overhead counted.** Times include the LP relaxation, inference, guards, every LP and MILP, and fallbacks, measured around each method's own calls.
 
@@ -147,10 +149,10 @@ Files:
 * **Arm A:** its TRM would need new GPU training and is left at one seed.
 
 **Jobs (CPU only; no GPU is needed).**
-1. One preparation job (16 cores): shifted sets, tuning, early models, the extra pipeline ensembles, and the input and tuning checks.
-2. One smoke job (2 cores) running every process kind on four instances.
-3. Three re-timing jobs of 8 pinned workers each, about 36 core-hours.
-4. Two bound jobs, with one-hour solves on every instance still more than 0.1 % unresolved after the re-timing.
+1. **Preparation.** One job (16 cores) for the shifted sets, tuning, early models and extra pipeline ensembles, plus the input and tuning checks.
+2. **Smoke.** One job (2 cores) running every process kind on four instances.
+3. **Re-timing.** Jobs of 8 pinned workers on the Granite Rapids node. Every worker claims instances from one shared list, longest first, until none is left. The 12-hour instances wait until the preparation outputs have been checked.
+4. **Bounds.** Jobs of 16 workers on any node, claiming the one-hour bound solves the same way. The list is re-planned after the re-timing.
 
 **Checks in the report:**
 * LP relaxation costs agree with step 1;

@@ -21,6 +21,7 @@ file only, never from the original studies' records):
 A manifest line per process records the host, CPU model, start / end, exit code and load average.
 """
 import argparse
+import glob
 import json
 import os
 import socket
@@ -104,28 +105,67 @@ def cpu_model():
     return ""
 
 
+def claim(res, it, tag):
+    """atomically claim an item for this worker (a file created with O_EXCL); False if another worker has it"""
+    d = os.path.join(res, "claims")
+    os.makedirs(d, exist_ok=True)
+    try:
+        fd = os.open(os.path.join(d, f"{it[0]}_{it[1]}_{it[2]}"), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return False
+    os.write(fd, f"{tag} {socket.gethostname()} {time.time():.0f}\n".encode())
+    os.close(fd)
+    return True
+
+
+def audit(res, skip=()):
+    """items whose every process finished with exit code 0 in some worker's manifest, and the rest"""
+    ok = {}
+    for p in glob.glob(os.path.join(res, "manifest_*.jsonl")):
+        for line in open(p):
+            r = json.loads(line)
+            if r["rc"] == 0:
+                ok.setdefault((r["bench"], r["set"], r["k"]), set()).add(r["kind"])
+    done, missing = [], []
+    for it in items_all():
+        need = {k for k in commands(it, res, "x", "python3") if k not in skip}
+        (done if need <= ok.get(it, set()) else missing).append(it)
+    return done, missing
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", type=int, default=0)
     ap.add_argument("--ntasks", type=int, default=1)
     ap.add_argument("--items", default="", help="comma list bench:set:k (overrides --task / --ntasks)")
-    ap.add_argument("--tag", default="", help="output tag with --items (default t<array task id> or tx)")
+    ap.add_argument("--pull", action="store_true",
+                    help="claim items from the shared list (longest first) until none is left; 12-hour items wait for "
+                         "the marker <res>/prep/READY (written once the preparation job's outputs are checked)")
+    ap.add_argument("--tag", default="", help="output tag with --items / --pull (default t<array task id> or tx)")
     ap.add_argument("--res", default="results/unified/retime")
     ap.add_argument("--skip", default="", help="comma list of process kinds to leave out (fix, hard, armA, armB, armB0)")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--audit", action="store_true", help="print the items not complete yet (as an --items list)")
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
     os.chdir(ROOT)
     py = sys.executable
+    skip = {x for x in a.skip.split(",") if x}
+    if a.audit:
+        done, missing = audit(a.res, skip)
+        print(f"{len(done)} items complete, {len(missing)} not")
+        print(",".join(f"{b}:{s}:{k}" for b, s, k in missing))
+        return
     if a.items:
         mine = [(x.split(":")[0], x.split(":")[1], int(x.split(":")[2])) for x in a.items.split(",") if x]
         tag = a.tag or "t" + (os.environ.get("SLURM_ARRAY_TASK_ID") or "x")
+    elif a.pull:
+        mine, tag = None, a.tag or f"j{os.environ.get('SLURM_JOB_ID', 'x')}"
     else:
         parts, load = assign(items_all(), a.ntasks)
         mine, tag = sorted(parts[a.task], key=lambda x: (x[0] != "uc12" or x[1] != "tf", x)), f"t{a.task}"
         if a.list:
             print(f"{len(items_all())} items, {a.ntasks} tasks, est. minutes per task: {[round(x) for x in load]}")
-    skip = {x for x in a.skip.split(",") if x}
     if a.list:
         print(f"task {a.task}: {len(mine)} items, first {mine[:3]}")
         for kind, c in commands(mine[0], a.res, tag, "python3").items():
@@ -141,9 +181,10 @@ def main():
                 done.add((r["bench"], r["set"], r["k"], r["kind"]))
     env = dict(os.environ, OTSL_THREADS="1", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
     host, cpu = socket.gethostname(), cpu_model()
-    print(f"{tag}: {len(mine)} items on {host} ({cpu}), CPUs {cpus()}", flush=True)
+    print(f"{tag}: {'pull mode' if a.pull else f'{len(mine)} items'} on {host} ({cpu}), CPUs {cpus()}", flush=True)
     t_all = time.time()
-    for j, it in enumerate(mine):
+
+    def run_item(j, it):
         cmd = {k_: v for k_, v in commands(it, a.res, tag, py).items() if k_ not in skip}
         order = sorted(cmd)
         rng_seed = zlib.crc32(f"{it[0]}/{it[1]}/{it[2]}/{a.seed}".encode())
@@ -155,8 +196,7 @@ def main():
             p = subprocess.run(cmd[kind], env=env, cwd=ROOT, capture_output=True, text=True)
             rec = dict(bench=it[0], set=it[1], k=it[2], kind=kind, rc=p.returncode, start=t0, wall=time.time() - t0,
                        loadavg0=l0, loadavg1=os.getloadavg()[0], host=host, cpu_model=cpu, order=order,
-                       cpus=cpus(), job=os.environ.get("SLURM_JOB_ID"),
-                       task=os.environ.get("SLURM_ARRAY_TASK_ID"))
+                       cpus=cpus(), job=os.environ.get("SLURM_JOB_ID"), tag=tag)
             if p.returncode != 0:
                 rec["stderr_tail"] = p.stderr[-3000:]
             with open(man, "a") as f:
@@ -165,8 +205,34 @@ def main():
                 f.write(f"==== {it} {kind} rc={p.returncode} {rec['wall']:.0f}s\n{p.stdout[-4000:]}\n")
                 if p.returncode:
                     f.write(p.stderr[-4000:] + "\n")
-            print(f"[{j + 1}/{len(mine)} {time.time() - t_all:.0f}s] {it} {kind}: rc {p.returncode}, {rec['wall']:.0f}s",
-                  flush=True)
+            print(f"[{j} {time.time() - t_all:.0f}s] {it} {kind}: rc {p.returncode}, {rec['wall']:.0f}s", flush=True)
+
+    if not a.pull:
+        for j, it in enumerate(mine):
+            run_item(f"{j + 1}/{len(mine)}", it)
+    else:
+        ready = os.path.join(a.res, "prep", "READY")
+        claims = os.path.join(a.res, "claims")
+        order = sorted(items_all(), key=lambda x: (-cost(x), x))           # longest first: a short tail at the end
+        n = 0
+        while True:
+            took = waiting = False
+            for it in order:
+                if os.path.exists(os.path.join(claims, f"{it[0]}_{it[1]}_{it[2]}")):
+                    continue
+                if it[0] == "uc12" and not os.path.exists(ready):
+                    waiting = True
+                    continue
+                if claim(a.res, it, tag):
+                    n += 1
+                    run_item(f"#{n}", it)
+                    took = True
+                    break                                                  # re-scan: READY may have appeared
+            if took:
+                continue
+            if not waiting:
+                break
+            time.sleep(60)
     print(f"{tag}: done in {time.time() - t_all:.0f}s", flush=True)
 
 

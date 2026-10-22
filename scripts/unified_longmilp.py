@@ -3,11 +3,13 @@ than 0.1 % above its tightest proven bound, to tighten the bound DB that every g
 
     python3 scripts/unified_longmilp.py --plan                       # write the item list from the scored records
     python3 scripts/unified_longmilp.py --task 2 --ntasks 14         # one array task: its share of the list
+    python3 scripts/unified_longmilp.py --pull --tag w3              # claim items from the list until none is left
+                                                                     # (shifted instances wait until their file exists)
 
 Each solve: the same UC MILP as every other full-MILP run of its benchmark (otsl.ood.OODModel, outages as in the
 shifted sets; congested lines through otsl.hard's system), HiGHS through highspy with one thread, mip_rel_gap 1e-5,
 a one-hour limit (--tl). The bound and the incumbent are recorded; times are not compared with anything.
-Output: results/unified/retime/longmilp_t<task>.jsonl (resume skips finished items).
+Output: results/unified/retime/longmilp_<tag>.jsonl (resume skips finished items).
 """
 import argparse
 import json
@@ -66,6 +68,9 @@ def main():
     ap.add_argument("--ntasks", type=int, default=1)
     ap.add_argument("--tl", type=float, default=3600.0)
     ap.add_argument("--gap", type=float, default=1e-5)
+    ap.add_argument("--pull", action="store_true")
+    ap.add_argument("--tag", default="")
+    ap.add_argument("--max_wait_h", type=float, default=4.0, help="pull: how long to wait for missing instance files")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     if a.plan:
@@ -76,11 +81,45 @@ def main():
     from otsl.ltfx import highs_solve
     from otsl.ood import OODModel, OODScenario
     from otsl.uc import load_rts_gmlc
-    items = json.load(open(ITEMS))["items"][a.task::a.ntasks]
-    out = os.path.join(RES, f"longmilp_t{a.task}.jsonl")
+    tag = a.tag or f"t{a.task}"
+    out = os.path.join(RES, f"longmilp_{tag}.jsonl")
     done = {(r["bench"], r["set"], r["k"]) for r in map(json.loads, open(out))} if os.path.exists(out) else set()
     cache = {}
-    for it in items:
+    have = lambda it: it["bench"] != "uc12" or it["set"] == "tf" or \
+        os.path.exists(os.path.join("data/generated/uc12_ood", it["set"], f"{it['k']:03d}.npz"))
+
+    def items():
+        if not a.pull:
+            yield from json.load(open(ITEMS))["items"][a.task::a.ntasks]
+            return
+        cl = os.path.join(RES, "claims_bounds")
+        os.makedirs(cl, exist_ok=True)
+        t0 = time.time()
+        while True:
+            took = waiting = False
+            for it in json.load(open(ITEMS))["items"]:                  # re-read: the list may be extended
+                f = os.path.join(cl, f"{it['bench']}_{it['set']}_{it['k']}")
+                if os.path.exists(f):
+                    continue
+                if not have(it):
+                    waiting = True
+                    continue
+                try:
+                    fd = os.open(f, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                except FileExistsError:
+                    continue
+                os.write(fd, f"{tag} {socket.gethostname()}\n".encode())
+                os.close(fd)
+                took = True
+                yield it
+                break
+            if took:
+                continue
+            if not waiting or time.time() - t0 > a.max_wait_h * 3600:
+                return
+            time.sleep(60)
+
+    for it in items():
         key = (it["bench"], it["set"], it["k"])
         if key in done:
             continue

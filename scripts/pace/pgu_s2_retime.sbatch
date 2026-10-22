@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Step 2 of docs/unified_metrics.md, phase 1: the re-timing. The 400 test instances (12 h test_fresh and six shifted sets,
-# 24 h, congested) are split into NTASKS load-balanced shares (scripts/unified_retime.py); this job runs shares
-# TASK0 .. TASK0 + (CPUs - 1), one worker per allocated core, each pinned to its core with taskset. A worker runs, per
-# instance, every evaluation process that covers it back to back on its core. Every process is single-threaded (HiGHS one
+# Step 2 of docs/unified_metrics.md, phase 1: the re-timing of the 400 test instances (12 h test_fresh and six shifted
+# sets, 24 h, congested). One worker per allocated core, pinned to it with taskset; every worker claims instances from
+# the shared list (scripts/unified_retime.py --pull, longest first) until none is left, so any number of these jobs can
+# run at once. A worker runs, per instance, every evaluation process that covers it back to back on its core. 12-hour
+# instances wait for results/unified/retime/prep/READY, written once the preparation job's outputs have been checked. Every process is single-threaded (HiGHS one
 # thread, torch one thread, OMP/MKL 1). Arm A's networks run in bfloat16, so the job runs on the Granite Rapids node (the
 # only ICE CPU with bf16 units, no hyper-threading: one worker = one physical core), which keeps every method on one CPU.
-#   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-retime-0 --cpus 8 --mem 64G --time 08:00:00 \
-#       --constraint cpu-gnr --export NTASKS=24,TASK0=0 scripts/pace/pgu_s2_retime.sbatch        (then TASK0=8, 16)
+#   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-retime --cpus 8 --mem 96G --time 10:00:00 \
+#       --constraint cpu-gnr scripts/pace/pgu_s2_retime.sbatch                                   (as many as wanted)
 #   smoke test (ITEMS, '+'-separated since sbatch --export splits on commas, spread round-robin over the allocated cores,
 #   same pinning, outputs in results/unified/retime/smoke):
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-smoke --cpus 2 --mem 32G --time 02:00:00 \
@@ -28,9 +29,8 @@ for w in "${!CPUS[@]}"; do
     taskset -c "${CPUS[$w]}" python3 scripts/unified_retime.py --items "$mine" --tag "s$w" --res "$R/smoke" \
       > "$R/smoke/worker_s$w.out" 2>&1 & pids+=($!)
   else
-    t=$((${TASK0:?} + w))
-    taskset -c "${CPUS[$w]}" python3 scripts/unified_retime.py --task "$t" --ntasks "${NTASKS:?}" \
-      > "$R/workers/t$t.out" 2>&1 & pids+=($!)
+    tag="j${SLURM_JOB_ID}w$w"
+    taskset -c "${CPUS[$w]}" python3 scripts/unified_retime.py --pull --tag "$tag" > "$R/workers/$tag.out" 2>&1 & pids+=($!)
   fi
 done
 fail=0
