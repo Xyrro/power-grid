@@ -7,9 +7,10 @@
 # only ICE CPU with bf16 units, no hyper-threading: one worker = one physical core), which keeps every method on one CPU.
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-retime-0 --cpus 8 --mem 64G --time 08:00:00 \
 #       --constraint cpu-gnr --export NTASKS=24,TASK0=0 scripts/pace/pgu_s2_retime.sbatch        (then TASK0=8, 16)
-#   smoke test (ITEMS spread round-robin over the allocated cores, same pinning, outputs in results/unified/retime/smoke):
+#   smoke test (ITEMS, '+'-separated since sbatch --export splits on commas, spread round-robin over the allocated cores,
+#   same pinning, outputs in results/unified/retime/smoke):
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-smoke --cpus 2 --mem 32G --time 02:00:00 \
-#       --constraint cpu-gnr --export ITEMS=uc12:tf:0,uc12:line_out:0,uc24:tf:0,hard:tf:0 scripts/pace/pgu_s2_retime.sbatch
+#       --constraint cpu-gnr --export ITEMS=uc12:tf:0+uc12:line_out:0+uc24:tf:0+hard:tf:0 scripts/pace/pgu_s2_retime.sbatch
 #SBATCH -N 1 --ntasks=1
 source "${SLURM_SUBMIT_DIR:-$PWD}/scripts/pace/trm_env.sh"
 echo "node $(hostname): $(lscpu | sed -n 's/^Model name: *//p'), threads per core $(lscpu | sed -n 's/^Thread(s) per core: *//p')"
@@ -21,7 +22,7 @@ mkdir -p "$R/workers" "$R/smoke"
 pids=()
 for w in "${!CPUS[@]}"; do
   if [ -n "${ITEMS:-}" ]; then        # smoke: items w, w + n, w + 2n, ... of the list
-    mine=$(python3 -c "import sys; x = sys.argv[1].split(','); print(','.join(x[int(sys.argv[2])::int(sys.argv[3])]))" \
+    mine=$(python3 -c "import sys; x = sys.argv[1].split('+'); print(','.join(x[int(sys.argv[2])::int(sys.argv[3])]))" \
            "$ITEMS" "$w" "${#CPUS[@]}")
     [ -n "$mine" ] || continue
     taskset -c "${CPUS[$w]}" python3 scripts/unified_retime.py --items "$mine" --tag "s$w" --res "$R/smoke" \
