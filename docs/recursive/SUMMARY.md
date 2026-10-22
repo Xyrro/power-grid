@@ -1,5 +1,7 @@
 # Recursive reasoning for end-to-end unit commitment: summary
 
+*All results re-scored with every other model under one protocol: [`../unified_metrics.md`](../unified_metrics.md).*
+
 *First round: two arms run in parallel on 4 CPU cores (no GPU), following [`PLAN.md`](PLAN.md). Details:
 [`trm.md`](trm.md) (arm A, a TRM-style recursive model) and [`rloop.md`](rloop.md) (arm B, recursion with the exact
 dispatch LP in the loop). uc12 (RTS-GMLC, 73 units, 12 h); selection on 360 validation instances; one pass over the 120
