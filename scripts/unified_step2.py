@@ -281,8 +281,9 @@ def checks(insts_all):
     out["identity"] = dict(instances=n, disagreements=len(dis), examples=[str(d) for d in dis[:5]])
     # hardware and solver of the step-2 records
     hw = {}
-    for p in glob.glob(os.path.join(ARGS.res, "*_fix_[ts]*.jsonl")):
-        for r in U.jl(p):
+    for p in glob.glob(os.path.join(ARGS.res, "uc12_fix_[ts]*.jsonl")) + glob.glob(os.path.join(ARGS.res, "uc24_fix_[ts]*.jsonl")):
+        for r in U.jl(p):                                   # (the congested script's records carry no CPU field;
+                                                            #  the manifest covers every process)
             hw[(r.get("cpu_model"), r.get("highs"))] = hw.get((r.get("cpu_model"), r.get("highs")), 0) + 1
     man = {}
     for p in glob.glob(os.path.join(ARGS.res, "manifest_[ts]*.jsonl")):
