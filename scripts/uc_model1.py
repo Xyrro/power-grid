@@ -2,6 +2,8 @@
 
     python scripts/uc_model1.py --cfg uc1        (single period)
     python scripts/uc_model1.py --cfg uc12       (12-hour look-ahead, min up/down repair)
+    python scripts/uc_model1.py --cfg uc12 --epochs 80 --rl_steps 120 --test_split test_fresh --n_fix 0 \
+        --out_dir results/unified/retime/models     (step 2: retrain on the cluster, checkpoints elsewhere)
 
 Every predicted commitment is scored by the exact fixed-commitment dispatch LP (the framework's
 "LP solver"); costs include VOLL-priced load shedding / over-generation and reserve shortfall.
@@ -54,13 +56,15 @@ if __name__ == "__main__":
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--n_fix", type=int, default=200, help="test instances for the partial-fixing MILPs")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--test_split", default="test", help="test file of data/generated/<cfg> (e.g. test_fresh)")
+    ap.add_argument("--out_dir", default="", help="checkpoints and results (default results/<cfg>)")
     a = ap.parse_args()
     cfg = UC_CONFIGS[a.cfg]
     T = cfg["T"]
     root = os.path.join("data", "generated", a.cfg)
-    tr, va, te = (load(os.path.join(root, f"{s}.npz")) for s in ["train", "val", "test"])
+    tr, va, te = (load(os.path.join(root, f"{s}.npz")) for s in ["train", "val", a.test_split])
     sysm = load_rts_gmlc()
-    out_dir = os.path.join("results", a.cfg)
+    out_dir = a.out_dir or os.path.join("results", a.cfg)
     os.makedirs(out_dir, exist_ok=True)
     rep = (lambda u, u0: repair_min_updown(u, u0, sysm.min_up, sysm.min_dn)) if T > 1 else None
     fixrep = (lambda U, U0: np.array([rep(U[i], U0[i]) for i in range(len(U))])) if rep else (lambda U, U0: U)
@@ -160,7 +164,7 @@ if __name__ == "__main__":
     p = models[best_name].predict(te)
     conf = np.abs(p - 0.5)
     nf = min(a.n_fix, n_te)
-    for ratio in (0.5, 0.8, 0.9, 0.95):
+    for ratio in (0.5, 0.8, 0.9, 0.95) if nf > 0 else ():
         costs, times, sheds, shorts, us = [], [], [], [], []
         for i in range(nf):
             flat = np.argsort(-conf[i].reshape(-1))[:int(ratio * conf[i].size)]

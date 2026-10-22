@@ -7,6 +7,8 @@ kNN: k = 50, Euclidean distance on the Table II features (z-scored on train), in
 trained on the 500 training instances. GNNs (existing checkpoints, as in docs/methods/ltf.md): MILP-label BCE
 (uc_model1_4.pt), self-trained (selftrain_m3.pt), MILP-label REINFORCE (uc_model1_rl.pt).
 Output: results/uc12/ltfx_probs.npz (keys <model>_<split>, split in va, vx, tf), results/uc12/ltfx_probs.json.
+--res DIR writes both files to DIR instead; --models knn,bce limits the GNNs to existing checkpoints (step 2 of
+docs/unified_metrics.md: re-tuning on the cluster's own models).
 """
 import json
 import os
@@ -36,7 +38,13 @@ def logloss(p, y, clip=1e-3):
 
 
 if __name__ == "__main__":
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--res", default=OUT, help="output folder (default results/uc12)")
+    ap.add_argument("--models", default="knn," + ",".join(GNNS), help="comma list: knn and GNNs of GNNS")
+    a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
+    GNNS = {k: v for k, v in GNNS.items() if k in a.models.split(",")}
     torch.set_num_threads(1)
     t0 = time.time()
     sysm = load_rts_gmlc()
@@ -51,8 +59,8 @@ if __name__ == "__main__":
         m1 = load_model1(os.path.join(OUT, f), sysm, trs, 12)
         for k, d in data.items():
             out[f"{name}_{k}"] = m1.predict(d).astype(np.float64)
-    old = np.load(os.path.join(OUT, "ltf_probs.npz"))
-    for name in GNNS:
+    old = np.load(os.path.join(OUT, "ltf_probs.npz")) if os.path.exists(os.path.join(OUT, "ltf_probs.npz")) else None
+    for name in GNNS if old is not None else ():
         for k in ("va", "tf"):
             info[f"max_abs_diff_vs_ltf_probs_{name}_{k}"] = float(np.abs(out[f"{name}_{k}"] - old[f"{name}_{k}"]).max())
     for k in ("va", "vx"):
@@ -62,7 +70,8 @@ if __name__ == "__main__":
             p = out[f"{name}_{k}"]
             info[f"{name}_{k}"] = {"logloss": logloss(p, y), "wrong_at_0.5_per_inst": float(((p > 0.5) != y).sum((1, 2)).mean()),
                                    "share_exact_0_or_1": float(((p == 0) | (p == 1)).mean())}
-    np.savez_compressed(os.path.join(OUT, "ltfx_probs.npz"), **out)
+    os.makedirs(a.res, exist_ok=True)
+    np.savez_compressed(os.path.join(a.res, "ltfx_probs.npz"), **out)
     info["wall_s"] = time.time() - t0
-    json.dump(info, open(os.path.join(OUT, "ltfx_probs.json"), "w"), indent=1)
+    json.dump(info, open(os.path.join(a.res, "ltfx_probs.json"), "w"), indent=1)
     print(json.dumps(info, indent=1))

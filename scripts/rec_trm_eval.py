@@ -248,6 +248,7 @@ def main():
     ap.add_argument("--out", required=True, help="this run's own records (jsonl); resuming reads only this file")
     ap.add_argument("--round", default="", help="label stored in every record (e.g. gpu)")
     ap.add_argument("--trm_device", default="cpu", help="device of the TRM forward passes (LPs / MILPs stay on the CPU)")
+    ap.add_argument("--only", default="", help="comma list of instance indices (overrides --n / --shard / --nshards)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     torch.set_num_threads(1)
@@ -259,6 +260,8 @@ def main():
     out = a.out
     done = {json.loads(line)["i"] for line in open(out)} if os.path.exists(out) else set()
     jobs = [i for i in range(a.n)[a.shard::a.nshards] if i not in done]
+    if a.only:
+        jobs = [int(x) for x in a.only.split(",") if x and int(x) not in done]
     from otsl.m1x import build_model
     from otsl.ucml import UCFeaturizer
     from uc_constrained import load_model1, strip

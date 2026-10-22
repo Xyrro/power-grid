@@ -50,10 +50,11 @@ def timed(f, *a, **k):
     return r, time.time() - t0
 
 
-def done_any(out):
-    """instances finished in any records file of the evaluation (shards and helpers)"""
+def done_any(out, own_only=False):
+    """instances finished in any records file of the evaluation (shards and helpers); own_only: in `out` only (a run
+    with --out elsewhere, e.g. step 2 of docs/unified_metrics.md, must not skip what the original study finished)"""
     done = set()
-    for f in set(glob.glob(os.path.join(RES, "hard_eval_s*.jsonl")) + [out]):
+    for f in [out] if own_only else set(glob.glob(os.path.join(RES, "hard_eval_s*.jsonl")) + [out]):
         if os.path.exists(f):
             done |= {json.loads(x)["i"] for x in open(f) if x.strip()}
     return done
@@ -89,8 +90,8 @@ def main(a):
     rules.append("LP-int+g")
     if os.path.exists(os.path.join(RES, "hard_tune_lp_g.json")):
         rules.append("LP pipeline")
-    if os.path.exists(os.path.join(RES, "hard_tune_knn.json")):
-        rules.append("LtF-kNN")
+    if os.path.exists(os.path.join(RES, "hard_tune_knn.json")) and glob.glob(os.path.join(DATA_DIR, "train_[0-9][0-9].npz")):
+        rules.append("LtF-kNN")                  # needs the training scenarios and their polished labels
     members = sorted(glob.glob(os.path.join(DATA_DIR, "models", f"{a.ens}_s*.pt")))
     if members and os.path.exists(os.path.join(RES, f"hard_tune_{a.hg}.json")):
         rules.append("pipeline")
@@ -122,7 +123,7 @@ def main(a):
     if a.reverse:
         todo = todo[::-1]
     for j, i in enumerate(todo):
-        if i in done_any(out):                 # finished meanwhile by another process (helper shard)
+        if i in done_any(out, own_only=bool(a.out)):                 # finished meanwhile by another process (helper shard)
             continue
         sc = sc_of(te, i)
         base = dict(i=i, day=int(te["day"][i]), seed=int(te["seed"][i]), shard=a.shard, cpu=sorted(os.sched_getaffinity(0)))

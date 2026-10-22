@@ -10,7 +10,7 @@ probability sources, on the same 360 validation instances as the hybrid referenc
           <src> = a tag of data/generated/uc12_m1x/probs/<src>_probs.npz (validation probabilities, 360 instances)
   GUARDS  adeq+rows (the reference hybrid's check), none, all
 Settings as the reference (scripts/uc_hybrid_tune.py): Q = 20, K_max = 10, relaxation MILPs 6 s, check MILPs 60 s.
-Output: results/uc12/m1x_tune_<RUN>.json / .log / _cuts.jsonl; harm scores cached in
+Output: results/uc12/m1x_tune_<RUN>.json / .log / _cuts.jsonl (--res DIR: in DIR); harm scores cached in
 data/generated/uc12_m1x/probs/<src>_harm_probs.npz.
 """
 import argparse
@@ -69,13 +69,16 @@ if __name__ == "__main__":
     ap.add_argument("--K_max", type=int, default=10)
     ap.add_argument("--Q", type=int, default=20)
     ap.add_argument("--harm_only", action="store_true", help="only compute and cache the harm scores")
+    ap.add_argument("--res", default="", help="output folder of the .json / .log / _cuts.jsonl (default results/uc12)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
+    RES_OUT = a.res or RES
+    os.makedirs(RES_OUT, exist_ok=True)
     torch.set_num_threads(1)
     run, spec, eps, gname = a.job.split(":", 1)[0], *a.job.split(":", 1)[1].rsplit(":", 2)
     eps = float(eps)
     guards = parse_guards(gname)
-    done = os.path.join(RES, f"m1x_tune_{run}.json")
+    done = os.path.join(RES_OUT, f"m1x_tune_{run}.json")
     if os.path.exists(done) and json.load(open(done))["converged"] and not a.harm_only:
         print(f"{run}: already converged, skipped", flush=True)
         sys.exit(0)
@@ -87,12 +90,12 @@ if __name__ == "__main__":
     m = UCModel(sysm, T=12, network=True)
     d = val_data(N_VAL)
     assert len(pi) == N_VAL == len(d["obj"])
-    logf = open(os.path.join(RES, f"m1x_tune_{run}.log"), "w")
+    logf = open(os.path.join(RES_OUT, f"m1x_tune_{run}.log"), "w")
 
     def log(s):
         logf.write(s + "\n")
         logf.flush()
-    cut_log = os.path.join(RES, f"m1x_tune_{run}_cuts.jsonl")
+    cut_log = os.path.join(RES_OUT, f"m1x_tune_{run}_cuts.jsonl")
     open(cut_log, "w").close()
     log(f"m1x tuning {run}: score {spec} eps={eps} guards={guards} n_val={N_VAL} K_max={a.K_max} relax_tl={a.relax_tl} "
         f"check_tl={a.check_tl} Q={a.Q} harm norm={norm}")
@@ -113,7 +116,7 @@ if __name__ == "__main__":
                history=tu.history, cfg=dict(K_max=a.K_max, Q=a.Q, relax_tl=a.relax_tl, check_tl=a.check_tl,
                                             budget_s=a.budget_min * 60),
                wall_s=time.time() - t0, cpu_s=time.process_time() - t_cpu0)
-    with open(os.path.join(RES, f"m1x_tune_{run}.json"), "w") as f:
+    with open(os.path.join(RES_OUT, f"m1x_tune_{run}.json"), "w") as f:
         json.dump(res, f, indent=1, default=lambda o: o.tolist() if isinstance(o, np.ndarray) else float(o))
     log(f"done: converged={conv} val fixed {res['val_fixed_share'] * 100:.2f}% after guards "
         f"({res['val_fixed_share_pre_guard'] * 100:.2f}% before) wall {res['wall_s']:.0f}s cpu {res['cpu_s']:.0f}s")

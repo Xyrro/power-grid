@@ -10,7 +10,7 @@ The studies in `docs/RESEARCH.md` and `docs/recursive/` were scored in several w
 Two of those choices changed which method looked better. This page fixes one protocol and shows what follows from it. It works in two steps:
 
 * **Step 1 (done):** every saved per-instance record is re-scored under the protocol. Nothing is re-solved.
-* **Step 2 (proposed):** every method is re-timed on PACE.
+* **Step 2 (running):** every method is re-timed on one machine on PACE (section below).
 
 Files:
 * Script: `scripts/unified_rescore.py` (standard library only).
@@ -108,12 +108,54 @@ Every other model has one seed.
 * **Early one-shot models were never run on test_fresh.** These are the framework GNN, LP features, kNN-20 and the He et al.-style repair (`RESEARCH.md` §4 V2, §5 W1). Their numbers use the original test set and the median gap to the MILP's incumbent, so they cannot enter these tables without a re-run.
 * **Loose bounds** on the time-limited instances (above).
 
-## Step 2: proposed re-timing on PACE (not started; needs approval)
+## Step 2: every method re-timed on one machine (PACE ICE)
 
-1. **One harness.** For each instance, one process pinned to one core runs every headline method back to back, in a random order. All runs use the same HiGHS build with one thread, and inference runs on the CPU. The full MILP at 0.1 % is the reference. CPU model, HiGHS version and load average are recorded per instance.
-2. **Methods.** The headline rows of `results/unified/rescored.md`, plus the early one-shot models re-run on test_fresh.
-3. **Instances.** All five sets above (12 h with its shifted sets, 24 h, congested, California).
-4. **Bounds.** One long full-MILP solve (about one hour) on every instance whose best known cost is still more than 0.1 % above its bound.
-5. **Seeds.** Three seeds for the headline learned models. This needs retraining and can be a separate step.
+**Design.** Every test instance is run by one worker pinned to one core of PACE's Granite Rapids node:
+* **Back to back.** Each evaluation process that covers the instance runs on that core, one after another, in a random order seeded by the instance.
+* **Same CPU for everything.** Arm A's networks run in bfloat16, and this is ICE's only CPU with bf16 units; it has no hyper-threading.
+* **One thread, one solver build.** Every process is single-threaded (HiGHS, torch, OMP and MKL). MILPs use highspy 1.15.1; LPs use scipy 1.17.1's HiGHS.
+* **Reference measured several times.** Each process re-solves its own full MILP at 0.1 %. This gives the paired speed-up reference and a measure of timing noise per instance.
+* **All overhead counted.** Times include the LP relaxation, inference, guards, every LP and MILP, and fallbacks, measured around each method's own calls.
 
-The rough cost is 40–50 CPU core-hours and no GPU, inside the project's PACE share.
+Files:
+* Driver: `scripts/unified_retime.py`.
+* Report: `scripts/unified_step2.py`, which writes `results/unified/step2.{md,json}`.
+* Raw records: `results/unified/retime/`.
+
+| process | what it runs | instances |
+|---|---|---|
+| `unified_fix_eval.py` (new) | full MILP at 0.1 / 0.25 / 0.5 / 1 %; recommended pipeline and its bound check; Learning to Fix (kNN at eps 1 / 5 / 10 %, kNN + our LP guard, BCE GNN, LP relaxation); LP-integral fixing ± guards; LP rounding; the early one-shot models and kNN-5/20 schedules | 12 h test_fresh, the six shifted sets, 24 h |
+| `uc_hard_eval.py` | the congested benchmark's full MILPs and learning-free rules | congested (60) |
+| `rec_trm_eval.py` | arm A with the GPU round's test plan | test_fresh |
+| `rec_rloop_eval.py` | arm B, its no-feedback control, three more training seeds; zero-shot on 24 h, congested and line outages | as listed |
+
+**What the cluster has, and what had to be redone.** Only the recursive study's checkpoints, a retrained pipeline ensemble and a retrained BCE GNN are on PACE. The earlier studies ran in a container that no longer exists.
+* **Arm A and arm B.** These are the GPU round's own checkpoints, re-run unchanged. A local check reproduced arm B's 24 per-step costs exactly for both models.
+* **Learned fixing rules.** The cluster's models and training labels differ from the container's: its HiGHS build gives different MILP labels, so even the kNN fixings differ on about half of the instances. These rules are therefore a re-run, not a re-timing. Their thresholds are re-tuned on this cluster's validation sets, with the original procedure and settings. Nothing is tuned on test.
+* **Learning-free rules.** These use the committed thresholds and are re-timed faithfully. Their fixings equal the saved ones except where the LP relaxation has alternative optima (1–4 of 876 decisions on 3 of 20 instances checked). On the congested benchmark, the fixed shares and objectives are identical.
+* **Early one-shot models.** These (MLP, GNN, symmetry and LP-feature networks, REINFORCE fine-tune) are retrained with their original settings. The He et al.-style policy and the label-free and Lagrangian models need longer training chains and are left out.
+* **Other learned models left out.** The hybrid's error-cost model, the 24-hour recipe, the congested benchmark's learned pipeline and California also need their training data regenerated first; they are not part of this step.
+* **Input identity.** The cluster's test sets were checked against the saved records, with 0 disagreements:
+  * LP relaxation cost of test_fresh (120), 24 h (40) and congested (60);
+  * the line-outage set: day, start, outages, intact-network LP cost and MILP bounds.
+
+  The other five shifted sets are regenerated from their stored (day, start, seed) specifications and checked the same way.
+
+**Training seeds.**
+* **Pipeline:** three ensembles (networks with seeds 0–4, 5–9 and 10–14), each with its own thresholds tuned on validation.
+* **Arm B:** four training runs, the tested model plus three runs of the same configuration from the attention-residual comparison.
+* **Arm A:** its TRM would need new GPU training and is left at one seed.
+
+**Jobs (CPU only; no GPU is needed).**
+1. One preparation job (16 cores): shifted sets, tuning, early models, the extra pipeline ensembles, and the input and tuning checks.
+2. One smoke job (2 cores) running every process kind on four instances.
+3. Three re-timing jobs of 8 pinned workers each, about 36 core-hours.
+4. Two bound jobs, with one-hour solves on every instance still more than 0.1 % unresolved after the re-timing.
+
+**Checks in the report:**
+* LP relaxation costs agree with step 1;
+* the hardware and solver build of every record;
+* the same checkpoints give the same schedules as step 1;
+* the spread of the repeated reference times;
+* no delivered cost below the tightest bound;
+* the number of instances still more than 0.1 % unresolved.

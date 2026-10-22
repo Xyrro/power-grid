@@ -12,7 +12,8 @@ Features normalised with the statistics of the 500 original training instances (
 BCE, AdamW 1e-3, batch 64, cosine schedule, early stopping on the log-loss of val.npz (60, canonical MILP labels);
 epochs by size: 500 -> 80, 1000 -> 60, 2000 -> 40, 4000 -> 30 (more steps for more data).
 Output: data/generated/uc12_m1x/models/<tag>.pt, data/generated/uc12_m1x/probs/<tag>_probs.npz (validation:
-va 60 + vx 120 + vx2 180, in that order), results/uc12/m1x_train.json (per tag: data, time, validation metrics).
+va 60 + vx 120 + vx2 180, in that order), results/uc12/m1x_train.json (per tag: data, time, validation metrics;
+--log elsewhere).
 """
 import argparse
 import contextlib
@@ -135,7 +136,10 @@ if __name__ == "__main__":
     ap.add_argument("--metrics_only", nargs="*")
     ap.add_argument("--ensemble", nargs=2, metavar=("NAME", "TAGS"))
     ap.add_argument("--refs", action="store_true", help="metrics of the existing BCE / self-trained / kNN probabilities")
+    ap.add_argument("--log", default="", help="metrics JSON (default results/uc12/m1x_train.json)")
     a = ap.parse_args()
+    if a.log:
+        LOG = a.log
     os.chdir(os.path.dirname(HERE))
     torch.set_num_threads(1)
     os.makedirs(os.path.join(DATA, "models"), exist_ok=True)

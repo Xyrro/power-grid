@@ -25,7 +25,8 @@ from otsl.uc import UCModel, load_rts_gmlc  # noqa: E402
 from otsl.ucdata import load  # noqa: E402
 from otsl.ucml import canonical_labels  # noqa: E402
 
-ROOT, OUT = "data/generated/uc12", "results/uc12"
+ROOT = "data/generated/uc12"
+OUT = os.environ.get("LTFX_RES", "results/uc12")     # --res sets it (inherited by the spawned workers)
 FIELDS = ("load", "avail", "u0", "sr", "obj", "u", "day", "start", "gap", "time")
 
 
@@ -92,7 +93,8 @@ def cheap_thresholds(n_val):
     d = val_data(n_val)
     y = canonical_labels(sysm, d["u"], d["u0"])
     out = {}
-    for name in ("knn", "bce", "st", "rl"):
+    have = set(k.rsplit("_", 1)[0] for k in np.load(os.path.join(OUT, "ltfx_probs.npz")).files)
+    for name in [x for x in ("knn", "bce", "st", "rl") if x in have]:
         pi = val_probs(name, n_val)
         lo, hi = worst_case_thresholds(pi, y)
         off, on = fix_masks(pi, lo, hi)
@@ -118,7 +120,10 @@ if __name__ == "__main__":
     ap.add_argument("--check_tl", type=float, default=60.0)
     ap.add_argument("--master_tl", type=float, default=120.0)
     ap.add_argument("--budget_min", type=float, default=150.0)
+    ap.add_argument("--res", default="", help="folder with ltfx_probs.npz, gets every output (default results/uc12)")
     a = ap.parse_args()
+    if a.res:
+        os.environ["LTFX_RES"] = OUT = a.res
     os.chdir(os.path.dirname(HERE))
     cfg = dict(n_val=a.n_val, K_max=a.K_max, Q=a.Q, relax_tl=a.relax_tl, check_tl=a.check_tl, master_tl=a.master_tl,
                budget_s=a.budget_min * 60)
