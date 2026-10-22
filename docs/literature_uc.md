@@ -3,6 +3,8 @@
 Compiled 2026-10-04 from search-engine abstracts/snippets (full texts were not retrievable here,
 except RACLearn, which was read in full: [`raclearn_comparison.md`](raclearn_comparison.md)).
 Items marked † were not verified against the paper.
+Broader 2026 trends in learning for OPF and grid operations (foundation models, LLM agents, diffusion, GPU solvers):
+[`literature_trends_2026.md`](literature_trends_2026.md).
 
 ## Commitment prediction followed by LP / MILP (Model 1 → LP)
 
