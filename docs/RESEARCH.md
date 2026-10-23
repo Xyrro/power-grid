@@ -6,7 +6,8 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
 [`ots/RESEARCH_OTS.md`](ots/RESEARCH_OTS.md).
 The studies below use different gap and speed-up conventions; every result re-scored under one protocol (gap to the
 tightest proven bound over all runs, no instance dropped, geometric-mean paired speed-ups):
-[`unified_metrics.md`](unified_metrics.md).*
+[`unified_metrics.md`](unified_metrics.md); every method whose models exist was then re-timed on one machine
+(`results/unified/step2.md`).*
 
 **TL;DR** (RTS-GMLC, 73 thermal units; B1 = one hour, B2 = twelve hours with min up/down, ramping, start-ups).
 

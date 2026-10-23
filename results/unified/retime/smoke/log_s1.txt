@@ -1,0 +1,21 @@
+==== ('uc12', 'line_out', 0) fix rc=0 101s
+  full@0.5%                   6.45s  cost 521472.8  served
+  lpint+g                     1.77s  cost 525100.7  served
+  lpint                       1.69s  cost 525100.7  served
+  full@0.1%                  22.48s  cost 521152.1  served
+  ltf_lp                      3.99s  cost 521051.2  served
+{'bench': 'uc12', 'set': 'line_out', 'k': 0}: 5 methods in 36s
+
+==== ('uc12', 'line_out', 0) armB rc=0 34s
+line_out shard 0/1 on CPU [159]: model w2_rloop_rl, K 24, k_sel 24, 1 instances (0 done)
+[line_out 0] full 22.6s obj 521152.1 | rloop@24 35.473% in 4.41s | lpround 3.097% | cert 55.54% safety 1.4s (29s)
+
+==== ('hard', 'tf', 0) hard rc=0 74s
+rules: ['LtF-LP', 'LP-int+g', 'LP pipeline']; ensemble fin (0 members), thresholds hard_tune_hg_fin.json
+shard 0/1 on CPU [159]: 1 instances
+[1/1 69s] i=0 full MILP@0.1% 14.4s, full MILP@0.5% 7.6s, full MILP@1% 7.6s, LtF-LP@0.1% 14.1s, LtF-LP@0.5% 3.7s, LP-int+g@0.1% 1.0s, LP-int+g@0.5% 0.9s, LP pipeline@0.1% 14.9s, LP pipeline@0.5% 4.3s
+
+==== ('hard', 'tf', 0) armB rc=0 25s
+hard shard 0/1 on CPU [159]: model w2_rloop_rl, K 24, k_sel 24, 1 instances (0 done)
+[hard 0] full 14.4s obj 541316.7 | rloop@24 0.164% in 4.09s | lpround 0.400% | cert 1.04% safety 1.3s (21s)
+

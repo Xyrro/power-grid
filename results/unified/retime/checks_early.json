@@ -1,0 +1,109 @@
+{
+ "ok": true,
+ "uc_model1_1.pt": true,
+ "uc_model1_2.pt": true,
+ "uc_model1_3.pt": true,
+ "uc_model1_4.pt": true,
+ "uc_model1_rl.pt": true,
+ "batch_rows": {
+  "persistence (keep units that were running)": {
+   "served": 12.5,
+   "gap_median": 4356.429244713544
+  },
+  "rounded LP relaxation": {
+   "served": 24.166666666666668,
+   "gap_median": 13.87924668426098
+  },
+  "rounded LP relaxation + adequacy repair": {
+   "served": 45.83333333333333,
+   "gap_median": 4.439796437092896
+  },
+  "persistence + adequacy repair": {
+   "served": 42.5,
+   "gap_median": 39.45587203162785
+  },
+  "merit-order priority list (no learning)": {
+   "served": 16.666666666666664,
+   "gap_median": 482.4891998194301
+  },
+  "LP relaxation (lower bound)": {
+   "served": 100.0,
+   "gap_median": -0.2329413179104337
+  },
+  "kNN-LP k=5 (Xavier et al. 2021 style)": {
+   "served": 70.83333333333334,
+   "gap_median": 10.835586944331546
+  },
+  "kNN-LP k=20 (Xavier et al. 2021 style)": {
+   "served": 83.33333333333334,
+   "gap_median": 5.567318847331124
+  },
+  "MLP, BCE on MILP labels (framework): top-1 -> LP": {
+   "served": 20.833333333333336,
+   "gap_median": 189.88439161441147
+  },
+  "MLP, BCE on MILP labels (framework): top-1 + adequacy repair -> LP": {
+   "served": 40.0,
+   "gap_median": 31.577870593144986
+  },
+  "MLP, BCE on MILP labels (framework): candidate screening -> LP": {
+   "served": 66.66666666666666,
+   "gap_median": 3.078860726834516
+  },
+  "GNN, BCE on MILP labels (framework): top-1 -> LP": {
+   "served": 10.833333333333334,
+   "gap_median": 373.33370716440925
+  },
+  "GNN, BCE on MILP labels (framework): top-1 + adequacy repair -> LP": {
+   "served": 36.666666666666664,
+   "gap_median": 52.1429899870487
+  },
+  "GNN, BCE on MILP labels (framework): candidate screening -> LP": {
+   "served": 61.66666666666667,
+   "gap_median": 4.707379812895204
+  },
+  "GNN + symmetry rank + canonical labels: top-1 -> LP": {
+   "served": 13.333333333333334,
+   "gap_median": 275.09538154004457
+  },
+  "GNN + symmetry rank + canonical labels: top-1 + adequacy repair -> LP": {
+   "served": 37.5,
+   "gap_median": 37.19865038403353
+  },
+  "GNN + symmetry rank + canonical labels: candidate screening -> LP": {
+   "served": 63.33333333333333,
+   "gap_median": 3.651634271134741
+  },
+  "GNN + symmetry + LP-relaxation features: top-1 -> LP": {
+   "served": 15.833333333333332,
+   "gap_median": 23.2526561532847
+  },
+  "GNN + symmetry + LP-relaxation features: top-1 + adequacy repair -> LP": {
+   "served": 42.5,
+   "gap_median": 7.429836778306683
+  },
+  "GNN + symmetry + LP-relaxation features: candidate screening -> LP": {
+   "served": 70.0,
+   "gap_median": 1.7866292399550923
+  },
+  "GNN + symmetry + LP-relaxation features + REINFORCE (LP critic): top-1 -> LP": {
+   "served": 85.83333333333333,
+   "gap_median": 5.948088508030137
+  },
+  "GNN + symmetry + LP-relaxation features + REINFORCE: top-1 + adequacy repair -> LP": {
+   "served": 90.83333333333333,
+   "gap_median": 5.579709277955247
+  },
+  "GNN + symmetry + LP-relaxation features + REINFORCE: candidate screening -> LP": {
+   "served": 93.33333333333333,
+   "gap_median": 2.526665462241997
+  }
+ },
+ "train_s": {
+  "train_s[MLP, BCE on MILP labels (framework)]": 10.765319347381592,
+  "train_s[GNN, BCE on MILP labels (framework)]": 87.74035477638245,
+  "train_s[GNN + symmetry rank + canonical labels]": 73.93893051147461,
+  "train_s[GNN + symmetry + LP-relaxation features]": 66.02249050140381,
+  "rl_time_s": 366.0406975746155
+ }
+}

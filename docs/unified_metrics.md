@@ -10,7 +10,7 @@ The studies in `docs/RESEARCH.md` and `docs/recursive/` were scored in several w
 Two of those choices changed which method looked better. This page fixes one protocol and shows what follows from it. It works in two steps:
 
 * **Step 1 (done):** every saved per-instance record is re-scored under the protocol. Nothing is re-solved.
-* **Step 2 (running):** every method is re-timed on one machine on PACE (section below).
+* **Step 2 (done):** every method whose models exist was re-timed on one machine on PACE, with input-identity, same-model and timing-noise checks (sections below).
 
 Files:
 * Script: `scripts/unified_rescore.py` (standard library only).
@@ -161,3 +161,91 @@ Files:
 * the spread of the repeated reference times;
 * no delivered cost below the tightest bound;
 * the number of instances still more than 0.1 % unresolved.
+
+## Step 2 results
+
+Full tables: `results/unified/step2.md`. The raw records, manifests, tuned thresholds and checks are in `results/unified/retime/`.
+
+**The run is on track.**
+* **Identity.** All 400 test instances ran: 12 h test_fresh, six shifted sets, 24 h and congested. The LP relaxation cost of all 220 instances with saved records equals step 1's (0 disagreements). Every regenerated shifted instance matches its saved specification and costs.
+* **Hardware.** All 1,970 evaluation processes ran on the Xeon 6972P (Granite Rapids) with HiGHS 1.15.1, one thread, and none failed.
+* **Same checkpoints, same schedules.** Arm A (TRM, deep, one-shot, ensemble pipelines) and arm B (with and without LP feedback) give identical schedule costs to the GPU round on 120 of 120 instances. LP rounding and the full MILP at 0.5 % are identical on 119 of 120.
+* **Timing noise.** On each instance, the full-MILP reference was re-solved by up to seven processes on the same core. Their times agree: max / min per instance has a median of 1.00, a p90 of 1.01 and a worst case of 1.09.
+* **Bounds.** No delivered cost is below the tightest bound. One-hour solves proved 51 of the 56 loose instances optimal to 0.001 %. The other five got an eight-hour solve.
+
+**What changed against step 1, and why.**
+* **Same models.** For arm A, arm B and the learning-free rules, only the times change. On the first 60 instances the learning-free rules have identical gaps to step 1: Learning to Fix on the LP relaxation 0.184 % in both, LP-integral fixing + guards 1.056 % vs 1.057 %. The mean gaps of every method fall a little because the bounds are tighter.
+* **Retrained models.** The pipeline ensemble and the BCE GNN were retrained on this cluster's own data, and their thresholds re-tuned on validation. On the first 60 instances the pipeline gives 0.247 % with the first pass's thresholds and 0.233 % with the original study's thresholds (Y6: 0.199 %).
+* **Tuning has to run alone.** Learning to Fix's tuning uses time-limited MILPs, so its result depends on CPU contention. The first tuning pass ran 19 processes on 16 cores. At eps 10 % it did not converge, and the same tuning alone on a node converged in 43 minutes.
+  * Every tuning was therefore repeated with one core each, and the affected rules re-run with their own paired reference.
+  * Even then, repeated runs of Learning to Fix's tuning reach different thresholds. The kNN rule at eps 5 % fixes 75.2 %, 84.5 % and 86.0 % of validation decisions in three runs, with test gaps of 1.21 %, 2.19 % and 2.45 %. The pipeline's guard-aware tuning is stable (88.5–88.9 %).
+  * The report shows all three tuning runs side by side and uses the one-core run, the rule fixed before its test results were seen.
+
+**12 hours, all 120 test_fresh instances, one machine** (mean gap · served · geometric-mean speed-up over the full MILP at 0.1 %):
+
+| method | step 2 | step 1 (mixed machines) |
+|---|---|---|
+| full MILP, 0.1 % | 0.096 % · 98 % · 1.0× | 0.158 % · 1.0× |
+| full MILP, 0.5 % | 0.156 % · 97 % · 2.3× | 0.198 % · 2.2× |
+| full MILP, 1 % | 0.231 % · 94 % · 2.8× | 0.186 % · 2.3× (first 60) |
+| ensemble fixings + guards, 0.1 % | 0.170 % · 98 % · 3.5× | 0.205 % · 3.5× |
+| pipeline + bound check | 0.184 % · 95 % · 5.8× | 0.236 % · 5.9× |
+| recommended pipeline (0.5 %) | 0.205 % · 95 % · 5.9× | 0.236 % · 5.9× |
+| Learning to Fix on the LP relaxation (no learning) | 0.204 % · 96 % · 2.1× | 0.205 % · 1.7× (first 60) |
+| arm B without feedback + safety net | 0.256 % · 100 % · 2.7× | 0.298 % · 2.9× |
+| arm B + safety net | 0.279 % · 100 % · 2.7× | 0.320 % · 2.9× |
+| Learning to Fix on the BCE GNN, eps 1 % | 0.330 % · 98 % · 4.4× | 0.252 % · 3.4× (first 60) |
+| Learning to Fix, kNN, eps 1 % | 0.605 % · 96 % · 2.4× | 0.382 % · 2.1× (first 60) |
+| arm A control: deep network + safety net | 0.689 % · 99 % · 14.8× | 0.730 % · 13.8× |
+| arm A: TRM + safety net | 1.063 % · 99 % · 1.7× | 1.104 % · 1.5× |
+| LP-integral fixing + guards (no learning) | 1.155 % · 98 % · 10.8× | 1.078 % · 8.5× (first 60) |
+| LP rounding + repair (no learning) | 1.683 % · 98 % · 29.3× | 1.686 % · 27.8× |
+| Learning to Fix, kNN, eps 5 % / 10 % | 2.451 % / 1.990 % · 96 % · 5.3× / 4.4× | 1.102 % / 4.276 % (first 60) |
+
+* **The pipeline remains the only rule that is near the full MILP's accuracy and clearly faster than loosening the MILP's gap.** It reaches 0.18–0.21 % at 5.8–5.9×, against 0.156 % at 2.3× for the full MILP at 0.5 %. Its speed-up is unchanged from step 1 once every method runs on one machine.
+* **Arm B is unchanged.** Its safety net still costs the speed-up: 2.7×. The control without LP feedback is as good with the safety net.
+
+**Training seeds.**
+
+| method | training runs | mean gap per run | spread |
+|---|---|---|---|
+| recommended pipeline (0.5 %) | 3 ensembles | 0.205 / 0.214 / 0.190 % | 0.024 pp |
+| pipeline + bound check | 3 ensembles | 0.184 / 0.211 / 0.183 % | 0.028 pp |
+| arm B + safety net | 4 runs | 0.279 / 0.290 / 0.290 / 0.317 % | 0.038 pp |
+| arm B, 24 steps without safety net | 4 runs | 0.701 / 0.600 / 0.544 / 0.525 % | 0.176 pp |
+
+* The pipeline's ensembles each have their own thresholds.
+* Arm B without the safety net varies more between training runs than with it.
+
+**Early one-shot models on test_fresh (no MILP).**
+* **The framework's GNN, top-1 → LP**, serves 11 % of instances; its mean gap is 59 %, dominated by the shed load priced at VOLL.
+* **With LP-relaxation features and candidate screening** it serves 68 % at a 9.8 % mean gap.
+* **The REINFORCE fine-tune with the block repair** serves 98 % at 7.9 %. With screening it serves 93 % at a 4.8 % mean gap.
+* **kNN-20** serves 83 % at 11.8 %.
+* **Same pattern as on the original test set (V2).** The one-shot models are far from the reduced-MILP rules, at 0.2–0.3 %.
+
+**Shifted sets.** With its bound check, the recommended pipeline stays at or below 0.32 % in all six sets:
+
+| load +15 % | load −15 % | renewables ×1.5 | 2–3 units out | 1–2 lines out | across midnight |
+|---|---|---|---|---|---|
+| 0.15 % | 0.29 % | 0.26 % | 0.32 % | 0.16 % | 0.15 % |
+
+* **Speed-ups** are 4.1–6.1×.
+* **Line outages make the rules calibrated by Learning to Fix's tuning fail**, as in step 1: on the LP relaxation 13.3 %, kNN 27.8 % and BCE 16.1 %. Our LP-relaxation guard brings the kNN rule to 0.46 %.
+
+**24 hours (40 instances).**
+* **Learning to Fix on the LP relaxation** gives 0.280 % at 4.1× with the reduced MILP at 0.1 %, and 0.298 % at 7.3× at 0.5 %. The full MILP at 0.5 % gives 0.184 % at 3.0×.
+* **Arm B zero-shot**, trained on 12 hours, gives 0.338 % at 5.0× with its safety net.
+
+**Congested lines (60 instances).**
+* **The full MILP at 1 %** gives 0.256 % at 4.6×.
+* **The learning-free LP rules** give 0.42–0.49 % (3.2–8.8×), identical in gap to step 1.
+* **Arm B zero-shot with its safety net** gives 0.432 % at 4.2×.
+
+**Not in step 2:**
+* the hybrid and the error-cost rules (their error-cost model was not on the cluster);
+* the 24-hour learned recipe and the congested benchmark's learned pipeline (their training data were not regenerated);
+* PGLib-UC California;
+* the He et al.-style policy, the label-free and Lagrangian end-to-end models, and the combined pipelines of X2.
+
+Each needs its training data regenerated and its models retrained first. Their numbers remain step 1's.

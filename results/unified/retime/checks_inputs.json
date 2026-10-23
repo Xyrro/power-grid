@@ -1,0 +1,67 @@
+{
+ "ok": true,
+ "test_tf": {
+  "instances": 120,
+  "with_saved_records": 120,
+  "disagreements": 0,
+  "examples": []
+ },
+ "test_u24": {
+  "instances": 40,
+  "with_saved_records": 40,
+  "disagreements": 0,
+  "examples": []
+ },
+ "test_hard": {
+  "instances": 60,
+  "with_saved_records": 60,
+  "disagreements": 0,
+  "examples": []
+ },
+ "shift_load_hi": {
+  "present": 30,
+  "identical_spec": 30,
+  "intact_lp_equal": 30,
+  "milp_consistent": 30,
+  "problems": []
+ },
+ "shift_load_lo": {
+  "present": 30,
+  "identical_spec": 30,
+  "intact_lp_equal": 30,
+  "milp_consistent": 30,
+  "problems": []
+ },
+ "shift_ren_hi": {
+  "present": 30,
+  "identical_spec": 30,
+  "intact_lp_equal": 30,
+  "milp_consistent": 30,
+  "problems": []
+ },
+ "shift_gen_out": {
+  "present": 30,
+  "identical_spec": 30,
+  "intact_lp_equal": 30,
+  "milp_consistent": 30,
+  "problems": []
+ },
+ "shift_line_out": {
+  "present": 30,
+  "identical_spec": 30,
+  "intact_lp_equal": 30,
+  "milp_consistent": 30,
+  "problems": []
+ },
+ "shift_night": {
+  "present": 30,
+  "identical_spec": 30,
+  "intact_lp_equal": 30,
+  "milp_consistent": 30,
+  "problems": []
+ },
+ "ensemble_val_probs": {
+  "instances": 12,
+  "max_abs_diff": 2.9802322387695312e-08
+ }
+}

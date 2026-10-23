@@ -1,0 +1,1 @@
+released 2026-10-22T21:20:17 after checks: inputs ok (test sets, 6 shifted sets, ensemble probabilities), tuning converged and verified (knn eps 1/5 %, bce eps 1 %, pipeline A/B/C), early models ok; knn eps 10 % set aside (not converged; re-tuned separately)

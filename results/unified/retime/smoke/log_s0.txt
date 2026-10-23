@@ -1,0 +1,54 @@
+==== ('uc12', 'tf', 0) armB0 rc=0 95s
+uc12 shard 0/1 on CPU [158]: model w1_rloop_nofb_rl, K 24, k_sel 24, 1 instances (0 done)
+[uc12 0] full 11.8s obj 598214.0 | rloop@24 0.052% in 3.91s | lpround 2.614% | cert 0.43%  (25s)
+
+==== ('uc12', 'tf', 0) armBs2 rc=0 21s
+uc12 shard 0/1 on CPU [158]: model g3_plain_s2_rl, K 24, k_sel 24, 1 instances (0 done)
+[uc12 0] full 11.7s obj 598214.0 | rloop@24 0.348% in 3.99s | lpround 2.614% | cert 0.72%  (17s)
+
+==== ('uc12', 'tf', 0) fix rc=0 53s
+  full@0.5%                   8.32s  cost 598924.6  served
+  full@0.1%                  11.96s  cost 598214.0  served
+  knn20                       1.61s  cost 7858762.0  NOT served
+  lpint+g                     1.17s  cost 613949.7  served
+  full@0.25%                  8.26s  cost 598924.6  served
+  knn5                        0.42s  cost 19301414.0  NOT served
+  ltf_lp                      6.92s  cost 599988.8  served
+  lpround                     0.56s  cost 613949.7  served
+  full@1%                     8.24s  cost 598924.6  served
+  lpint                       1.00s  cost 613949.7  served
+{'bench': 'uc12', 'set': 'tf', 'k': 0}: 10 methods in 48s
+
+==== ('uc12', 'tf', 0) armBs3 rc=0 22s
+uc12 shard 0/1 on CPU [158]: model g3_plain_s3_rl, K 24, k_sel 24, 1 instances (0 done)
+[uc12 0] full 11.8s obj 598214.0 | rloop@24 0.052% in 4.40s | lpround 2.614% | cert 0.43%  (17s)
+
+==== ('uc12', 'tf', 0) armA rc=0 67s
+REINFORCE end-to-end baselines (rl_lag7, rl_rl1) skipped: their weights are not here
+shard 0/1 on CPU [158]: 1 instances (0 done); TRM pipelines ['w1_trm30', 'w1_oneshot', 'w1_deep', 'w1b_oneshot_best', 'w1b_deep_best']
+[1/1 41s] i=0 milp01 11.8s lpround5r 0.54s m1x_1r 0.40s w1_trm30_1r 7.20s w1_trm30_s5r 7.22s w1_trm30_fb 7.20s w1_oneshot_1r 0.33s w1_oneshot_fb 0.33s w1_deep_1r 0.77s w1_deep_fb 0.77s w1b_oneshot_best_1r 0.41s w1b_oneshot_best_fb 3.75s w1b_deep_best_1r 0.79s w1b_deep_best_fb 0.79s
+
+==== ('uc12', 'tf', 0) armBs1 rc=0 22s
+uc12 shard 0/1 on CPU [158]: model g3_plain_s1_rl, K 24, k_sel 24, 1 instances (0 done)
+[uc12 0] full 11.9s obj 598214.0 | rloop@24 0.052% in 4.09s | lpround 2.614% | cert 0.43%  (17s)
+
+==== ('uc12', 'tf', 0) armB rc=0 30s
+uc12 shard 0/1 on CPU [158]: model w2_rloop_rl, K 24, k_sel 24, 1 instances (0 done)
+[uc12 0] full 11.8s obj 598214.0 | rloop@24 0.342% in 4.56s | lpround 2.614% | cert 0.72%  (25s)
+
+==== ('uc24', 'tf', 0) fix rc=0 278s
+  full@0.5%                  30.31s  cost 638787.1  served
+  lpint+g                     6.25s  cost 647656.3  served
+  lpint                      27.67s  cost 647058.2  served
+  ltf_lp@0.5%                 9.02s  cost 643204.6  served
+  ltf_lp                     39.81s  cost 643204.6  served
+  full@0.1%                 144.81s  cost 638525.1  served
+  lpround                     1.48s  cost 659264.0  served
+  lpint+g@0.5%                2.30s  cost 647656.3  served
+  full@1%                    13.83s  cost 640599.8  served
+{'bench': 'uc24', 'set': 'tf', 'k': 0}: 9 methods in 273s
+
+==== ('uc24', 'tf', 0) armB rc=0 166s
+uc24 shard 0/1 on CPU [158]: model w2_rloop_rl, K 24, k_sel 24, 1 instances (0 done)
+[uc24 0] full 144.4s obj 638525.1 | rloop@24 2.353% in 7.85s | lpround 3.231% | cert 2.66% safety 7.7s (162s)
+

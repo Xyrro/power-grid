@@ -1,0 +1,1 @@
+{"bench": "uc12", "set": "line_out", "k": 24, "status": "Time limit reached", "obj": 435659.60273813404, "bound": 435085.5615346688, "gap": 0.0013176369804715562, "time": 3600.5919547080994, "tl": 3600.0, "mip_rel_gap": 1e-05, "host": "atl1-1-01-005-3-2.pace.gatech.edu", "unresolved_before_pct": 0.2074, "shed": 0.0, "spill": 0.0, "short": 0.0}

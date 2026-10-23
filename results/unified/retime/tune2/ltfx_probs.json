@@ -1,0 +1,23 @@
+{
+ "knn_va": {
+  "logloss": 0.08992237550319657,
+  "wrong_at_0.5_per_inst": 31.25,
+  "share_exact_0_or_1": 0.6535768645357687
+ },
+ "bce_va": {
+  "logloss": 0.05423295046518161,
+  "wrong_at_0.5_per_inst": 15.0,
+  "share_exact_0_or_1": 0.0
+ },
+ "knn_vx": {
+  "logloss": 0.0941414090024003,
+  "wrong_at_0.5_per_inst": 34.125,
+  "share_exact_0_or_1": 0.6568207762557078
+ },
+ "bce_vx": {
+  "logloss": 0.05715891116258113,
+  "wrong_at_0.5_per_inst": 15.733333333333333,
+  "share_exact_0_or_1": 0.0
+ },
+ "wall_s": 4.39345908164978
+}

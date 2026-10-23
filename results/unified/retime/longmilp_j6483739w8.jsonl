@@ -1,0 +1,1 @@
+{"bench": "uc12", "set": "tf", "k": 106, "status": "Optimal", "obj": 207816.78208589277, "bound": 207814.70405761563, "gap": 9.999328525146703e-06, "time": 2922.280809402466, "tl": 3600.0, "mip_rel_gap": 1e-05, "host": "atl1-1-01-005-3-1.pace.gatech.edu", "unresolved_before_pct": 0.6645, "shed": 0.0, "spill": 0.0, "short": 0.0}

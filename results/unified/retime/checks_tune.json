@@ -1,0 +1,66 @@
+{
+ "ok": true,
+ "ltfx_tune_knn_1.json": {
+  "converged": true,
+  "verify_ok": true,
+  "verify_max": 0.009988211666706976,
+  "n_val": 180,
+  "val_fixed_share": 0.7094875697615424,
+  "original_val_fixed_share": 0.6665208016235413,
+  "wall_s": 4830.55341386795
+ },
+ "ltfx_tune_knn_5.json": {
+  "converged": true,
+  "verify_ok": true,
+  "verify_max": 0.04993281570528467,
+  "n_val": 180,
+  "val_fixed_share": 0.8448439878234398,
+  "original_val_fixed_share": 0.752080162354135,
+  "wall_s": 4893.421405792236
+ },
+ "ltfx_tune_knn_10.json": {
+  "converged": true,
+  "verify_ok": true,
+  "verify_max": 0.09958846900828291,
+  "n_val": 180,
+  "val_fixed_share": 0.8320205479452055,
+  "original_val_fixed_share": 0.8291539827498732,
+  "wall_s": 2582.6805667877197
+ },
+ "ltfx_tune_bce_1.json": {
+  "converged": true,
+  "verify_ok": true,
+  "verify_max": 0.009888877115658052,
+  "n_val": 180,
+  "val_fixed_share": 0.832185438863521,
+  "original_val_fixed_share": 0.8358637747336377,
+  "wall_s": 6106.711030483246
+ },
+ "m1x_tune_hgP.json": {
+  "converged": true,
+  "verify_ok": true,
+  "verify_max": 0.00999178939938791,
+  "n_val": 360,
+  "val_fixed_share": 0.887154363267377,
+  "original_val_fixed_share": 0.8848110096397768,
+  "wall_s": 2030.5426800251007
+ },
+ "m1x_tune_hgPb.json": {
+  "converged": true,
+  "verify_ok": true,
+  "verify_max": 0.00990584001269556,
+  "n_val": 360,
+  "val_fixed_share": 0.9012081430745814,
+  "original_val_fixed_share": 0.8848110096397768,
+  "wall_s": 3070.5197155475616
+ },
+ "m1x_tune_hgPc.json": {
+  "converged": true,
+  "verify_ok": true,
+  "verify_max": 0.009942912675580423,
+  "n_val": 360,
+  "val_fixed_share": 0.8895230847285642,
+  "original_val_fixed_share": 0.8848110096397768,
+  "wall_s": 1914.3502225875854
+ }
+}
