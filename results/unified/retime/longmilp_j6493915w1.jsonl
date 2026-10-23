@@ -1,0 +1,1 @@
+{"bench": "hard", "set": "tf", "k": 21, "status": "Time limit reached", "obj": 403897.2612837367, "bound": 402775.00859707734, "gap": 0.002778559782981446, "time": 28800.693031549454, "tl": 28800.0, "mip_rel_gap": 1e-05, "host": "atl1-1-01-002-36-0.pace.gatech.edu", "unresolved_before_pct": 0.2678, "shed": 0.0, "spill": 0.0, "short": 0.0}

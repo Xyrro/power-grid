@@ -173,7 +173,9 @@ Full tables: `results/unified/step2.md`. The raw records, manifests, tuned thres
 * **Timing noise.** On each instance, the full-MILP reference was re-solved by up to seven processes on the same core. Their times agree: max / min per instance has a median of 1.00, a p90 of 1.01 and a worst case of 1.09.
 * **Bounds.** No delivered cost is below the tightest bound. One-hour solves proved 51 of the 56 loose instances optimal to 0.001 %. The other five got an eight-hour solve:
   * two were proved optimal (12 h ren_hi #4, line_out #24), and 24 h #26 was cut to 0.078 %;
-  * the job then ran out of memory (five solves in 32 GB), and the last two solves were lost: 12 h ren_hi #3 (0.36 % unresolved) and congested #21 (0.27 %). Their one-hour bounds stand until a third pass with more memory finishes. That pass also records each solve's proven bound every five minutes, so a kill no longer loses it.
+  * the job then ran out of memory (five solves in 32 GB), and the last two solves were lost: 12 h ren_hi #3 and congested #21;
+  * a third pass gave those two eight hours with 128 GB (they peaked at 70 GB together), recording each solve's proven bound every five minutes. ren_hi #3's bound rose by 0.035 %, leaving it 0.33 % unresolved. Congested #21's solve stayed below the bound step 1 had already proved, so it stays 0.27 % unresolved.
+  * These two are the only instances more than 0.1 % unresolved. Every method's gap on them can be overstated by at most that much, which is at most 0.011 pp on the renewables set's mean (30 instances) and 0.004 pp on the congested set's (60).
 
 **What changed against step 1, and why.**
 * **Same models.** For arm A, arm B and the learning-free rules, only the times change. On the first 60 instances the learning-free rules have identical gaps to step 1: Learning to Fix on the LP relaxation 0.184 % in both, LP-integral fixing + guards 1.056 % vs 1.057 %. The mean gaps of every method fall a little because the bounds are tighter.
@@ -230,7 +232,7 @@ Full tables: `results/unified/step2.md`. The raw records, manifests, tuned thres
 
 | load +15 % | load −15 % | renewables ×1.5 | 2–3 units out | 1–2 lines out | across midnight |
 |---|---|---|---|---|---|
-| 0.15 % | 0.29 % | 0.26 % | 0.32 % | 0.16 % | 0.15 % |
+| 0.15 % | 0.29 % | 0.25 % | 0.32 % | 0.16 % | 0.15 % |
 
 * **Speed-ups** are 4.1–6.1×.
 * **Line outages make the rules calibrated by Learning to Fix's tuning fail**, as in step 1: on the LP relaxation 13.3 %, kNN 27.8 % and BCE 16.1 %. Our LP-relaxation guard brings the kNN rule to 0.46 %.
