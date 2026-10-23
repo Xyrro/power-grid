@@ -369,6 +369,7 @@ def main():
     U.load_all()
     load_fix(a.res)
     load_fix_addon(a.res, "fixknn10")
+    load_fix_addon(a.res, "fixorig")
     load_arm_a(a.res)
     load_arm_b(a.res, "uc12", "armB", "S2·B")
     load_arm_b(a.res, "uc12", "armB0", "S2·B0")

@@ -29,6 +29,9 @@ Methods (names as in the records; nothing is tuned here):
                     also the full MILP at 0.5 %, the better schedule kept, both times charged
   pipe@0.5%:<e>, pipe+bc:<e>   the same with another training run of the pipeline (--ens_extra: an ensemble of five other
                     seeds with its own thresholds tuned on validation; training-seed spread, test_fresh only)
+  <rule>:orig       diagnostic (--orig): ltf_knn_1 / ltf_knn_5 / ltf_bce_1 / pipe@0.5% with this cluster's models but the
+                    original study's committed thresholds (results/uc12/), to separate the thresholds' share of a
+                    difference from the models' (test_fresh only)
   e2e:<model>:<dec> the early one-shot models (scripts/uc_model1.py, retrained here; test_fresh only): MLP and GNN on MILP
                     labels (the framework), GNN + symmetry, GNN + symmetry + LP-relaxation features, and the latter
                     fine-tuned by REINFORCE; decoders top1 (round at 0.5, min up/down repair, 1 LP), adeq (+ per-hour
@@ -182,6 +185,7 @@ def main():
     ap.add_argument("--early_dir", default="results/unified/retime/models", help="uc_model1_*.pt retrained here")
     ap.add_argument("--ens_extra", default="b=5-9:m1x_tune_hgPb.json,c=10-14:m1x_tune_hgPc.json",
                     help="other pipeline training runs: name=first-last member seed:thresholds file in --tune_dir")
+    ap.add_argument("--orig", action="store_true", help="also the :orig diagnostic rules (original thresholds)")
     ap.add_argument("--only", default="", help="comma list of method names (smoke tests)")
     ap.add_argument("--seed", type=int, default=0, help="order seed (combined with the instance)")
     a = ap.parse_args()
@@ -344,6 +348,17 @@ def main():
     for name, (nets, th) in extra_ens.items():
         meth[f"pipe@0.5%:{name}"] = rule(ens_fix(nets, th), ALL_GUARDS, G05)
         meth[f"pipe+bc:{name}"] = pipe_bc_of(ens_fix(nets, th))
+    if a.orig and tf_like and a.bench == "uc12":
+        orig = lambda f: load_thr(os.path.join("results/uc12", f))
+        if knn is not None:
+            for e in (1, 5):
+                meth[f"ltf_knn_{e}:orig"] = rule((lambda th: lambda: fix_dict(p_knn(), *th))(orig(f"ltfx_tune_knn_{e}.json")),
+                                                 (), G01, uses_rel=False)
+        if bce is not None:
+            th_b = orig("ltfx_tune_bce_1.json")
+            meth["ltf_bce_1:orig"] = rule(lambda: fix_dict(bce.predict(di)[0].astype(np.float64), *th_b), (), G01)
+        if gnnt is not None:
+            meth["pipe@0.5%:orig"] = rule(ens_fix(gnnt, orig("m1x_tune_hg_pol_n2000_gnnt_ens5.json")), ALL_GUARDS, G05)
 
     # early one-shot models and kNN schedules (end to end: no MILP)
     rep = lambda u: repair_min_updown(u, sc.u0, sysm.min_up, sysm.min_dn)

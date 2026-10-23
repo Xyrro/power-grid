@@ -71,6 +71,8 @@ def commands(it, res, tag, py, fix_only="", fix_name="fix"):
                       "--out", f"{res}/{bench}_{fix_name}_{tag}.jsonl"]
         if fix_only:
             cmd["fix"] += ["--only", fix_only.replace("+", ",")]
+            if ":orig" in fix_only:
+                cmd["fix"] += ["--orig"]
     if bench == "hard":
         cmd["hard"] = [py, "scripts/uc_hard_eval.py", "--only", str(k), "--out", f"{res}/hard_fix_{tag}.jsonl"]
     if bench == "uc12" and s == "tf":
