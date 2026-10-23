@@ -81,6 +81,30 @@ def load_fix(res):
                         fellback=bool(v.get("fallback")))
 
 
+def load_fix_addon(res, name):
+    """an add-on pass of unified_fix_eval.py (a few methods re-run later, e.g. after a re-tuning), records
+    {bench}_{name}_*.jsonl: its methods paired with its own full MILP at 0.1 %; methods the main pass already has for
+    the instance are not loaded again"""
+    for bench in ("uc12", "uc24"):
+        for r in recs(os.path.join(res, f"{bench}_{name}_[ts]*.jsonl"), lambda r: (r["bench"], r["set"], r["k"])):
+            x = inst_key(r["bench"], r["set"], r["k"])
+            src = f"unified/retime/{bench}_{name}"
+            REG.lp(x, r["c_rel"], src)
+            ref = r["runs"].get("full@0.1%")
+            if ref and U.finite(ref.get("bound")):
+                REG.bound(x, ref["bound"], src)
+            for m, v in r["runs"].items():
+                if m.startswith("full") or x in REG.methods.get(f"S2·fix | {m}", {}).get("data", {}):
+                    continue
+                if not U.finite(v["cost"]):
+                    REG.notes.append(f"S2 add-on {name}: {m} at {x} delivered no schedule")
+                    continue
+                REG.put(f"S2·fix | {m}", x, v["cost"], v["shed"] < TOL and v["short"] < TOL, v["time"],
+                        ref["time"] if ref else None,
+                        U.meta(src, family(m), "complete", f"S2-fix:{name}", cpu=r.get("cpu_model")),
+                        fellback=bool(v.get("fallback")))
+
+
 def load_arm_a(res):
     src = "unified/retime/uc12_armA"
     for r in recs(os.path.join(res, "uc12_armA_[ts]*.jsonl"), lambda r: r["i"]):
@@ -338,6 +362,7 @@ def main():
     os.chdir(os.path.dirname(HERE))
     U.load_all()
     load_fix(a.res)
+    load_fix_addon(a.res, "fixknn10")
     load_arm_a(a.res)
     load_arm_b(a.res, "uc12", "armB", "S2·B")
     load_arm_b(a.res, "uc12", "armB0", "S2·B0")

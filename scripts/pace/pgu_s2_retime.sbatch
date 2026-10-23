@@ -8,6 +8,9 @@
 # only ICE CPU with bf16 units, no hyper-threading: one worker = one physical core), which keeps every method on one CPU.
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-retime --cpus 8 --mem 96G --time 10:00:00 \
 #       --constraint cpu-gnr scripts/pace/pgu_s2_retime.sbatch                                   (as many as wanted)
+#   add-on pass of a few methods with their own paired reference (RETIME_ARGS; no commas: sbatch --export splits them):
+#       ... --export "RETIME_ARGS=--sets uc12:tf --fix_only full@0.1%+ltf_knn_10 --fix_name fixknn10 --claims claims_knn10
+#       --skip armA+armB+armB0+armBs1+armBs2+armBs3" ...   (lists in RETIME_ARGS use + instead of commas)
 #   smoke test (ITEMS, '+'-separated since sbatch --export splits on commas, spread round-robin over the allocated cores,
 #   same pinning, outputs in results/unified/retime/smoke):
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-smoke --cpus 2 --mem 32G --time 02:00:00 \
@@ -30,7 +33,9 @@ for w in "${!CPUS[@]}"; do
       > "$R/smoke/worker_s$w.out" 2>&1 & pids+=($!)
   else
     tag="j${SLURM_JOB_ID}w$w"
-    taskset -c "${CPUS[$w]}" python3 scripts/unified_retime.py --pull --tag "$tag" > "$R/workers/$tag.out" 2>&1 & pids+=($!)
+    # shellcheck disable=SC2086
+    taskset -c "${CPUS[$w]}" python3 scripts/unified_retime.py --pull --tag "$tag" ${RETIME_ARGS:-} \
+      > "$R/workers/$tag.out" 2>&1 & pids+=($!)
   fi
 done
 fail=0

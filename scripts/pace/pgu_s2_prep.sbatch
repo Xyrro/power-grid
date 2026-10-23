@@ -28,6 +28,9 @@ ltfx() {
   python3 scripts/uc_ltfx_prep.py --models knn,bce --res "$R/tune" && \
   python3 scripts/uc_ltfx_tune.py --jobs knn:0.01,knn:0.05,knn:0.1,bce:0.01 --workers 4 --res "$R/tune"
 }
+ltfx10() {   # Learning to Fix's kNN at eps 10 % alone, with a longer budget (did not converge within 150 min here)
+  python3 scripts/uc_ltfx_tune.py --jobs knn:0.1 --workers 1 --budget_min 720 --res "$R/tune"
+}
 hg() {
   python3 scripts/uc_m1x_tune.py --job hgP:prob:pol_n2000_gnnt_ens5:0.01:adeq+rows --res "$R/tune"
 }

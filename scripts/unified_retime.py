@@ -61,13 +61,16 @@ def assign(items, ntasks):
     return out, load
 
 
-def commands(it, res, tag, py):
-    """{kind: argv} for one item"""
+def commands(it, res, tag, py, fix_only="", fix_name="fix"):
+    """{kind: argv} for one item; fix_only ('+'-separated method names) and fix_name: an add-on pass of a few methods
+    of unified_fix_eval.py, with its own paired reference, into {bench}_{fix_name}_{tag}.jsonl"""
     bench, s, k = it
     cmd = {}
     if bench in ("uc12", "uc24"):
         cmd["fix"] = [py, "scripts/unified_fix_eval.py", "--bench", bench, "--set", s, "--k", str(k),
-                      "--out", f"{res}/{bench}_fix_{tag}.jsonl"]
+                      "--out", f"{res}/{bench}_{fix_name}_{tag}.jsonl"]
+        if fix_only:
+            cmd["fix"] += ["--only", fix_only.replace("+", ",")]
     if bench == "hard":
         cmd["hard"] = [py, "scripts/uc_hard_eval.py", "--only", str(k), "--out", f"{res}/hard_fix_{tag}.jsonl"]
     if bench == "uc12" and s == "tf":
@@ -105,9 +108,9 @@ def cpu_model():
     return ""
 
 
-def claim(res, it, tag):
+def claim(res, it, tag, folder="claims"):
     """atomically claim an item for this worker (a file created with O_EXCL); False if another worker has it"""
-    d = os.path.join(res, "claims")
+    d = os.path.join(res, folder)
     os.makedirs(d, exist_ok=True)
     try:
         fd = os.open(os.path.join(d, f"{it[0]}_{it[1]}_{it[2]}"), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
@@ -147,10 +150,14 @@ def main():
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--audit", action="store_true", help="print the items not complete yet (as an --items list)")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--fix_only", default="", help="add-on pass: '+'-separated unified_fix_eval methods (with --fix_name)")
+    ap.add_argument("--fix_name", default="fix")
+    ap.add_argument("--claims", default="claims", help="claims folder under --res (a separate one per add-on pass)")
+    ap.add_argument("--sets", default="", help="'+'-separated bench:set filters of the item list (e.g. uc12:tf)")
     a = ap.parse_args()
     os.chdir(ROOT)
     py = sys.executable
-    skip = {x for x in a.skip.split(",") if x}
+    skip = {x for x in a.skip.replace("+", ",").split(",") if x}
     if a.audit:
         done, missing = audit(a.res, skip)
         print(f"{len(done)} items complete, {len(missing)} not")
@@ -172,7 +179,7 @@ def main():
             print(f"  {kind}: {' '.join(c)}")
         return
     os.makedirs(a.res, exist_ok=True)
-    man = os.path.join(a.res, f"manifest_{tag}.jsonl")
+    man = os.path.join(a.res, f"manifest_{tag}{'' if a.fix_name == 'fix' else '_' + a.fix_name}.jsonl")
     done = set()
     if os.path.exists(man):
         for line in open(man):
@@ -185,16 +192,17 @@ def main():
     t_all = time.time()
 
     def run_item(j, it):
-        cmd = {k_: v for k_, v in commands(it, a.res, tag, py).items() if k_ not in skip}
+        cmd = {k_: v for k_, v in commands(it, a.res, tag, py, a.fix_only, a.fix_name).items() if k_ not in skip}
         order = sorted(cmd)
         rng_seed = zlib.crc32(f"{it[0]}/{it[1]}/{it[2]}/{a.seed}".encode())
         order = [order[i] for i in sorted(range(len(order)), key=lambda i: zlib.crc32(f"{rng_seed}/{order[i]}".encode()))]
         for kind in order:
-            if (it[0], it[1], it[2], kind) in done:
+            if (it[0], it[1], it[2], kind if a.fix_name == "fix" else f"{kind}:{a.fix_name}") in done:
                 continue
             l0, t0 = os.getloadavg()[0], time.time()
             p = subprocess.run(cmd[kind], env=env, cwd=ROOT, capture_output=True, text=True)
-            rec = dict(bench=it[0], set=it[1], k=it[2], kind=kind, rc=p.returncode, start=t0, wall=time.time() - t0,
+            rec = dict(bench=it[0], set=it[1], k=it[2], kind=kind if a.fix_name == "fix" else f"{kind}:{a.fix_name}",
+                       rc=p.returncode, start=t0, wall=time.time() - t0,
                        loadavg0=l0, loadavg1=os.getloadavg()[0], host=host, cpu_model=cpu, order=order,
                        cpus=cpus(), job=os.environ.get("SLURM_JOB_ID"), tag=tag)
             if p.returncode != 0:
@@ -212,8 +220,9 @@ def main():
             run_item(f"{j + 1}/{len(mine)}", it)
     else:
         ready = os.path.join(a.res, "prep", "READY")
-        claims = os.path.join(a.res, "claims")
-        order = sorted(items_all(), key=lambda x: (-cost(x), x))           # longest first: a short tail at the end
+        claims = os.path.join(a.res, a.claims)
+        sets = {tuple(x.split(":")) for x in a.sets.split("+") if x}
+        order = sorted((it for it in items_all() if not sets or it[:2] in sets), key=lambda x: (-cost(x), x))
         n = 0
         while True:
             took = waiting = False
@@ -223,7 +232,7 @@ def main():
                 if it[0] == "uc12" and not os.path.exists(ready):
                     waiting = True
                     continue
-                if claim(a.res, it, tag):
+                if claim(a.res, it, tag, a.claims):
                     n += 1
                     run_item(f"#{n}", it)
                     took = True
