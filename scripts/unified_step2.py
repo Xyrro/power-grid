@@ -64,14 +64,15 @@ def family(name):
 # ============================================================================ loaders
 # methods whose thresholds were tuned on this cluster: the first tuning pass oversubscribed its cores (19 processes on 16)
 # and Learning to Fix's tuning uses time-limited MILPs, so every tuning was repeated with one core each (tune2) and these
-# methods re-run as the add-on pass "fixtune2"; where that pass exists, its records are the methods' rows and the first
-# pass is kept as "S2·fix(contended)" for the sensitivity table
+# methods re-run as the add-on pass "fixtune2" (and "fixtune3": Learning to Fix's kNN / BCE rules at eps 1 %, whose
+# one-core run did not converge within 150 min, with the thresholds of a 12-hour one-core run); where these passes
+# exist, their records are the methods' rows and the first pass is kept as "S2·fix(contended)" for the sensitivity table
 TUNED = ("ltf_knn_1", "ltf_knn_5", "ltf_knn_10", "ltf_knn_1+lpg", "ltf_bce_1", "pipe@0.1%", "pipe@0.5%", "pipe+bc",
          "pipe@0.5%:b", "pipe+bc:b", "pipe@0.5%:c", "pipe+bc:c")
 
 
 def load_fix(res):
-    retuned = bool(glob.glob(os.path.join(res, "uc12_fixtune2_*.jsonl")))
+    retuned = bool(glob.glob(os.path.join(res, "uc12_fixtune[23]_*.jsonl")))
     for bench in ("uc12", "uc24"):
         for r in recs(os.path.join(res, f"{bench}_fix_*.jsonl"), lambda r: (r["bench"], r["set"], r["k"])):
             x = inst_key(r["bench"], r["set"], r["k"])
@@ -379,6 +380,7 @@ def main():
     U.load_all()
     load_fix(a.res)
     load_fix_addon(a.res, "fixtune2")
+    load_fix_addon(a.res, "fixtune3")
     load_fix_addon(a.res, "fixorig")
     load_arm_a(a.res)
     load_arm_b(a.res, "uc12", "armB", "S2·B")
