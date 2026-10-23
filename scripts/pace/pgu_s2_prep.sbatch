@@ -47,6 +47,13 @@ retune() {   # every threshold tuning again, one core each and nothing else on t
   for j in "${pids[@]}"; do wait "$j" || rc=1; done
   return $rc
 }
+retune_long() {   # Learning to Fix's kNN and BCE tunings at eps 1 % with a 12-hour budget, one core each (tune3): used for a
+                  # rule whose one-core run in tune2 did not converge within its 150 min (decided by convergence only)
+  local T="$R/tune3"
+  mkdir -p "$T"
+  cp "$R/tune/ltfx_probs.npz" "$R/tune/ltfx_probs.json" "$T/"
+  python3 scripts/uc_ltfx_tune.py --jobs knn:0.01,bce:0.01 --workers 2 --budget_min 720 --res "$T"
+}
 hg() {
   python3 scripts/uc_m1x_tune.py --job hgP:prob:pol_n2000_gnnt_ens5:0.01:adeq+rows --res "$R/tune"
 }
@@ -86,6 +93,7 @@ else
   if run "$STAGE"; then fail=0; else fail=1; fi
 fi
 [ "$STAGE" = retune ] && export S2_TUNE="$R/tune2"
+[ "$STAGE" = retune_long ] && export S2_TUNE="$R/tune3"
 if python3 scripts/unified_s2_checks.py tune > "$R/prep/check_tune.log" 2>&1; then c=0; else c=$?; fi
 echo "check_tune rc=$c" >> "$R/prep/status.txt"
 cat "$R/prep/status.txt"

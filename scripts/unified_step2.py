@@ -445,21 +445,40 @@ def main():
           "the GPU round's tested model) and g3_plain_s1-3_rl (seeds 1-3, the same configuration, trained for the "
           "attention-residual comparison); settings of the GPU round's test plan for all four.", ""]
     # thresholds: tuned with one core each (used above), tuned under CPU contention (first pass), the original study's
-    L += ["## Learning to Fix's thresholds: how much the tuning run matters (12 h, test_fresh)", "",
-          "| method | one core per tuning (used) | first pass, oversubscribed cores | original study's thresholds |",
+    L += ["## Learning to Fix's thresholds: three tuning runs of the same procedure (12 h, test_fresh)", "",
+          "Test: mean gap · served · speed-up (geometric mean); in brackets the share of decisions the thresholds fix on "
+          "the validation set they were tuned on.", "",
+          "| method | one core per tuning (used) | first pass, oversubscribed cores | original study's run |",
           "|---|---|---|---|"]
     R["tuning_sensitivity"] = {}
+    tfile = {"ltf_knn_1": "ltfx_tune_knn_1.json", "ltf_knn_5": "ltfx_tune_knn_5.json", "ltf_knn_10": "ltfx_tune_knn_10.json",
+             "ltf_bce_1": "ltfx_tune_bce_1.json", "pipe@0.5%": ("m1x_tune_hgP.json", "m1x_tune_hg_pol_n2000_gnnt_ens5.json")}
+
+    def vfix(folder, m):
+        f = tfile[m] if isinstance(tfile[m], str) else tfile[m][folder == "results/uc12"]
+        f = os.path.join(folder, f)
+        nc = f.replace(".json", ".nonconverged.json")       # the first pass's own eps-10 % run (set aside, not converged)
+        if os.path.exists(nc) and os.path.basename(folder) == "tune":
+            f = nc
+        if not os.path.exists(f):
+            return None
+        j = json.load(open(f))
+        return j["val_fixed_share"] * 100, j["converged"]
     for m in ("ltf_knn_1", "ltf_knn_5", "ltf_knn_10", "ltf_bce_1", "pipe@0.5%"):
         cells = []
-        for n in (f"S2·fix | {m}", f"S2·fix(contended) | {m}", f"S2·fix | {m}:orig"):
+        for n, folder in ((f"S2·fix | {m}", os.path.join(a.res, "tune2")), (f"S2·fix(contended) | {m}", os.path.join(a.res, "tune")),
+                          (f"S2·fix | {m}:orig", "results/uc12")):
             ok = n in REG.methods and tf and U.complete_on(n, tf)
             s = U.stats(n, tf) if ok else None
-            R["tuning_sensitivity"].setdefault(m, []).append(s)
-            cells.append(f"{s['gap_mean']:.3f} % · {s['served']:.0f} % · " + (f"{s['sp_geo']:.1f}×" if "sp_geo" in s else "–")
-                         if s else "–")
+            v = vfix(folder, m)
+            R["tuning_sensitivity"].setdefault(m, []).append(dict(test=s, val_fixed=v))
+            vv = f" [{v[0]:.1f} %{'' if v[1] else ', not converged'}]" if v else ""
+            cells.append((f"{s['gap_mean']:.3f} % · {s['served']:.0f} % · " + (f"{s['sp_geo']:.1f}×" if "sp_geo" in s else "–")
+                          if s else "–") + vv)
         L.append(f"| {m} | " + " | ".join(cells) + " |")
     L += ["", "Same models in all three columns; only the thresholds differ. Learning to Fix's tuning solves time-limited "
-          "MILPs, so a run whose cores are oversubscribed reaches different thresholds.", ""]
+          "MILPs (relaxations 6 s, checks 60 s, master 120 s), so repeated runs on the same validation set reach different "
+          "thresholds; the pipeline's guard-aware tuning is stable.", ""]
     C = checks(sorted(set(x for x in all_insts if x in present)))
     R["checks"] = C
     L += ["## Checks", ""]
