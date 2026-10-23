@@ -1,6 +1,6 @@
 {
  "threshold_pct": 0.1,
- "n": 5,
+ "n": 2,
  "items": [
   {
    "bench": "uc12",
@@ -13,24 +13,6 @@
    "set": "tf",
    "k": 21,
    "unresolved_pct": 0.2678
-  },
-  {
-   "bench": "uc12",
-   "set": "ren_hi",
-   "k": 4,
-   "unresolved_pct": 0.2247
-  },
-  {
-   "bench": "uc24",
-   "set": "tf",
-   "k": 26,
-   "unresolved_pct": 0.153
-  },
-  {
-   "bench": "uc12",
-   "set": "line_out",
-   "k": 24,
-   "unresolved_pct": 0.1318
   }
  ]
 }

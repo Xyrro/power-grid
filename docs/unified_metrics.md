@@ -171,7 +171,9 @@ Full tables: `results/unified/step2.md`. The raw records, manifests, tuned thres
 * **Hardware.** All 1,970 evaluation processes ran on the Xeon 6972P (Granite Rapids) with HiGHS 1.15.1, one thread, and none failed.
 * **Same checkpoints, same schedules.** Arm A (TRM, deep, one-shot, ensemble pipelines) and arm B (with and without LP feedback) give identical schedule costs to the GPU round on 120 of 120 instances. LP rounding and the full MILP at 0.5 % are identical on 119 of 120.
 * **Timing noise.** On each instance, the full-MILP reference was re-solved by up to seven processes on the same core. Their times agree: max / min per instance has a median of 1.00, a p90 of 1.01 and a worst case of 1.09.
-* **Bounds.** No delivered cost is below the tightest bound. One-hour solves proved 51 of the 56 loose instances optimal to 0.001 %. The other five got an eight-hour solve.
+* **Bounds.** No delivered cost is below the tightest bound. One-hour solves proved 51 of the 56 loose instances optimal to 0.001 %. The other five got an eight-hour solve:
+  * two were proved optimal (12 h ren_hi #4, line_out #24), and 24 h #26 was cut to 0.078 %;
+  * the job then ran out of memory (five solves in 32 GB), and the last two solves were lost: 12 h ren_hi #3 (0.36 % unresolved) and congested #21 (0.27 %). Their one-hour bounds stand until a third pass with more memory finishes. That pass also records each solve's proven bound every five minutes, so a kill no longer loses it.
 
 **What changed against step 1, and why.**
 * **Same models.** For arm A, arm B and the learning-free rules, only the times change. On the first 60 instances the learning-free rules have identical gaps to step 1: Learning to Fix on the LP relaxation 0.184 % in both, LP-integral fixing + guards 1.056 % vs 1.057 %. The mean gaps of every method fall a little because the bounds are tighter.
@@ -234,8 +236,8 @@ Full tables: `results/unified/step2.md`. The raw records, manifests, tuned thres
 * **Line outages make the rules calibrated by Learning to Fix's tuning fail**, as in step 1: on the LP relaxation 13.3 %, kNN 27.8 % and BCE 16.1 %. Our LP-relaxation guard brings the kNN rule to 0.46 %.
 
 **24 hours (40 instances).**
-* **Learning to Fix on the LP relaxation** gives 0.280 % at 4.1× with the reduced MILP at 0.1 %, and 0.298 % at 7.3× at 0.5 %. The full MILP at 0.5 % gives 0.184 % at 3.0×.
-* **Arm B zero-shot**, trained on 12 hours, gives 0.338 % at 5.0× with its safety net.
+* **Learning to Fix on the LP relaxation** gives 0.278 % at 4.1× with the reduced MILP at 0.1 %, and 0.296 % at 7.3× at 0.5 %. The full MILP at 0.5 % gives 0.182 % at 3.0×.
+* **Arm B zero-shot**, trained on 12 hours, gives 0.336 % at 5.0× with its safety net.
 
 **Congested lines (60 instances).**
 * **The full MILP at 1 %** gives 0.256 % at 4.6×.
