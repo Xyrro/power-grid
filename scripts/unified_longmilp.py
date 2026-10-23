@@ -72,6 +72,7 @@ def main():
     ap.add_argument("--pull", action="store_true")
     ap.add_argument("--tag", default="")
     ap.add_argument("--max_wait_h", type=float, default=4.0, help="pull: how long to wait for missing instance files")
+    ap.add_argument("--claims", default="claims_bounds", help="pull: claims folder (a new one for a longer second pass)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     if a.plan:
@@ -93,7 +94,7 @@ def main():
         if not a.pull:
             yield from json.load(open(ITEMS))["items"][a.task::a.ntasks]
             return
-        cl = os.path.join(RES, "claims_bounds")
+        cl = os.path.join(RES, a.claims)
         os.makedirs(cl, exist_ok=True)
         t0 = time.time()
         while True:

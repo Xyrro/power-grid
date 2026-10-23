@@ -179,12 +179,18 @@ def load_hard(res):
 
 
 def load_longmilp(res):
-    for r in recs(os.path.join(res, "longmilp_*.jsonl"), lambda r: (r["bench"], r["set"], r["k"])):
-        x = inst_key(r["bench"], r["set"], r["k"])
-        REG.bound(x, r["bound"], "unified/retime/longmilp")
-        if U.finite(r.get("obj")):
-            REG.put("S2 | long MILP (bound solve)", x, r["obj"], U.slack(r) < TOL, None, None,
-                    U.meta("unified/retime/longmilp", "solver", "none", "S2-long"))
+    for p in sorted(glob.glob(os.path.join(res, "longmilp_*.jsonl"))):          # every solve's bound counts (both passes)
+        for r in U.jl(p):
+            REG.bound(inst_key(r["bench"], r["set"], r["k"]), r["bound"], "unified/retime/longmilp")
+    best = {}
+    for p in sorted(glob.glob(os.path.join(res, "longmilp_*.jsonl"))):
+        for r in U.jl(p):
+            key = (r["bench"], r["set"], r["k"])
+            if U.finite(r.get("obj")) and (key not in best or r["obj"] < best[key]["obj"]):
+                best[key] = r
+    for r in best.values():
+        REG.put("S2 | long MILP (bound solve)", inst_key(r["bench"], r["set"], r["k"]), r["obj"], U.slack(r) < TOL, None,
+                None, U.meta("unified/retime/longmilp", "solver", "none", "S2-long"))
 
 
 # ============================================================================ tables

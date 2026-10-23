@@ -6,6 +6,7 @@
 # instances wait until their file exists).
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-bounds --cpus 16 --mem 64G --time 08:00:00 \
 #       scripts/pace/pgu_s2_longmilp.sbatch
+#   a longer second pass over the instances still loose (re-plan first): --export "BOUNDS_ARGS=--tl 14400 --claims claims_bounds2"
 #SBATCH -N 1 --ntasks=1
 source "${SLURM_SUBMIT_DIR:-$PWD}/scripts/pace/trm_env.sh"
 echo "node $(hostname): $(lscpu | sed -n 's/^Model name: *//p')"
@@ -15,7 +16,9 @@ mkdir -p "$R/workers"
 pids=()
 for w in "${!CPUS[@]}"; do
   tag="j${SLURM_JOB_ID}w$w"
-  taskset -c "${CPUS[$w]}" python3 scripts/unified_longmilp.py --pull --tag "$tag" > "$R/workers/bounds_$tag.out" 2>&1 &
+  # shellcheck disable=SC2086
+  taskset -c "${CPUS[$w]}" python3 scripts/unified_longmilp.py --pull --tag "$tag" ${BOUNDS_ARGS:-} \
+    > "$R/workers/bounds_$tag.out" 2>&1 &
   pids+=($!)
 done
 fail=0
