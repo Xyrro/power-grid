@@ -24,7 +24,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 RES = "results/unified/retime"
-TUNE = os.path.join(RES, "tune")
+TUNE = os.environ.get("S2_TUNE", os.path.join(RES, "tune"))
 SHIFTS = ("load_hi", "load_lo", "ren_hi", "gen_out", "line_out", "night")
 
 
@@ -142,11 +142,12 @@ def early():
     return out, ok
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":       # S2_TUNE=results/unified/retime/tune2 checks the second tuning pass
     os.chdir(os.path.dirname(HERE))
     what = sys.argv[1]
     out, ok = {"inputs": inputs, "tune": tune, "early": early}[what]()
     os.makedirs(RES, exist_ok=True)
-    json.dump(dict(ok=ok, **out), open(os.path.join(RES, f"checks_{what}.json"), "w"), indent=1, default=str)
+    suffix = "" if os.path.basename(TUNE) == "tune" or what != "tune" else "_" + os.path.basename(TUNE)
+    json.dump(dict(ok=ok, **out), open(os.path.join(RES, f"checks_{what}{suffix}.json"), "w"), indent=1, default=str)
     print(json.dumps(dict(ok=ok, **out), indent=1, default=str)[:6000])
     sys.exit(0 if ok else 1)

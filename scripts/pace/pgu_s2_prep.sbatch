@@ -9,6 +9,8 @@
 #   hg      the recommended pipeline's guard-aware thresholds on THIS cluster's 5-member ensemble (uc_m1x_tune.py, eps
 #           1 %, adequacy + rows, 360 validation instances, as the original study)
 #   early   the early one-shot models (scripts/uc_model1.py, as originally run: 80 epochs, 120 REINFORCE steps)
+#   retune  (after the first pass) every threshold tuning again into results/unified/retime/tune2, one core each, no
+#           oversubscription: submit with --cpus 7 (3 Learning to Fix workers + their parent, 3 pipeline tunings)
 #   seeds   two more training runs of the pipeline: ensembles of the networks with seeds 5-9 and 10-14 (uc_m1x_train.py,
 #           the recipe of seeds 0-4), each with its own thresholds tuned like hg
 # A single STAGE re-runs one piece (resubmission after a failure). Status: results/unified/retime/prep/status.txt.
@@ -30,6 +32,20 @@ ltfx() {
 }
 ltfx10() {   # Learning to Fix's kNN at eps 10 % alone, with a longer budget (did not converge within 150 min here)
   python3 scripts/uc_ltfx_tune.py --jobs knn:0.1 --workers 1 --budget_min 720 --res "$R/tune"
+}
+retune() {   # every threshold tuning again, one core each and nothing else on the job's cores (Learning to Fix's tuning
+             # uses time-limited MILPs, so CPU contention changes its result; the first pass ran 19 processes on 16 cores)
+  local T="$R/tune2" pids=() rc=0 j
+  mkdir -p "$T"
+  cp "$R/tune/ltfx_probs.npz" "$R/tune/ltfx_probs.json" "$T/"
+  cp "$R/tune/ltfx_tune_knn_10.json" "$R/tune/ltfx_tune_knn_10.log" "$T/"          # already tuned alone on its node
+  python3 scripts/uc_ltfx_tune.py --jobs knn:0.01,knn:0.05,bce:0.01 --workers 3 --res "$T" > "$R/prep/retune_ltfx.log" 2>&1 &
+  pids+=($!)
+  for j in hgP:prob:pol_n2000_gnnt_ens5 hgPb:prob:pol_n2000_gnnt_ens5b hgPc:prob:pol_n2000_gnnt_ens5c; do
+    python3 scripts/uc_m1x_tune.py --job "$j:0.01:adeq+rows" --res "$T" > "$R/prep/retune_${j%%:*}.log" 2>&1 & pids+=($!)
+  done
+  for j in "${pids[@]}"; do wait "$j" || rc=1; done
+  return $rc
 }
 hg() {
   python3 scripts/uc_m1x_tune.py --job hgP:prob:pol_n2000_gnnt_ens5:0.01:adeq+rows --res "$R/tune"
@@ -69,6 +85,7 @@ if [ "$STAGE" = all ]; then
 else
   if run "$STAGE"; then fail=0; else fail=1; fi
 fi
+[ "$STAGE" = retune ] && export S2_TUNE="$R/tune2"
 if python3 scripts/unified_s2_checks.py tune > "$R/prep/check_tune.log" 2>&1; then c=0; else c=$?; fi
 echo "check_tune rc=$c" >> "$R/prep/status.txt"
 cat "$R/prep/status.txt"
