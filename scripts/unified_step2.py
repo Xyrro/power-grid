@@ -64,7 +64,7 @@ def family(name):
 # ============================================================================ loaders
 def load_fix(res):
     for bench in ("uc12", "uc24"):
-        for r in recs(os.path.join(res, f"{bench}_fix_[ts]*.jsonl"), lambda r: (r["bench"], r["set"], r["k"])):
+        for r in recs(os.path.join(res, f"{bench}_fix_*.jsonl"), lambda r: (r["bench"], r["set"], r["k"])):
             x = inst_key(r["bench"], r["set"], r["k"])
             src = f"unified/retime/{bench}_fix"
             REG.lp(x, r["c_rel"], src)
@@ -86,7 +86,7 @@ def load_fix_addon(res, name):
     {bench}_{name}_*.jsonl: its methods paired with its own full MILP at 0.1 %; methods the main pass already has for
     the instance are not loaded again"""
     for bench in ("uc12", "uc24"):
-        for r in recs(os.path.join(res, f"{bench}_{name}_[ts]*.jsonl"), lambda r: (r["bench"], r["set"], r["k"])):
+        for r in recs(os.path.join(res, f"{bench}_{name}_*.jsonl"), lambda r: (r["bench"], r["set"], r["k"])):
             x = inst_key(r["bench"], r["set"], r["k"])
             src = f"unified/retime/{bench}_{name}"
             REG.lp(x, r["c_rel"], src)
@@ -107,7 +107,7 @@ def load_fix_addon(res, name):
 
 def load_arm_a(res):
     src = "unified/retime/uc12_armA"
-    for r in recs(os.path.join(res, "uc12_armA_[ts]*.jsonl"), lambda r: r["i"]):
+    for r in recs(os.path.join(res, "uc12_armA_*.jsonl"), lambda r: r["i"]):
         x = ("tf", r["i"])
         REG.bound(x, r["milp01"]["bound"], src)
         REG.bound(x, r["milp05"]["bound"], src)
@@ -124,7 +124,7 @@ def load_arm_b(res, bench, kind, label):
     """rec_rloop_eval records (as scripts/unified_rescore.py load_arm_b_gpu; the 0.5 % full MILP is optional)"""
     src, run = f"unified/retime/{bench}_{kind}", f"S2-{kind}"
     key = {"uc12": "tf", "uc24": "u24", "hard": "hard", "line_out": "line_out"}[bench]
-    for r in recs(os.path.join(res, f"{bench}_{kind}_[ts]*.jsonl"), lambda r: r["k"]):
+    for r in recs(os.path.join(res, f"{bench}_{kind}_*.jsonl"), lambda r: r["k"]):
         x = (key, r["k"])
         f1, f5 = r["full"]["0.001"], r["full"].get("0.005")
         for f in (f1, f5):
@@ -159,7 +159,7 @@ def load_arm_b(res, bench, kind, label):
 
 def load_hard(res):
     src = "unified/retime/hard_fix"
-    R = recs(os.path.join(res, "hard_fix_[ts]*.jsonl"), lambda r: (r["i"], r["rule"], r["mip_rel_gap"]))
+    R = recs(os.path.join(res, "hard_fix_*.jsonl"), lambda r: (r["i"], r["rule"], r["mip_rel_gap"]))
     full = {}
     for r in R:
         if r["rule"] == "full MILP":
@@ -305,12 +305,12 @@ def checks(insts_all):
     out["identity"] = dict(instances=n, disagreements=len(dis), examples=[str(d) for d in dis[:5]])
     # hardware and solver of the step-2 records
     hw = {}
-    for p in glob.glob(os.path.join(ARGS.res, "uc12_fix_[ts]*.jsonl")) + glob.glob(os.path.join(ARGS.res, "uc24_fix_[ts]*.jsonl")):
+    for p in glob.glob(os.path.join(ARGS.res, "uc12_fix_*.jsonl")) + glob.glob(os.path.join(ARGS.res, "uc24_fix_*.jsonl")):
         for r in U.jl(p):                                   # (the congested script's records carry no CPU field;
                                                             #  the manifest covers every process)
             hw[(r.get("cpu_model"), r.get("highs"))] = hw.get((r.get("cpu_model"), r.get("highs")), 0) + 1
     man = {}
-    for p in glob.glob(os.path.join(ARGS.res, "manifest_[ts]*.jsonl")):
+    for p in glob.glob(os.path.join(ARGS.res, "manifest_*.jsonl")):
         for r in U.jl(p):
             man[r.get("cpu_model")] = man.get(r.get("cpu_model"), 0) + 1
             if r["rc"] != 0:
