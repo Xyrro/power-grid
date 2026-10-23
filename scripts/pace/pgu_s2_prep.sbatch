@@ -47,8 +47,8 @@ retune() {   # every threshold tuning again, one core each and nothing else on t
   for j in "${pids[@]}"; do wait "$j" || rc=1; done
   return $rc
 }
-retune_long() {   # Learning to Fix's kNN and BCE tunings at eps 1 % with a 12-hour budget, one core each (tune3): used for a
-                  # rule whose one-core run in tune2 did not converge within its 150 min (decided by convergence only)
+retune_long() {   # Learning to Fix's kNN and BCE tunings at eps 1 % with a 12-hour budget, one core each (tune3), for a rule
+                  # whose one-core run in tune2 does not converge within its 150 min (in step 2 both converged: unused)
   local T="$R/tune3"
   mkdir -p "$T"
   cp "$R/tune/ltfx_probs.npz" "$R/tune/ltfx_probs.json" "$T/"

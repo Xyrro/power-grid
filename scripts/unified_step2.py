@@ -64,9 +64,10 @@ def family(name):
 # ============================================================================ loaders
 # methods whose thresholds were tuned on this cluster: the first tuning pass oversubscribed its cores (19 processes on 16)
 # and Learning to Fix's tuning uses time-limited MILPs, so every tuning was repeated with one core each (tune2) and these
-# methods re-run as the add-on pass "fixtune2" (and "fixtune3": Learning to Fix's kNN / BCE rules at eps 1 %, whose
-# one-core run did not converge within 150 min, with the thresholds of a 12-hour one-core run); where these passes
-# exist, their records are the methods' rows and the first pass is kept as "S2·fix(contended)" for the sensitivity table
+# methods re-run in two add-on passes with those thresholds, "fixtune2" (kNN at eps 5 / 10 %, the pipelines) and
+# "fixtune3" (kNN at eps 1 % with and without the LP guard, BCE at eps 1 %: their tunings took longest, so they were
+# re-run last); where these passes exist, their records are the methods' rows and the first pass is kept as
+# "S2·fix(contended)" for the sensitivity table
 TUNED = ("ltf_knn_1", "ltf_knn_5", "ltf_knn_10", "ltf_knn_1+lpg", "ltf_bce_1", "pipe@0.1%", "pipe@0.5%", "pipe+bc",
          "pipe@0.5%:b", "pipe+bc:b", "pipe@0.5%:c", "pipe+bc:c")
 
