@@ -124,8 +124,9 @@ def worst_case_thresholds(pi, u):
 
 
 # ============================================================================ HiGHS helper
-def highs_solve(c, A, lo, hi, lb, ub, integ=None, time_limit=60.0, gap=1e-3, start=None, opts=None):
+def highs_solve(c, A, lo, hi, lb, ub, integ=None, time_limit=60.0, gap=1e-3, start=None, opts=None, hook=None):
     """Solve min c x, lo <= A x <= hi, lb <= x <= ub (integ: 0/1 mask of integer columns) with HiGHS.
+    hook(h), if given, is called with the Highs object just before the solve (e.g. to subscribe a callback).
     Returns dict(status, x, obj, bound, time, gap)."""
     A = sp.csc_matrix(A)
     lp = highspy.HighsLp()
@@ -154,6 +155,8 @@ def highs_solve(c, A, lo, hi, lb, ub, integ=None, time_limit=60.0, gap=1e-3, sta
         s.col_value = list(np.asarray(start, float))
         s.value_valid = True
         h.setSolution(s)
+    if hook is not None:
+        hook(h)
     t0 = time.time()
     h.run()
     dt = time.time() - t0

@@ -7,6 +7,9 @@
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-bounds --cpus 16 --mem 64G --time 08:00:00 \
 #       scripts/pace/pgu_s2_longmilp.sbatch
 #   a longer second pass over the instances still loose (re-plan first): --export "BOUNDS_ARGS=--tl 14400 --claims claims_bounds2"
+#   (the eight-hour second pass ran five solves in 32G and was killed by the memory limit with two still running; the
+#   third pass re-runs those two with --cpus 2 --mem 128G --export "BOUNDS_ARGS=--tl 28800 --claims claims_bounds3",
+#   and every solve now writes its proven bound every five minutes, so a kill no longer loses it)
 #SBATCH -N 1 --ntasks=1
 source "${SLURM_SUBMIT_DIR:-$PWD}/scripts/pace/trm_env.sh"
 echo "node $(hostname): $(lscpu | sed -n 's/^Model name: *//p')"

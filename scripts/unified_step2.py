@@ -191,9 +191,16 @@ def load_hard(res):
 
 
 def load_longmilp(res):
-    for p in sorted(glob.glob(os.path.join(res, "longmilp_*.jsonl"))):          # every solve's bound counts (both passes)
+    for p in sorted(glob.glob(os.path.join(res, "longmilp_*.jsonl"))):          # every solve's bound counts (all passes)
         for r in U.jl(p):
             REG.bound(inst_key(r["bench"], r["set"], r["k"]), r["bound"], "unified/retime/longmilp")
+    for p in sorted(glob.glob(os.path.join(res, "bounds_progress_*.jsonl"))):   # bounds proven part-way through a solve
+        for line in open(p):                                                    # (kept if the solve was killed; a line
+            try:                                                                #  cut off by the kill is skipped)
+                r = json.loads(line)
+            except ValueError:
+                continue
+            REG.bound(inst_key(r["bench"], r["set"], r["k"]), r["bound"], "unified/retime/longmilp (progress)")
     best = {}
     for p in sorted(glob.glob(os.path.join(res, "longmilp_*.jsonl"))):
         for r in U.jl(p):

@@ -10,6 +10,9 @@ Each solve: the same UC MILP as every other full-MILP run of its benchmark (otsl
 shifted sets; congested lines through otsl.hard's system), HiGHS through highspy with one thread, mip_rel_gap 1e-5,
 a one-hour limit (--tl). The bound and the incumbent are recorded; times are not compared with anything.
 Output: results/unified/retime/longmilp_<tag>.jsonl (resume skips finished items).
+Progress: every --progress_s seconds of a solve, the solver's current dual bound (a proven lower bound at that moment)
+and incumbent go to results/unified/retime/bounds_progress_<tag>.jsonl, so a solve that is killed (e.g. by the job's
+memory limit) still leaves its last proven bound; scripts/unified_step2.py reads both files.
 """
 import argparse
 import json
@@ -75,6 +78,7 @@ def main():
     ap.add_argument("--tag", default="")
     ap.add_argument("--max_wait_h", type=float, default=4.0, help="pull: how long to wait for missing instance files")
     ap.add_argument("--claims", default="claims_bounds", help="pull: claims folder (a new one for a longer second pass)")
+    ap.add_argument("--progress_s", type=float, default=300.0, help="seconds between progress lines (0: none)")
     a = ap.parse_args()
     os.chdir(os.path.dirname(HERE))
     if a.plan:
@@ -123,6 +127,25 @@ def main():
                 return
             time.sleep(60)
 
+    prog = os.path.join(RES, f"bounds_progress_{tag}.jsonl")
+
+    def progress(key):
+        """subscribe a MIP callback that appends the current dual bound and incumbent every --progress_s seconds"""
+        last = [time.time()]
+
+        def cb(e):
+            now = time.time()
+            if now - last[0] < a.progress_s:
+                return
+            d = e.data_out
+            if np.isfinite(d.mip_dual_bound):
+                last[0] = now
+                with open(prog, "a") as f:
+                    f.write(json.dumps(dict(bench=key[0], set=key[1], k=key[2], t=round(d.running_time, 1),
+                                            bound=d.mip_dual_bound, obj=d.mip_primal_bound, nodes=int(d.mip_node_count),
+                                            host=socket.gethostname()), default=float) + "\n")
+        return lambda h: h.cbMipInterrupt.subscribe(cb)
+
     for it in items():
         key = (it["bench"], it["set"], it["k"])
         if key in done:
@@ -152,7 +175,7 @@ def main():
                                  l_out=tuple(int(x) for x in z["l_out"]))
         lo, hi, lb, ub = m._rhs_bounds(sc)
         t0 = time.time()
-        r = highs_solve(m.c, m.A, lo, hi, lb, ub, m.integ, a.tl, a.gap)
+        r = highs_solve(m.c, m.A, lo, hi, lb, ub, m.integ, a.tl, a.gap, hook=progress(key) if a.progress_s > 0 else None)
         rec = dict(bench=b, set=s, k=k, status=r["status"], obj=r["obj"], bound=r["bound"], gap=r["gap"],
                    time=time.time() - t0, tl=a.tl, mip_rel_gap=a.gap, host=socket.gethostname(),
                    unresolved_before_pct=it["unresolved_pct"])
