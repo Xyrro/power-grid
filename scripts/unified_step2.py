@@ -62,7 +62,16 @@ def family(name):
 
 
 # ============================================================================ loaders
+# methods whose thresholds were tuned on this cluster: the first tuning pass oversubscribed its cores (19 processes on 16)
+# and Learning to Fix's tuning uses time-limited MILPs, so every tuning was repeated with one core each (tune2) and these
+# methods re-run as the add-on pass "fixtune2"; where that pass exists, its records are the methods' rows and the first
+# pass is kept as "S2·fix(contended)" for the sensitivity table
+TUNED = ("ltf_knn_1", "ltf_knn_5", "ltf_knn_10", "ltf_knn_1+lpg", "ltf_bce_1", "pipe@0.1%", "pipe@0.5%", "pipe+bc",
+         "pipe@0.5%:b", "pipe+bc:b", "pipe@0.5%:c", "pipe+bc:c")
+
+
 def load_fix(res):
+    retuned = bool(glob.glob(os.path.join(res, "uc12_fixtune2_*.jsonl")))
     for bench in ("uc12", "uc24"):
         for r in recs(os.path.join(res, f"{bench}_fix_*.jsonl"), lambda r: (r["bench"], r["set"], r["k"])):
             x = inst_key(r["bench"], r["set"], r["k"])
@@ -76,7 +85,8 @@ def load_fix(res):
                 if not U.finite(v["cost"]):
                     REG.notes.append(f"S2: {name} at {x} delivered no schedule")
                     continue
-                REG.put(f"S2·fix | {name}", x, v["cost"], v["shed"] < TOL and v["short"] < TOL, v["time"], tref,
+                lab = "S2·fix(contended)" if retuned and name in TUNED else "S2·fix"
+                REG.put(f"{lab} | {name}", x, v["cost"], v["shed"] < TOL and v["short"] < TOL, v["time"], tref,
                         U.meta(src, family(name), "complete", "S2-fix", cpu=r.get("cpu_model"), highs=r.get("highs")),
                         fellback=bool(v.get("fallback")))
 
@@ -368,7 +378,7 @@ def main():
     os.chdir(os.path.dirname(HERE))
     U.load_all()
     load_fix(a.res)
-    load_fix_addon(a.res, "fixknn10")
+    load_fix_addon(a.res, "fixtune2")
     load_fix_addon(a.res, "fixorig")
     load_arm_a(a.res)
     load_arm_b(a.res, "uc12", "armB", "S2·B")
@@ -434,6 +444,22 @@ def main():
           "10-14, each with Learning to Fix's thresholds tuned on the same validation set. Arm B runs: w2_rloop_rl (seed 0, "
           "the GPU round's tested model) and g3_plain_s1-3_rl (seeds 1-3, the same configuration, trained for the "
           "attention-residual comparison); settings of the GPU round's test plan for all four.", ""]
+    # thresholds: tuned with one core each (used above), tuned under CPU contention (first pass), the original study's
+    L += ["## Learning to Fix's thresholds: how much the tuning run matters (12 h, test_fresh)", "",
+          "| method | one core per tuning (used) | first pass, oversubscribed cores | original study's thresholds |",
+          "|---|---|---|---|"]
+    R["tuning_sensitivity"] = {}
+    for m in ("ltf_knn_1", "ltf_knn_5", "ltf_knn_10", "ltf_bce_1", "pipe@0.5%"):
+        cells = []
+        for n in (f"S2·fix | {m}", f"S2·fix(contended) | {m}", f"S2·fix | {m}:orig"):
+            ok = n in REG.methods and tf and U.complete_on(n, tf)
+            s = U.stats(n, tf) if ok else None
+            R["tuning_sensitivity"].setdefault(m, []).append(s)
+            cells.append(f"{s['gap_mean']:.3f} % · {s['served']:.0f} % · " + (f"{s['sp_geo']:.1f}×" if "sp_geo" in s else "–")
+                         if s else "–")
+        L.append(f"| {m} | " + " | ".join(cells) + " |")
+    L += ["", "Same models in all three columns; only the thresholds differ. Learning to Fix's tuning solves time-limited "
+          "MILPs, so a run whose cores are oversubscribed reaches different thresholds.", ""]
     C = checks(sorted(set(x for x in all_insts if x in present)))
     R["checks"] = C
     L += ["## Checks", ""]

@@ -33,7 +33,8 @@ def plan(threshold):
     if os.path.isdir(RES):
         S2.ARGS = argparse.Namespace(res=RES)
         S2.load_fix(RES)
-        S2.load_fix_addon(RES, "fixknn10")
+        S2.load_fix_addon(RES, "fixtune2")
+        S2.load_fix_addon(RES, "fixorig")
         S2.load_arm_a(RES)
         for b, kind, lab in (("uc12", "armB", "S2·B"), ("uc12", "armB0", "S2·B0"), ("uc24", "armB", "S2·B"),
                              ("hard", "armB", "S2·B"), ("line_out", "armB", "S2·B")):

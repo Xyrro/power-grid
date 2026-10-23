@@ -9,8 +9,8 @@
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-retime --cpus 8 --mem 96G --time 10:00:00 \
 #       --constraint cpu-gnr scripts/pace/pgu_s2_retime.sbatch                                   (as many as wanted)
 #   add-on pass of a few methods with their own paired reference (RETIME_ARGS; no commas: sbatch --export splits them):
-#       ... --export "RETIME_ARGS=--sets uc12:tf --fix_only full@0.1%+ltf_knn_10 --fix_name fixknn10 --claims claims_knn10
-#       --skip armA+armB+armB0+armBs1+armBs2+armBs3" ...   (lists in RETIME_ARGS use + instead of commas)
+#       ... --export "RETIME_ARGS=--sets uc12:tf --fix_only full@0.1%/ltf_knn_10 --fix_name fixknn10 --claims claims_knn10
+#       --skip armA+armB+armB0+armBs1+armBs2+armBs3" ...   (lists in RETIME_ARGS: + or, for method names, /)
 #   smoke test (ITEMS, '+'-separated since sbatch --export splits on commas, spread round-robin over the allocated cores,
 #   same pinning, outputs in results/unified/retime/smoke):
 #   python3 scripts/pace/pgu_guard.py submit --kind cpu --name s2-smoke --cpus 2 --mem 32G --time 02:00:00 \

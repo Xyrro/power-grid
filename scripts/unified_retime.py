@@ -61,7 +61,7 @@ def assign(items, ntasks):
     return out, load
 
 
-def commands(it, res, tag, py, fix_only="", fix_name="fix"):
+def commands(it, res, tag, py, fix_only="", fix_name="fix", tune_dir=""):
     """{kind: argv} for one item; fix_only ('+'-separated method names) and fix_name: an add-on pass of a few methods
     of unified_fix_eval.py, with its own paired reference, into {bench}_{fix_name}_{tag}.jsonl"""
     bench, s, k = it
@@ -70,9 +70,12 @@ def commands(it, res, tag, py, fix_only="", fix_name="fix"):
         cmd["fix"] = [py, "scripts/unified_fix_eval.py", "--bench", bench, "--set", s, "--k", str(k),
                       "--out", f"{res}/{bench}_{fix_name}_{tag}.jsonl"]
         if fix_only:
-            cmd["fix"] += ["--only", fix_only.replace("+", ",")]
+            sep = "/" if "/" in fix_only else "+"            # method names may contain '+' (pipe+bc): use '/' then
+            cmd["fix"] += ["--only", ",".join(x for x in fix_only.split(sep) if x)]
             if ":orig" in fix_only:
                 cmd["fix"] += ["--orig"]
+        if tune_dir:
+            cmd["fix"] += ["--tune_dir", tune_dir]
     if bench == "hard":
         cmd["hard"] = [py, "scripts/uc_hard_eval.py", "--only", str(k), "--out", f"{res}/hard_fix_{tag}.jsonl"]
     if bench == "uc12" and s == "tf":
@@ -152,8 +155,9 @@ def main():
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--audit", action="store_true", help="print the items not complete yet (as an --items list)")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--fix_only", default="", help="add-on pass: '+'-separated unified_fix_eval methods (with --fix_name)")
+    ap.add_argument("--fix_only", default="", help="add-on pass: '/'-separated unified_fix_eval methods (with --fix_name)")
     ap.add_argument("--fix_name", default="fix")
+    ap.add_argument("--tune_dir", default="", help="thresholds folder passed to unified_fix_eval.py (add-on passes)")
     ap.add_argument("--claims", default="claims", help="claims folder under --res (a separate one per add-on pass)")
     ap.add_argument("--sets", default="", help="'+'-separated bench:set filters of the item list (e.g. uc12:tf)")
     a = ap.parse_args()
@@ -194,7 +198,7 @@ def main():
     t_all = time.time()
 
     def run_item(j, it):
-        cmd = {k_: v for k_, v in commands(it, a.res, tag, py, a.fix_only, a.fix_name).items() if k_ not in skip}
+        cmd = {k_: v for k_, v in commands(it, a.res, tag, py, a.fix_only, a.fix_name, a.tune_dir).items() if k_ not in skip}
         order = sorted(cmd)
         rng_seed = zlib.crc32(f"{it[0]}/{it[1]}/{it[2]}/{a.seed}".encode())
         order = [order[i] for i in sorted(range(len(order)), key=lambda i: zlib.crc32(f"{rng_seed}/{order[i]}".encode()))]
