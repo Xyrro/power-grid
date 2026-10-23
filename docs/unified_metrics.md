@@ -209,6 +209,12 @@ Full tables: `results/unified/step2.md`. The raw records, manifests, tuned thres
 * **The pipeline remains the only rule that is near the full MILP's accuracy and clearly faster than loosening the MILP's gap.** It reaches 0.18–0.21 % at 5.8–5.9×, against 0.156 % at 2.3× for the full MILP at 0.5 %. Its speed-up is unchanged from step 1 once every method runs on one machine.
 * **Arm B is unchanged.** Its safety net still costs the speed-up: 2.7×. The control without LP feedback is as good with the safety net.
 
+**Paired on the same 120 instances** (`step2.md`, paired comparisons; differences in pp with 95 % intervals, speed-up ratios as geometric means):
+* **Against the full MILP:** the pipeline is +0.05 [−0.01, +0.11] pp from the MILP at 0.5 % and 2.6× [2.2, 3.1] faster. It is level with the MILP at 1 % (−0.03 [−0.09, +0.04]) and 2.1× faster.
+* **Against Learning to Fix:** the pipeline is level with its tuning on the LP relaxation (+0.00 [−0.08, +0.09]) and 2.8× faster. It is 0.40 [0.21, 0.62] pp closer to the bound than the kNN rule and 2.5× faster, and 0.13 [0.05, 0.22] pp closer than the rule on our BCE GNN.
+* **Arm B:** with its safety net it is 0.12 [0.06, 0.19] pp above the full MILP at 0.5 % at about the same speed (1.2× [0.99, 1.4]). Without the net, LP feedback is 0.56 pp better overall [0.01, 1.27] but not where both versions serve (+0.05 [−0.12, +0.22]).
+* **Arm A:** the TRM is worse than the one-shot control of the same network under every decoding (+0.13 to +0.36 pp, all intervals above 0) and 14–25× slower.
+
 **Training seeds.**
 
 | method | training runs | mean gap per run | spread |
@@ -252,4 +258,7 @@ Full tables: `results/unified/step2.md`. The raw records, manifests, tuned thres
 * PGLib-UC California;
 * the He et al.-style policy, the label-free and Lagrangian end-to-end models, and the combined pipelines of X2.
 
-Each needs its training data regenerated and its models retrained first. Their numbers remain step 1's.
+Each needs its training data regenerated and its models retrained first. Their saved records are re-scored against today's bounds in `step2.md`, with their own study's speed-ups:
+* 12 h: the hybrid gives 0.188 %, where its study's pipeline record gives 0.195 %;
+* 24 h: the learned recipe gives 0.243 % at 7.5×;
+* congested: the learned pipeline gives 0.322 % at 6.8×.

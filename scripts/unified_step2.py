@@ -18,6 +18,10 @@ Checks:
                should equal step 1's up to the MILP tolerance
   timing noise per instance, the spread (max / min) of the full MILP's time over the processes that re-solved it
   bounds       no delivered cost below the tightest bound; how many instances are still above 0.1 % unresolved
+
+Also: paired comparisons on 12 h (mean gap difference and ratio of paired speed-ups, 95 % bootstrap intervals over
+instances), arm A's every pipeline, and the step-1 methods that step 2 could not re-run, re-scored against the bounds
+known now (their speed-ups stay their own study's, measured on another machine).
 """
 import argparse
 import glob
@@ -266,6 +270,65 @@ STEP1 = {"S2·fix | pipe@0.5%": "Y6 | pipeline: B-hg + LP guard, gap 0.5%", "S2�
          "S2·A | w1_deep_fb": "A·gpu | w1_deep_fb", "S2·A | m1x_mix5r": "A·gpu | m1x_mix5r"}
 
 
+# paired comparisons on 12 h test_fresh: (label A, method A, label B, method B, only where both serve)
+PAIRED = [("Recommended pipeline", "S2·fix | pipe@0.5%", "full MILP, 0.5 %", "S2·fix | full@0.5%", False),
+          ("Pipeline + bound check", "S2·fix | pipe+bc", "full MILP, 0.5 %", "S2·fix | full@0.5%", False),
+          ("Recommended pipeline", "S2·fix | pipe@0.5%", "full MILP, 1 %", "S2·fix | full@1%", False),
+          ("Recommended pipeline", "S2·fix | pipe@0.5%", "full MILP, 0.1 %", "S2·fix | full@0.1%", False),
+          ("Recommended pipeline", "S2·fix | pipe@0.5%", "Learning to Fix, kNN, eps 1 %", "S2·fix | ltf_knn_1", False),
+          ("Recommended pipeline", "S2·fix | pipe@0.5%", "Learning to Fix on the BCE GNN", "S2·fix | ltf_bce_1", False),
+          ("Recommended pipeline", "S2·fix | pipe@0.5%", "Learning to Fix on the LP relaxation", "S2·fix | ltf_lp", False),
+          ("Recommended pipeline", "S2·fix | pipe@0.5%", "arm B + safety net", "S2·B | @24 + safety net", False),
+          ("Arm B + safety net", "S2·B | @24 + safety net", "full MILP, 0.5 %", "S2·fix | full@0.5%", False),
+          ("Arm B + safety net", "S2·B | @24 + safety net", "arm B without feedback + safety net", "S2·B0 | @24 + safety net", False),
+          ("Arm B, 24 steps", "S2·B | @24 steps", "arm B without feedback, 24 steps", "S2·B0 | @24 steps", False),
+          ("Arm B, 24 steps", "S2·B | @24 steps", "arm B without feedback, 24 steps", "S2·B0 | @24 steps", True),
+          ("Arm B, 24 steps", "S2·B | @24 steps", "LP rounding + repair", "S2·fix | lpround", False),
+          ("Arm A: TRM + safety net", "S2·A | w1_trm30_fb", "one-shot control + safety net", "S2·A | w1_oneshot_fb", False),
+          ("Arm A: TRM + safety net", "S2·A | w1_trm30_fb", "deep control + safety net", "S2·A | w1_deep_fb", False),
+          ("Arm A: TRM, 1 LP + repair", "S2·A | w1_trm30_1r", "one-shot control, 1 LP + repair", "S2·A | w1_oneshot_1r", False),
+          ("Arm A: TRM, 5 thresholds + repair", "S2·A | w1_trm30_t5r", "one-shot control, 5 thresholds + repair",
+           "S2·A | w1_oneshot_t5r", False),
+          ("Arm A: TRM, mixed + repair", "S2·A | w1_trm30_mix5r", "one-shot control, mixed + repair", "S2·A | w1_oneshot_mix5r", False)]
+# arm A: every model under every decoding of the GPU round's test plan
+ARM_A_GRID = [("Recursive TRM, 16 steps", "w1_trm30", ("mix5r", "1r", "t5r", "fb")),
+              ("One-shot control, same network", "w1_oneshot", ("mix5r", "1r", "t5r", "fb")),
+              ("Deep unshared control, 13.1 M", "w1_deep", ("mix5r", "1r", "t5r", "fb")),
+              ("Temporal-GNN ensemble (m1x)", "m1x", ("mix5r", "1r", "5r", None))]
+# step-1 methods step 2 could not re-run (models or training data not on the cluster), against today's bounds
+NOT_RERUN = [("12 h, test_fresh", ("tf", 120), [("Hybrid, 0.1 % gap", "Y6 | hybrid"),
+                                                 ("Recommended pipeline, original models (same study, for comparison)",
+                                                  "Y6 | pipeline: B-hg + LP guard, gap 0.5%")]),
+             ("12 h, first 60 fresh instances", ("tf", 60),
+              [("Hybrid", "X6 | hybrid he_bce_s0_e1_n360"),
+               ("Ours: error-cost + adequacy guard, 90 %", "X6 | ours: error-cost + adequacy guard 90% (BCE)"),
+               ("Ours: combined pipeline, 98 %", "X6 | ours: combined st+error-cost+adequacy+LP guard 98%")]),
+             ("24 hours", ("u24", 40),
+              [("Learned recipe with a cross-validated margin", "Z2fu | m24cal"),
+               ("Learned recipe: ensemble fixings + LP guard, 0.5 % (tuned thresholds)", "Z2fu | m24"),
+               ("Guarded 95 % rule (imitation GNN)", "Z2 | guarded 95%"),
+               ("Learning to Fix, kNN, eps 1 %", "X8 | LtF knn eps=1%")]),
+             ("Congested lines", ("hard", 60),
+              [("Learned pipeline, 0.5 %", "Z3 | pipeline @0.5 %"), ("Learned pipeline, 0.1 %", "Z3 | pipeline @0.1 %"),
+               ("Learning to Fix, kNN, eps 1 %", "Z3 | LtF-kNN @0.1 %")])]
+
+
+def paired(na, nb, insts, served_only):
+    """mean of the per-instance gap difference A − B, and the geometric mean of A's paired speed-up over B's"""
+    da, dd = REG.methods[na]["data"], REG.methods[nb]["data"]
+    xs = [x for x in insts if not served_only or (da[x][1] and dd[x][1])]
+    g = lambda d, x: (d[x][0] - U.db_of(x)) / d[x][0] * 100
+    dg = [g(da, x) - g(dd, x) for x in xs]
+    out = dict(a=na, b=nb, served_only=served_only, n=len(xs), gap_a=sum(g(da, x) for x in xs) / len(xs),
+               gap_b=sum(g(dd, x) for x in xs) / len(xs), diff=sum(dg) / len(dg), diff_ci=U.boot_ci(dg, na + nb + str(len(xs))),
+               a_better=sum(v < -1e-9 for v in dg), b_better=sum(v > 1e-9 for v in dg))
+    if all(da[x][2] and da[x][3] and dd[x][2] and dd[x][3] for x in xs):
+        lr = [math.log((da[x][3] / da[x][2]) / (dd[x][3] / dd[x][2])) for x in xs]
+        ci = U.boot_ci(lr, "sp" + na + nb + str(len(xs)))
+        out.update(speed=math.exp(sum(lr) / len(lr)), speed_ci=[math.exp(ci[0]), math.exp(ci[1])])
+    return out
+
+
 def ref_times(insts):
     """per instance, every process's full-MILP (0.1 %) time"""
     names = [n for n in ("S2·fix | full@0.1%", "S2·A | milp01", "S2·B | full MILP 0.1 %", "S2·B0 | full MILP 0.1 %",
@@ -489,6 +552,58 @@ def main():
     L += ["", "Same models in all three columns; only the thresholds differ. Learning to Fix's tuning solves time-limited "
           "MILPs (relaxations 6 s, checks 60 s, master 120 s), so repeated runs on the same validation set reach different "
           "thresholds; the pipeline's guard-aware tuning is stable.", ""]
+    # paired comparisons (12 h)
+    L += ["## Paired comparisons (12 h, test_fresh)", "",
+          "Per instance: A's gap minus B's (negative: A is closer to the bound), and A's paired speed-up over B's "
+          "(geometric mean; above 1: A is faster). 95 % bootstrap intervals over instances.", "",
+          "| A | B | instances | gap A | gap B | A − B, pp [95 % CI] | A better / B better | speed-up A over B [95 % CI] |",
+          "|---|---|---|---|---|---|---|---|"]
+    R["paired"] = []
+    for la, na, lb, nb, so in PAIRED:
+        if not (na in REG.methods and nb in REG.methods and tf and U.complete_on(na, tf) and U.complete_on(nb, tf)):
+            continue
+        p = paired(na, nb, tf, so)
+        p.update(label_a=la, label_b=lb)
+        R["paired"].append(p)
+        sp = f"{p['speed']:.2f}× [{p['speed_ci'][0]:.2f}, {p['speed_ci'][1]:.2f}]" if "speed" in p else "–"
+        L.append(f"| {la} | {lb}{' (where both serve)' if so else ''} | {p['n']} | {p['gap_a']:.3f} | {p['gap_b']:.3f} | "
+                 f"{p['diff']:+.3f} [{p['diff_ci'][0]:+.3f}, {p['diff_ci'][1]:+.3f}] | {p['a_better']} / {p['b_better']} | {sp} |")
+    L.append("")
+    # arm A: every decoding
+    L += ["## Arm A, every decoding (12 h, test_fresh): mean gap · speed-up (geometric mean)", "",
+          "| model | mixed + repair | 1 LP + repair | 5 thresholds + repair | + safety net |", "|---|---|---|---|---|"]
+    R["arm_a_grid"] = {}
+    for lab, pre, decs in ARM_A_GRID:
+        cells = []
+        for dcd in decs:
+            n = f"S2·A | {pre}_{dcd}" if dcd else None
+            if n and n in REG.methods and tf and U.complete_on(n, tf):
+                st = U.stats(n, tf)
+                R["arm_a_grid"].setdefault(lab, {})[dcd] = st
+                cells.append(f"{st['gap_mean']:.3f} % · " + (f"{st['sp_geo']:.1f}×" if "sp_geo" in st else "–"))
+            else:
+                cells.append("–")
+        L.append(f"| {lab} | " + " | ".join(cells) + " |")
+    L.append("")
+    # step-1 methods not re-run, against the bounds known now
+    L += ["## Not re-run in step 2: step 1's records against today's bounds", "",
+          "Gaps use the tightest bound known now (including step 2's solves); speed-ups are each study's own paired "
+          "measurement on its own machine, so they compare only loosely with the tables above.", "",
+          "| benchmark | method | run | gap mean [95 % CI] | served | speed-up (geometric mean, own study) |", "|---|---|---|---|---|---|"]
+    R["not_rerun"] = []
+    for bench, (key, n_i), rows in NOT_RERUN:
+        insts = [(key, k) for k in range(n_i)]
+        for lab, n in rows:
+            if n not in REG.methods or not U.complete_on(n, insts):
+                continue
+            st = U.stats(n, insts)
+            st.update(benchmark=bench, label=lab, method=n)
+            R["not_rerun"].append(st)
+            ci = st["gap_ci"] or [None, None]
+            L.append(f"| {bench} | {lab} | {st['run']} | {st['gap_mean']:.3f} [{U.fmt(ci[0], 3)}, {U.fmt(ci[1], 3)}] | "
+                     f"{st['served']:.1f} % | " + (f"{st['sp_geo']:.1f}×" if "sp_geo" in st else "–") + " |")
+    L += ["", "PGLib-UC California was not re-run either; no step-2 solve touched its bounds, so its numbers in "
+          "`results/unified/rescored.md` stand.", ""]
     C = checks(sorted(set(x for x in all_insts if x in present)))
     R["checks"] = C
     L += ["## Checks", ""]

@@ -146,6 +146,61 @@ Test: mean gap · served · speed-up (geometric mean); in brackets the share of 
 
 Same models in all three columns; only the thresholds differ. Learning to Fix's tuning solves time-limited MILPs (relaxations 6 s, checks 60 s, master 120 s), so repeated runs on the same validation set reach different thresholds; the pipeline's guard-aware tuning is stable.
 
+## Paired comparisons (12 h, test_fresh)
+
+Per instance: A's gap minus B's (negative: A is closer to the bound), and A's paired speed-up over B's (geometric mean; above 1: A is faster). 95 % bootstrap intervals over instances.
+
+| A | B | instances | gap A | gap B | A − B, pp [95 % CI] | A better / B better | speed-up A over B [95 % CI] |
+|---|---|---|---|---|---|---|---|
+| Recommended pipeline | full MILP, 0.5 % | 120 | 0.205 | 0.156 | +0.049 [-0.008, +0.113] | 44 / 51 | 2.63× [2.24, 3.09] |
+| Pipeline + bound check | full MILP, 0.5 % | 120 | 0.184 | 0.156 | +0.028 [-0.015, +0.073] | 44 / 50 | 2.59× [2.19, 3.05] |
+| Recommended pipeline | full MILP, 1 % | 120 | 0.205 | 0.231 | -0.026 [-0.094, +0.040] | 50 / 47 | 2.08× [1.75, 2.49] |
+| Recommended pipeline | full MILP, 0.1 % | 120 | 0.205 | 0.096 | +0.108 [+0.039, +0.180] | 21 / 68 | 5.92× [4.91, 7.08] |
+| Recommended pipeline | Learning to Fix, kNN, eps 1 % | 120 | 0.205 | 0.605 | -0.401 [-0.617, -0.213] | 72 / 39 | 2.45× [1.94, 3.05] |
+| Recommended pipeline | Learning to Fix on the BCE GNN | 120 | 0.205 | 0.330 | -0.126 [-0.224, -0.045] | 61 / 30 | 1.35× [1.10, 1.64] |
+| Recommended pipeline | Learning to Fix on the LP relaxation | 120 | 0.205 | 0.204 | +0.001 [-0.081, +0.090] | 41 / 51 | 2.80× [2.32, 3.39] |
+| Recommended pipeline | arm B + safety net | 120 | 0.205 | 0.279 | -0.074 [-0.152, -0.004] | 65 / 34 | 2.21× [1.90, 2.58] |
+| Arm B + safety net | full MILP, 0.5 % | 120 | 0.279 | 0.156 | +0.123 [+0.063, +0.185] | 29 / 69 | 1.19× [0.99, 1.41] |
+| Arm B + safety net | arm B without feedback + safety net | 120 | 0.279 | 0.256 | +0.023 [-0.012, +0.061] | 31 / 37 | 0.99× [0.94, 1.04] |
+| Arm B, 24 steps | arm B without feedback, 24 steps | 120 | 0.701 | 1.256 | -0.555 [-1.271, -0.011] | 38 / 39 | 1.00× [0.99, 1.00] |
+| Arm B, 24 steps | arm B without feedback, 24 steps (where both serve) | 112 | 0.593 | 0.542 | +0.050 [-0.116, +0.219] | 31 / 38 | 1.00× [1.00, 1.01] |
+| Arm B, 24 steps | LP rounding + repair | 120 | 0.701 | 1.683 | -0.982 [-1.390, -0.633] | 84 / 22 | 0.12× [0.11, 0.12] |
+| Arm A: TRM + safety net | one-shot control + safety net | 120 | 1.063 | 0.828 | +0.235 [+0.051, +0.414] | 38 / 70 | 0.06× [0.05, 0.08] |
+| Arm A: TRM + safety net | deep control + safety net | 120 | 1.063 | 0.689 | +0.374 [+0.160, +0.587] | 39 / 74 | 0.11× [0.10, 0.13] |
+| Arm A: TRM, 1 LP + repair | one-shot control, 1 LP + repair | 120 | 1.942 | 1.584 | +0.358 [+0.097, +0.646] | 39 / 70 | 0.04× [0.04, 0.05] |
+| Arm A: TRM, 5 thresholds + repair | one-shot control, 5 thresholds + repair | 120 | 1.316 | 1.058 | +0.258 [+0.115, +0.398] | 42 / 66 | 0.07× [0.06, 0.07] |
+| Arm A: TRM, mixed + repair | one-shot control, mixed + repair | 120 | 1.313 | 1.180 | +0.134 [+0.035, +0.246] | 15 / 40 | 0.07× [0.07, 0.08] |
+
+## Arm A, every decoding (12 h, test_fresh): mean gap · speed-up (geometric mean)
+
+| model | mixed + repair | 1 LP + repair | 5 thresholds + repair | + safety net |
+|---|---|---|---|---|
+| Recursive TRM, 16 steps | 1.313 % · 1.8× | 1.942 % · 1.9× | 1.316 % · 1.9× | 1.063 % · 1.7× |
+| One-shot control, same network | 1.180 % · 24.8× | 1.584 % · 43.3× | 1.058 % · 28.6× | 0.828 % · 26.9× |
+| Deep unshared control, 13.1 M | 0.959 % · 14.2× | 1.354 % · 18.9× | 1.206 % · 16.3× | 0.689 % · 14.8× |
+| Temporal-GNN ensemble (m1x) | 1.468 % · 25.3× | 2.516 % · 44.0× | 1.517 % · 23.3× | – |
+
+## Not re-run in step 2: step 1's records against today's bounds
+
+Gaps use the tightest bound known now (including step 2's solves); speed-ups are each study's own paired measurement on its own machine, so they compare only loosely with the tables above.
+
+| benchmark | method | run | gap mean [95 % CI] | served | speed-up (geometric mean, own study) |
+|---|---|---|---|---|---|
+| 12 h, test_fresh | Hybrid, 0.1 % gap | Y6 | 0.188 [0.152, 0.228] | 96.7 % | 3.1× |
+| 12 h, test_fresh | Recommended pipeline, original models (same study, for comparison) | Y6 | 0.195 [0.157, 0.237] | 96.7 % | 5.9× |
+| 12 h, first 60 fresh instances | Hybrid | X6 | 0.198 [0.143, 0.259] | 96.7 % | 2.8× |
+| 12 h, first 60 fresh instances | Ours: error-cost + adequacy guard, 90 % | X6 | 0.377 [0.214, 0.579] | 98.3 % | 3.2× |
+| 12 h, first 60 fresh instances | Ours: combined pipeline, 98 % | X6 | 0.773 [0.523, 1.060] | 98.3 % | 7.9× |
+| 24 hours | Learned recipe with a cross-validated margin | Z2fu | 0.243 [0.175, 0.320] | 92.5 % | 7.5× |
+| 24 hours | Learned recipe: ensemble fixings + LP guard, 0.5 % (tuned thresholds) | Z2fu | 0.528 [0.378, 0.706] | 92.5 % | 11.0× |
+| 24 hours | Guarded 95 % rule (imitation GNN) | Z2 | 0.625 [0.455, 0.805] | 95.0 % | 6.2× |
+| 24 hours | Learning to Fix, kNN, eps 1 % | X8 | 0.560 [0.380, 0.765] | 97.5 % | – |
+| Congested lines | Learned pipeline, 0.5 % | Z3 | 0.322 [0.261, 0.387] | 96.7 % | 6.8× |
+| Congested lines | Learned pipeline, 0.1 % | Z3 | 0.294 [0.238, 0.356] | 96.7 % | 3.4× |
+| Congested lines | Learning to Fix, kNN, eps 1 % | Z3 | 0.453 [0.299, 0.619] | 98.3 % | 2.1× |
+
+PGLib-UC California was not re-run either; no step-2 solve touched its bounds, so its numbers in `results/unified/rescored.md` stand.
+
 ## Checks
 
 * Identity: LP relaxation cost of 220 instances against step 1's records: 0 disagreements.
