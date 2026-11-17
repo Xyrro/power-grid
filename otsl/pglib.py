@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import scipy.sparse as sp
 
-PGLIB = "/home/user/power-grid-lib/pglib-uc"
+PGLIB = os.environ.get("PGLIB", "/home/user/power-grid-lib/pglib-uc")   # the pglib-uc repository (ca/*.json)
 VOLL = 10_000.0          # $/MWh of shed load or over-generation
 RES_PEN = 5_000.0        # $/MWh of spinning-reserve shortfall
 

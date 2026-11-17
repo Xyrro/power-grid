@@ -54,11 +54,11 @@ def canonical_labels(sysm, u, u0):
 
 class UCFeaturizer:
     """Bus features (load, renewables per period [+ LP-relaxation prices]), unit features (static data,
-    initial status, symmetry rank [+ LP-relaxation commitment]), edge features (line data [+ relaxed
-    loading])."""
+    initial status, symmetry rank [+ LP-relaxation commitment] [+ signed probing margin, margin=True: d["margin"]]),
+    edge features (line data [+ relaxed loading])."""
 
-    def __init__(self, sysm, train, relax=False, sym=False):
-        self.s, self.relax, self.sym = sysm, relax, sym
+    def __init__(self, sysm, train, relax=False, sym=False, margin=False):
+        self.s, self.relax, self.sym, self.margin = sysm, relax, sym, margin
         s = sysm
         G = s.G
         onehot = np.array([[t == k for k in TYPES] for t in s.utype], float)
@@ -89,6 +89,8 @@ class UCFeaturizer:
             xb.append(sel(d["lmp_rel"]).transpose(0, 2, 1) / 1e4)
             xg.append(sel(d["u_rel"]).transpose(0, 2, 1))
             xe.append(np.abs(sel(d["flow_rel"])).transpose(0, 2, 1) / self.s.fmax[None, :, None])
+        if self.margin:                    # signed Lagrangian-probing margin per unit and hour (otsl.probe.margin_feature)
+            xg.append(sel(d["margin"]).transpose(0, 2, 1).astype(float))
         return np.concatenate(xb, -1), np.concatenate(xg, -1), np.concatenate(xe, -1)
 
     def __call__(self, d, idx=None):

@@ -108,14 +108,18 @@ def polish(m, sysm, sc, p, y_lf, c_lf, ratio=0.9, time_limit=5.0, gap=1e-3, rank
 
 # ============================================================================ temporal mixing
 def feature_layout(feat, T):
-    """column indices of the per-hour inputs in the featurizer's bus / unit features (relax=True, sym=True)"""
+    """column indices of the per-hour inputs in the featurizer's bus / unit features (relax=True, sym=True; with
+    margin=True the probing margins follow the LP commitment and are a per-hour input of the temporal head too)"""
     assert feat.relax and feat.sym
     ns = feat.g_static.shape[1]
     net = ns + 1 + np.arange(T)
     urel = ns + 1 + T + 2 + np.arange(T)
+    rows = [net, urel]
+    if getattr(feat, "margin", False):
+        rows.append(urel[-1] + 1 + np.arange(T))
     bload, bren, blmp = np.arange(T), T + np.arange(T), 2 * T + 1 + np.arange(T)
-    assert urel[-1] == feat.gen_dim - 1 and blmp[-1] == feat.bus_dim - 1
-    return np.stack([net, urel]), np.stack([bload, bren, blmp])
+    assert rows[-1][-1] == feat.gen_dim - 1 and blmp[-1] == feat.bus_dim - 1
+    return np.stack(rows), np.stack([bload, bren, blmp])
 
 
 class CommitGNNT(nn.Module):

@@ -216,6 +216,7 @@ class UCSolution:
     shed: float = 0.0
     short: float = 0.0
     lmp: np.ndarray | None = None
+    mu: np.ndarray | None = None      # [T] reserve price of the LP relaxation (solve_dispatch)
     time: float = 0.0
     gap: float = 0.0
 
@@ -457,6 +458,10 @@ class UCModel:
             return UCSolution("infeasible", np.inf, None, None, None, None, None, time=dt)
         uu, p, r, th, f, shed = self._unpack(res.x)
         sol = UCSolution("optimal", float(res.fun), uu, p, r, th, f, shed=shed, short=self._short, time=dt)
+        # reserve price mu_t (dual of sum_g res + short >= SR_t; these rows sit in the lower-bound block of A_ub)
+        ub_mask, lo_mask = ~A_eq_mask & np.isfinite(hi), ~A_eq_mask & np.isfinite(lo)
+        pos_lo = np.cumsum(lo_mask) - 1 + int(ub_mask.sum())
+        sol.mu = np.array([-res.ineqlin.marginals[pos_lo[self.row_tag[("sr", t)][0]]] for t in range(self.T)])
         if self.network:
             eq_rows = np.where(A_eq_mask)[0]
             pos = {row: i for i, row in enumerate(eq_rows)}

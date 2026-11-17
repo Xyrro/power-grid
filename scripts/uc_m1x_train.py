@@ -72,9 +72,12 @@ def register(name, members):
         reg[name] = members
 
 
-def train_set(sysm, n, label):
+def train_set(sysm, n, label, margin=False):
+    keys = RELAX_KEYS + (("margin",) if margin else ())
     tr = load(os.path.join(ROOT, "train.npz"))
-    parts = [{k: tr[k] for k in RELAX_KEYS}]
+    if margin:
+        with_margin(tr, os.path.join(ROOT, "train.npz"))
+    parts = [{k: tr[k] for k in keys}]
     if label == "lf":
         ys = [np.stack([lf_label(tr["u_rel"][i], scenario(tr, i), sysm) for i in range(len(tr["load"]))])]
     else:
@@ -82,25 +85,38 @@ def train_set(sysm, n, label):
     k = 0
     while sum(len(p["load"]) for p in parts) < n:
         d = dict(np.load(os.path.join(DATA, f"extra_{k}.npz")))
-        parts.append({key: d[key] for key in RELAX_KEYS})
+        if margin:
+            with_margin(d, os.path.join(DATA, f"extra_{k}.npz"))
+        parts.append({key: d[key] for key in keys})
         if label == "lf":
             ys.append(d["y_lf"])
         else:
             ys.append(np.load(os.path.join(DATA, f"polish_{k}.npz"))["y"])
         k += 1
-    d = {key: np.concatenate([p[key] for p in parts])[:n] for key in RELAX_KEYS}
+    d = {key: np.concatenate([p[key] for p in parts])[:n] for key in keys}
     y = np.concatenate(ys)[:n]
     d["obj"] = d["c_rel"]
     return d, canonical_labels(sysm, y, d["u0"]).astype(np.float32)
 
 
-def val_sets():
+def val_sets(margin=False):
     parts = [load(os.path.join(ROOT, f"{v}.npz")) for _, v in VAL]
-    return {k: np.concatenate([p[k] for p in parts]) for k in RELAX_KEYS + ("u", "obj")}
+    if margin:
+        parts = [with_margin(p, os.path.join(ROOT, f"{v}.npz")) for p, (_, v) in zip(parts, VAL)]
+    return {k: np.concatenate([p[k] for p in parts]) for k in RELAX_KEYS + ("u", "obj") + (("margin",) if margin else ())}
 
 
-def featurizer(sysm):
-    return UCFeaturizer(sysm, strip(load(os.path.join(ROOT, "train.npz"))), relax=True, sym=True)
+def with_margin(d, path):
+    """attach the probing-margin feature of a data file (scripts/r9_margins.py) to its dict"""
+    d["margin"] = np.load(path.replace(".npz", ".margin.npz"))["margin"]
+    return d
+
+
+def featurizer(sysm, margin=False):
+    tr = strip(load(os.path.join(ROOT, "train.npz")))
+    if margin:
+        with_margin(tr, os.path.join(ROOT, "train.npz"))
+    return UCFeaturizer(sysm, tr, relax=True, sym=True, margin=margin)
 
 
 def load_net(path, kind, sysm, feat):
@@ -137,6 +153,7 @@ if __name__ == "__main__":
     ap.add_argument("--ensemble", nargs=2, metavar=("NAME", "TAGS"))
     ap.add_argument("--refs", action="store_true", help="metrics of the existing BCE / self-trained / kNN probabilities")
     ap.add_argument("--log", default="", help="metrics JSON (default results/uc12/m1x_train.json)")
+    ap.add_argument("--margin", action="store_true", help="round 9: the probing-margin feature (tag suffix _mg)")
     a = ap.parse_args()
     if a.log:
         LOG = a.log
@@ -145,8 +162,8 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(DATA, "models"), exist_ok=True)
     os.makedirs(os.path.join(DATA, "probs"), exist_ok=True)
     sysm = load_rts_gmlc()
-    feat = featurizer(sysm)
-    va = val_sets()
+    feat = featurizer(sysm, a.margin)
+    va = val_sets(a.margin)
     if a.refs:      # existing probability sources (results/uc12/hybrid_probs.npz), same metrics
         H = np.load(os.path.join(RES, "hybrid_probs.npz"))
         cat = lambda k: np.concatenate([H[f"{k}_{s}"] for s, _ in VAL]).astype(np.float64)
@@ -180,12 +197,14 @@ if __name__ == "__main__":
             update_log(tag, log[tag])
             print(tag, json.dumps(log[tag]["val"]["all360"]), flush=True)
         sys.exit(0)
-    tag = a.tag or f"{a.label}_n{a.n}_{a.kind}_s{a.seed}"
+    tag = a.tag or f"{a.label}_n{a.n}_{a.kind}{'_mg' if a.margin else ''}_s{a.seed}"
     path = os.path.join(DATA, "models", f"{tag}.pt")
     epochs = a.epochs or EPOCHS[a.n]
     t0 = time.time()
-    tr, y = train_set(sysm, a.n, a.label)
+    tr, y = train_set(sysm, a.n, a.label, a.margin)
     vtr = load(os.path.join(ROOT, "val.npz"))
+    if a.margin:
+        with_margin(vtr, os.path.join(ROOT, "val.npz"))
     vtr["u_target"] = canonical_labels(sysm, vtr["u"], vtr["u0"])
     t_data = time.time() - t0
     if os.path.exists(path):

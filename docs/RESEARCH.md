@@ -7,8 +7,8 @@ A side study that (wrongly) read "switching status" as transmission-line switchi
 The studies below use different gap and speed-up conventions; every result re-scored under one protocol (gap to the
 tightest proven bound over all runs, no instance dropped, geometric-mean paired speed-ups):
 [`unified_metrics.md`](unified_metrics.md); every method whose models exist was then re-timed on one machine
-(`results/unified/step2.md`). The current recommended pipeline is the certified one of §8b
-([`methods/screen.md`](methods/screen.md), `results/screen/report.md`).*
+(`results/unified/step2.md`). The current recommended pipeline is the aggregated certified one of §8c
+([`methods/agg.md`](methods/agg.md), `results/agg/report.md`), which builds on §8b's.*
 
 **TL;DR** (RTS-GMLC, 73 thermal units; B1 = one hour, B2 = twelve hours with min up/down, ramping, start-ups).
 
@@ -81,6 +81,17 @@ tightest proven bound over all runs, no instance dropped, geometric-mean paired 
    step's 60 s limit; the full MILP at 0.5 % hits it on 30). Without the certificate the same rule fails (max 59 %, 9 %
    under line outages); with it, learning buys speed only (the same pipeline on the LP values is as accurate, 2.2×
    slower).
+16. **Round 8 (§8c): three exact ideas, and 7× faster than Learning to Fix at a fifth of its error.** Identical units
+   become integer counts (no symmetry; exact), Lagrangian probing at the LP relaxation's prices gives every unit-hour's
+   exact flip cost (decisions no cheaper schedule can change are fixed in the proof step; the same margins rank
+   decisions without learning), and round 7's certificate keeps every answer proven. 12 h test: **0.103 % (max 0.47 %)
+   at 17.5×**; against Learning to Fix as published in the same process **7.22× [5.69, 9.13] faster and −0.557 pp**,
+   against round 7 1.36× faster; 0.07–0.12 % on every shift. **Without learning**: 13.0× (12 h), 13.7× (24 h), 6.4×
+   (congested), 1.5–2.2× over round 7's learning-free pipeline; the aggregated MILP alone is 3.1× faster at 0.1 %. On the
+   public PGLib-UC California system the learning-free certified pipeline beats Learning to Fix in its own regime by the
+   geometric mean (1.69×) at 0.13 % against 3.9 %, and on the 20 instances as distributed is 11× faster than the full
+   MILP. Round 9 (the margins as a network input) gives better-calibrated networks but no faster pipeline: on RTS-GMLC
+   the remaining time is proving the bound, which better fixings cannot remove.
 
 ## 1. The framework and the benchmarks
 
@@ -1082,6 +1093,56 @@ validation from {ensemble, single network} × δ ∈ {0.02, 0.05, 0.1} by speed 
   numbers not mixed in except bounds); the guarantee is as strong as the proof step's time limit; the screen pays only
   where few lines bind.
 
+## 8c. Round 8: identical units aggregated, Lagrangian probing, and certified pipelines on them
+
+[`methods/agg.md`](methods/agg.md), `results/agg/report.md`, `results/agg/pglib/report.md`,
+`results/agg/pglib_base/report.md`. Exploration on validation instances only (four batches on PACE), a plan fixed before
+the validation pass (360 instances, two passes), one test pass (400 instances read once, every reference and Learning
+to Fix re-solved in the same process on one core, Xeon Gold 6226).
+
+**Where round 7's time went.** On 60 % of the instances that needed the proof step, the LP relaxation is more than 0.5 %
+below the optimum (fractional no-load commitment of 17–35 unit-hours; ramping never binds and min up/down are already
+tight, so no single-unit reformulation helps): the proof, a root cut loop in HiGHS, is unavoidable there.
+
+**R1. Identical units as counts (exact).** 56 of 73 units form 24 groups of copies; each group becomes one integer count
+with its summed rows (Knueven, Ostrowski & Watson 2018), disaggregated FIFO (exact, tested). Full MILP: 3.12× faster
+at 0.1 % and more accurate (12 h), 3.55× (24 h), 1.68× (congested); at 0.5 %, 1.43–1.58× over round 7's screened MILP.
+
+**R2. Lagrangian probing (exact).** At the LP relaxation's bus and reserve prices, a forward-backward DP per unit gives
+every unit-hour's margin; every schedule that flips (t, g) costs at least z_LP + margin, so decisions with margin
+> C − z_LP are fixed in the proof step (177 per instance on average; a small, consistent gain, 1.04–1.11×). The margins
+also rank decisions for fixing without any learning: 1.5× faster than the LP values in round 7's role.
+
+**R3. Pipelines.** Learned: the ensemble's fixings (δ = 0.05) → reduced aggregated MILP → LP certificate, else the
+aggregated full MILP with probing fixings. Learning-free: the same with the probing ranker (τ = 0.1 % of z_LP).
+
+| 12 h, 120 test instances | gap mean | max | speed-up |
+|---|---|---|---|
+| full MILP, 0.1 % / 0.5 % | 0.156 / 0.198 | 3.64 / 3.44 | 1.0× / 2.1× |
+| Learning to Fix (as published) | 0.660 | 5.85 | 2.4× |
+| round 7: certified pipeline / on the LP values | 0.108 / 0.119 | 0.47 / 0.53 | 12.9× / 6.0× |
+| aggregated full MILP, 0.1 % / 0.5 % (no learning) | 0.049 / 0.082 | 0.38 / 0.49 | 3.1× / 5.3× |
+| **aggregated certified pipeline, learned** | **0.103** | **0.47** | **17.5×** |
+| … LP certificate at 1 % | 0.117 | 0.51 | 20.9× |
+| **aggregated certified pipeline, no learning** | **0.102** | 0.49 | **13.0×** |
+
+* Against Learning to Fix: −0.557 pp [−0.765, −0.360] and 7.22× [5.69, 9.13] (learned), −0.558 pp and 5.38× (no
+  learning); on the 180 shifted instances −5.62 pp and 5.65× (Learning to Fix fails under line outages: 25.9 %).
+* Against round 7: 1.36× [1.25, 1.47] at the same accuracy (learned), 2.19× (learning-free, 12 h), 1.53× (24 h),
+  1.49× (congested).
+* PGLib-UC California (610 units, Learning to Fix re-tuned in its own regime, 25.5× by its mean of ratios): the
+  learning-free certified pipeline, rounded LP values first, 0.133 % (max 0.41 %, 100 % served) against 3.86 % (max
+  99.9 %, one failure); 1.69× [1.07, 2.57] faster by the geometric mean, 11.5× vs 6.3× by the ratio of mean times,
+  22.6× vs 25.5× by the mean of ratios. On the 20 instances as distributed (48 h): 11.0× (20.8× by the mean of ratios)
+  at 0.082 %, proven within 0.5 %; proven within 0.1 % (the reference's guarantee), 3.6×.
+* Negative results (validation): the sandwich certificate (relax the confident decisions for a bound), count fixings,
+  a ladder of reduced MILPs, the reduced MILP at 0.1 %, cheapest-first rounding on RTS-GMLC (it wins on PGLib), an
+  economic veto or override of the network, solver heuristics off; **round 9**, the margins as a network input: log-loss
+  −7 to −8 %, pipeline 0.974× [0.934, 1.015], not adopted.
+* Caveats: one network family (round 7's), no learned 24 h / congested model; the guarantee is as strong as the proof
+  step's time limit (5 of 300 learned 12-hour answers hit it, against 30 for the full MILP at 0.5 %); single-threaded,
+  one CPU type.
+
 ## 9. Recommendations for the framework, box by box
 
 | box | change | evidence |
@@ -1091,7 +1152,7 @@ validation from {ensemble, single network} × δ ∈ {0.02, 0.05, 0.1} by speed 
 | MILP labels | **optional**: imitate the repaired LP relaxation instead (18× cheaper on B1, 87× on B2) — same results after fine-tuning; self-training with reduced MILPs gives near-MILP labels at 37 % of the cost. To scale the data, use polished labels (one reduced MILP around a teacher's confident decisions, 4.7 s each): cheap LP labels stop improving with more data, polished labels do not (they also scale to 24 h and to the congested benchmark, with no full MILP). Do not train from scratch. | U8, V4, W2, Y3, Z2, Z3 |
 | decoding | min up/down repair (DP) and the **block adequacy repair** (min up/down-aware, no solver) on every prediction; check 2–15 candidates with the LP when time allows. | U3, U4, V2, W1 |
 | LP solver | keep it as the last step: always feasible with priced slacks, 30 ms (B1), and the source of the training signal. | all |
-| with a MILP | **the certified pipeline (§8b)**: one LP relaxation; fix every decision the GNN gives min(p, 1 − p) ≤ 0.02 (one threshold) and release rows min up/down cannot complete; solve the reduced MILP at 0.5 % on the **screened network** (copper plate + the lines the relaxation loads to ≥ 99 %, every flow checked and violated lines added); keep it if the LP bound is within 0.5 %, otherwise let the screened full MILP, warm-started, prove or improve it: 0.115 % at 12.9× on 12 h, every answer proven within 0.5 % unless the proof step hits its time limit, 0.08–0.14 % on every shift. Solve every MILP, full or reduced, on the screened network (exact; 2–3× faster where few lines bind). Superseded: the paper's joint tuning on ensemble probabilities with guards and a bound check (§7–8: 0.23 % at 6.0× in the same run). | U5, V3, W2, W3, Y1–Y6, Z1–Z3, §8b |
+| with a MILP | **the aggregated certified pipeline (§8c)**: as §8b's, on a model where identical units are integer counts (exact), with Lagrangian probing fixing in the proof step what no cheaper schedule can change: 0.103 % at 17.5× on 12 h, 7.2× faster than Learning to Fix at a fifth of its error, 0.07–0.12 % on every shift; without learning (the probing margins rank the decisions) 13–14× on 12 h and 24 h. Solve every exact MILP on the aggregated screened model (3.1× faster at 0.1 %). Previously, **the certified pipeline (§8b)**: one LP relaxation; fix every decision the GNN gives min(p, 1 − p) ≤ 0.02 (one threshold) and release rows min up/down cannot complete; solve the reduced MILP at 0.5 % on the **screened network** (copper plate + the lines the relaxation loads to ≥ 99 %, every flow checked and violated lines added); keep it if the LP bound is within 0.5 %, otherwise let the screened full MILP, warm-started, prove or improve it: 0.115 % at 12.9× on 12 h, every answer proven within 0.5 % unless the proof step hits its time limit, 0.08–0.14 % on every shift. Solve every MILP, full or reduced, on the screened network (exact; 2–3× faster where few lines bind). Superseded: the paper's joint tuning on ensemble probabilities with guards and a bound check (§7–8: 0.23 % at 6.0× in the same run). | U5, V3, W2, W3, Y1–Y6, Z1–Z3, §8b |
 | Model 2 | if a fast dispatch estimate is needed, use the physics decoder (unit positions → closed-form balance → VA from DC power flow) and price the implied shedding / reserve shortfall. Do not use it as a screener when the exact LP is affordable. | U6 |
 | dashed arrow | **replace the learned critic by the exact LP** (sampled commitments scored by the LP; or the LP's sensitivities). A learned Model 2 critic made Model 1 worse in every variant. | U6 |
 | validation / test | report the share of instances without shedding / reserve shortfall (against the MILP's own share) and the median cost gap from the exact LP; the mean gap is dominated by penalty-priced instances. Drop MSE to one MILP solution. Compare every learned speed-up with the full MILP at a 0.5–1 % gap and with the paper's tuning on the LP relaxation, time them on the same core, and test under load, renewable, outage and topology shifts. Report the gap tail (max, share above 1 %) alongside the mean, and estimate how often tuned thresholds break ε on held-out validation instances before testing. | U7, Y1, Y4, Z2 |
@@ -1119,6 +1180,9 @@ validation from {ensemble, single network} × δ ∈ {0.02, 0.05, 0.1} by speed 
 9. **Certified pipeline, next**: retrain models for 24 h and the congested benchmark (not kept) and run the learned
    certified pipeline there; a stronger cheap bound than the LP relaxation (the proof step is 70 % of its time); a
    learned initial line set for systems where many lines bind.
+10. **After round 8**: on RTS-GMLC the remaining time is the proof of the bound on instances whose LP relaxation is weak
+   (better fixings no longer help: round 9); stronger relaxations or cut reuse across instances, the aggregation for the
+   PGLib formulation (start-up categories, initial conditions) and parallel reduced-MILP / proof steps are next.
 
 ## 11. Reproducibility and caveats
 

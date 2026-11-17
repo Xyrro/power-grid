@@ -12,6 +12,7 @@ Two of those choices changed which method looked better. This page fixes one pro
 * **Step 1 (done):** every saved per-instance record is re-scored under the protocol. Nothing is re-solved.
 * **Step 2 (done):** every method whose models exist was re-timed on one machine on PACE, with input-identity, same-model and timing-noise checks (sections below).
 * **Later round, same protocol:** the screened network and the certified pipeline ([`methods/screen.md`](methods/screen.md), `results/screen/report.md`) were scored this way, with gaps against the bounds collected here and step 2's pipeline and full MILPs re-solved in the same processes.
+* **Round 8, same protocol:** identical units aggregated, Lagrangian probing and the certified pipelines built on them ([`methods/agg.md`](methods/agg.md), `results/agg/report.md`), with round 7's methods, the full MILPs and Learning to Fix re-solved in the same processes and gaps against the tightest bounds known (these, round 7's and step 2's).
 
 Files:
 * Script: `scripts/unified_rescore.py` (standard library only).
